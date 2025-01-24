@@ -51,7 +51,11 @@ export default function TradeHistoryTable({ trades, onSelectTrade }: Props) {
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {paginatedTrades.map((trade, index) => (
-              <tr key={trade.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => onSelectTrade(trade)}>
+              <tr 
+                key={trade.id} 
+                onClick={() => onSelectTrade(trade)}
+                className="hover:bg-gray-50 cursor-pointer"
+              >
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{(page - 1) * itemsPerPage + index + 1}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trade.date}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trade.time}</td>

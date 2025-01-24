@@ -3,7 +3,9 @@ import Header from '../components/Header';
 import PerformanceMetrics from '../components/PerformanceMetrics';
 import TradeHistoryTable from '../components/TradeHistoryTable';
 import TradeForm from '../components/TradeForm';
-import { PlusCircle } from 'lucide-react';
+import TradeChatBox from '../components/TradeChatBox';
+import { PlusCircle, MessageSquare } from 'lucide-react';
+import { Trade } from '../types';
 
 // Mock data
 const mockMetrics = {
@@ -38,12 +40,22 @@ const months = [
 
 export default function Performance() {
   const [showTradeForm, setShowTradeForm] = useState(false);
-  const [selectedTrade, setSelectedTrade] = useState(null);
-  const [selectedMonth, setSelectedMonth] = useState(''); // State for selected month
+  const [showChat, setShowChat] = useState(false);
+  const [selectedTrade, setSelectedTrade] = useState<Trade | null>(null);
+  const [selectedMonth, setSelectedMonth] = useState('');
 
-  const handleSelectTrade = (trade) => {
-    setSelectedTrade(trade);
-    setShowTradeForm(true);
+  const handleSelectTrade = (trade: Trade) => {
+    if (showChat) {
+      setSelectedTrade(trade);
+    } else {
+      setSelectedTrade(trade);
+      setShowTradeForm(true);
+    }
+  };
+
+  const handleCloseChat = () => {
+    setShowChat(false);
+    setSelectedTrade(null);
   };
 
   return (
@@ -55,12 +67,11 @@ export default function Performance() {
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-2xl font-semibold text-gray-900">Performance Overview</h1>
             
-            {/* Month Selection Dropdown */}
-            <div className="flex items-center mr-4">
+            <div className="flex items-center space-x-4">
               <select
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(e.target.value)}
-                className="border border-gray-300 rounded-md shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500 mr-2 p-2"
+                className="border border-gray-300 rounded-md shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500 p-2"
               >
                 <option value="">Select Month</option>
                 {months.map((month) => (
@@ -68,8 +79,18 @@ export default function Performance() {
                 ))}
               </select>
               <button
-                onClick={() => setShowTradeForm(true)}
-                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150 ease-in-out"
+                onClick={() => setShowChat(!showChat)}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                <MessageSquare className="h-5 w-5 mr-2" />
+                {showChat ? 'Close Analysis' : 'Trade Analysis'}
+              </button>
+              <button
+                onClick={() => {
+                  setSelectedTrade(null);
+                  setShowTradeForm(true);
+                }}
+                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
               >
                 <PlusCircle className="h-5 w-5 mr-2" />
                 Add Trade
@@ -80,33 +101,61 @@ export default function Performance() {
           <div className="space-y-8">
             <PerformanceMetrics metrics={mockMetrics} />
             
-            {showTradeForm && (
-              <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4 z-50">
-                <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-                  <div className="p-6">
-                    <div className="flex justify-between items-center mb-4">
-                      <h2 className="text-xl font-semibold text-gray-900">{selectedTrade ? 'Update Trade' : 'Log New Trade'}</h2>
-                      <button
-                        onClick={() => setShowTradeForm(false)}
-                        className="text-gray-400 hover:text-gray-500"
-                      >
-                        <span className="sr-only">Close</span>
-                        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
-                    </div>
-                    <TradeForm trade={selectedTrade} onClose={() => setShowTradeForm(false)} />
-                  </div>
+            <div className={`grid ${showChat ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'} gap-8`}>
+              <div className={showChat ? '' : 'w-full'}>
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-lg font-medium text-gray-900">Trade History</h2>
+                  {showChat && (
+                    <p className="text-sm text-gray-500">Click a trade to analyze it</p>
+                  )}
                 </div>
+                <TradeHistoryTable 
+                  trades={mockTrades} 
+                  onSelectTrade={handleSelectTrade}
+                />
               </div>
-            )}
-            
-            <div>
-              <h2 className="text-lg font-medium text-gray-900 mb-4">Trade History</h2>
-              <TradeHistoryTable trades={mockTrades} onSelectTrade={handleSelectTrade} />
+
+              {showChat && (
+                <div>
+                  <h2 className="text-lg font-medium text-gray-900 mb-4">Trade Analysis</h2>
+                  <TradeChatBox 
+                    trade={selectedTrade}
+                    onClose={handleCloseChat}
+                  />
+                </div>
+              )}
             </div>
           </div>
+
+          {showTradeForm && (
+            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4 z-50">
+              <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+                <div className="p-6">
+                  <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-xl font-semibold text-gray-900">
+                      {selectedTrade ? 'Update Trade' : 'Log New Trade'}
+                    </h2>
+                    <button
+                      onClick={() => {
+                        setShowTradeForm(false);
+                        setSelectedTrade(null);
+                      }}
+                      className="text-gray-400 hover:text-gray-500"
+                    >
+                      <span className="sr-only">Close</span>
+                      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                  <TradeForm onClose={() => {
+                    setShowTradeForm(false);
+                    setSelectedTrade(null);
+                  }} />
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </main>
     </div>

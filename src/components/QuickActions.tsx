@@ -20,13 +20,13 @@ export default function QuickActions() {
         <BarChart2 className="h-6 w-6 text-indigo-600 mr-2" />
         <span className="text-gray-900 font-medium">View Performance</span>
       </Link>
-
+      
       <Link
-        to="/chat-ai"
+        to="/Another-Page"
         className="flex items-center justify-center p-6 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow"
       >
         <MessageSquare className="h-6 w-6 text-indigo-600 mr-2" />
-        <span className="text-gray-900 font-medium">Chat with AI</span>
+        <span className="text-gray-900 font-medium">Another Page</span>
       </Link>
     </div>
   );

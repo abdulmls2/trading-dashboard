@@ -3,7 +3,7 @@ import Header from '../components/Header';
 import QuickActions from '../components/QuickActions';
 
 export default function Dashboard() {
-  const userName = 'John'; // This would come from user context/state
+  const userName = 'Trader'; // This would come from user context/state
 
   return (
     <div className="min-h-screen bg-gray-50">

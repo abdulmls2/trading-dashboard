@@ -29,7 +29,8 @@ export default function TradeChatBox({ trade, onClose }: Props) {
   };
 
   React.useEffect(() => {
-    scrollToBottom();
+    // Removed scrollToBottom call
+    // scrollToBottom();
   }, [messages]);
 
   React.useEffect(() => {

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Trade } from '../types';
+import { createTrade, updateTrade } from '../lib/api';
 
 const currencyPairs = [
   'EUR/USD',
@@ -13,31 +14,49 @@ const currencyPairs = [
 
 interface Props {
   onClose: () => void;
+  existingTrade?: Trade;
 }
 
-export default function TradeForm({ onClose }: Props) {
-  const [formData, setFormData] = React.useState<Partial<Trade>>({
-    date: new Date().toISOString().split('T')[0],
-    time: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }),
-    pair: 'EUR/USD',
-    action: 'Buy',
-    entryTime: '',
-    exitTime: '',
-    lots: 0.01,
-    pipStopLoss: 0,
-    pipTakeProfit: 0,
-    profitLoss: 0,
-    pivots: '',
-    bankingLevel: '',
-    riskRatio: 0,
-    comments: '',
-  });
+export default function TradeForm({ onClose, existingTrade }: Props) {
+  const [formData, setFormData] = React.useState<Partial<Trade>>(
+    existingTrade || {
+      date: new Date().toISOString().split('T')[0],
+      time: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }),
+      pair: 'EUR/USD',
+      action: 'Buy',
+      entryTime: '',
+      exitTime: '',
+      lots: 0.01,
+      pipStopLoss: 0,
+      pipTakeProfit: 0,
+      profitLoss: 0,
+      pivots: '',
+      bankingLevel: '',
+      riskRatio: 0,
+      comments: '',
+    }
+  );
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [error, setError] = React.useState('');
+  const [loading, setLoading] = React.useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle form submission
-    console.log('Form submitted:', formData);
-    onClose();
+    setError('');
+    setLoading(true);
+
+    try {
+      if (existingTrade) {
+        await updateTrade(existingTrade.id, formData);
+      } else {
+        await createTrade(formData as Omit<Trade, 'id'>);
+      }
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred while saving the trade');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleReset = () => {
@@ -61,6 +80,12 @@ export default function TradeForm({ onClose }: Props) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md text-sm">
+          {error}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
           <label className="block text-sm font-medium text-gray-700">Date</label>
@@ -226,9 +251,10 @@ export default function TradeForm({ onClose }: Props) {
         </button>
         <button
           type="submit"
-          className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          disabled={loading}
+          className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-400 disabled:cursor-not-allowed"
         >
-          Submit Trade
+          {loading ? 'Saving...' : existingTrade ? 'Update Trade' : 'Submit Trade'}
         </button>
       </div>
     </form>

@@ -1,9 +1,19 @@
 import React from 'react';
 import { Menu } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
+  const { signOut } = useAuth();
+
+  const handleLogout = async () => {
+    try {
+      await signOut();
+    } catch (error) {
+      console.error('Error logging out:', error);
+    }
+  };
 
   return (
     <header className="bg-white shadow-sm">
@@ -37,8 +47,8 @@ export default function Header() {
                     Profile Settings
                   </Link>
                   <button
+                    onClick={handleLogout}
                     className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    onClick={() => {/* Implement logout */}}
                   >
                     Logout
                   </button>
@@ -69,8 +79,8 @@ export default function Header() {
               Profile Settings
             </Link>
             <button
+              onClick={handleLogout}
               className="block w-full text-left px-4 py-2 text-base font-medium text-gray-700 hover:bg-gray-100"
-              onClick={() => {/* Implement logout */}}
             >
               Logout
             </button>

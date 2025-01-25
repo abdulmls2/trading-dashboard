@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Header from '../components/Header';
 import PerformanceMetrics from '../components/PerformanceMetrics';
 import TradeHistoryTable from '../components/TradeHistoryTable';
@@ -6,32 +6,15 @@ import TradeForm from '../components/TradeForm';
 import TradeChatBox from '../components/TradeChatBox';
 import { PlusCircle, MessageSquare } from 'lucide-react';
 import { Trade } from '../types';
+import { getTrades } from '../lib/api';
 
-// Mock data
+// Mock metrics for now
 const mockMetrics = {
   totalTrades: 150,
   winRate: 65,
   averageRRR: 1.8,
   totalProfitLoss: 2547.89,
 };
-
-const mockTrades = Array.from({ length: 50 }, (_, i) => ({
-  id: i.toString(),
-  date: '2024-03-15',
-  time: '09:30',
-  pair: 'EUR/USD',
-  action: i % 2 === 0 ? 'Buy' : 'Sell' as 'Buy' | 'Sell',
-  entryTime: '09:30',
-  exitTime: '10:45',
-  lots: 0.1,
-  pipStopLoss: 20,
-  pipTakeProfit: 40,
-  profitLoss: i % 2 === 0 ? 50 : -30,
-  pivots: 'Daily High',
-  bankingLevel: 'Major Support',
-  riskRatio: 1.5,
-  comments: 'Strong trend following trade with clear setup.',
-}));
 
 const months = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -43,6 +26,25 @@ export default function Performance() {
   const [showChat, setShowChat] = useState(false);
   const [selectedTrade, setSelectedTrade] = useState<Trade | null>(null);
   const [selectedMonth, setSelectedMonth] = useState('');
+  const [trades, setTrades] = useState<Trade[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    async function loadTrades() {
+      try {
+        setLoading(true);
+        const data = await getTrades();
+        setTrades(data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load trades');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadTrades();
+  }, []);
 
   const handleSelectTrade = (trade: Trade) => {
     if (showChat) {
@@ -56,6 +58,18 @@ export default function Performance() {
   const handleCloseChat = () => {
     setShowChat(false);
     setSelectedTrade(null);
+  };
+
+  const handleTradeFormClose = async () => {
+    setShowTradeForm(false);
+    setSelectedTrade(null);
+    // Refresh trades after form is closed
+    try {
+      const data = await getTrades();
+      setTrades(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to refresh trades');
+    }
   };
 
   return (
@@ -98,6 +112,12 @@ export default function Performance() {
             </div>
           </div>
 
+          {error && (
+            <div className="mb-6 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md">
+              {error}
+            </div>
+          )}
+
           <div className="space-y-8">
             <PerformanceMetrics metrics={mockMetrics} />
             
@@ -109,10 +129,16 @@ export default function Performance() {
                     <p className="text-sm text-gray-500">Click a trade to analyze it</p>
                   )}
                 </div>
-                <TradeHistoryTable 
-                  trades={mockTrades} 
-                  onSelectTrade={handleSelectTrade}
-                />
+                {loading ? (
+                  <div className="bg-white rounded-lg shadow p-6 text-center text-gray-500">
+                    Loading trades...
+                  </div>
+                ) : (
+                  <TradeHistoryTable 
+                    trades={trades} 
+                    onSelectTrade={handleSelectTrade}
+                  />
+                )}
               </div>
 
               {showChat && (
@@ -148,10 +174,10 @@ export default function Performance() {
                       </svg>
                     </button>
                   </div>
-                  <TradeForm onClose={() => {
-                    setShowTradeForm(false);
-                    setSelectedTrade(null);
-                  }} />
+                  <TradeForm 
+                    onClose={handleTradeFormClose}
+                    existingTrade={selectedTrade || undefined} 
+                  />
                 </div>
               </div>
             </div>

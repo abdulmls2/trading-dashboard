@@ -3,8 +3,8 @@ import { Trade } from '../types';
 import { createTrade, updateTrade } from '../lib/api';
 
 const currencyPairs = [
-  'EUR/USD',
   'GBP/USD',
+  'EUR/USD',
   'USD/JPY',
   'USD/CHF',
   'AUD/USD',
@@ -22,9 +22,9 @@ export default function TradeForm({ onClose, existingTrade }: Props) {
     existingTrade || {
       date: new Date().toISOString().split('T')[0],
       time: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }),
-      pair: 'EUR/USD',
+      pair: 'GBP/USD',
       action: 'Buy',
-      entryTime: '',
+      entryTime: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }),
       exitTime: '',
       lots: 0.01,
       pipStopLoss: 0,
@@ -65,7 +65,7 @@ export default function TradeForm({ onClose, existingTrade }: Props) {
       time: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }),
       pair: 'EUR/USD',
       action: 'Buy',
-      entryTime: '',
+      entryTime: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }),
       exitTime: '',
       lots: 0.01,
       pipStopLoss: 0,
@@ -199,13 +199,20 @@ export default function TradeForm({ onClose, existingTrade }: Props) {
 
         <div>
           <label className="block text-sm font-medium text-gray-700">Pivots</label>
-          <input
-            type="text"
+          <select
             value={formData.pivots}
             onChange={(e) => setFormData({ ...formData, pivots: e.target.value })}
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-            placeholder="e.g., Daily High, Weekly Low"
-          />
+          >
+            <option value="">Select Pivot</option>
+            <option value="R3">R3</option>
+            <option value="R2">R2</option>
+            <option value="R1">R1</option>
+            <option value="P">P</option>
+            <option value="S1">S1</option>
+            <option value="S2">S2</option>
+            <option value="S3">S3</option>
+          </select>
         </div>
 
         <div>

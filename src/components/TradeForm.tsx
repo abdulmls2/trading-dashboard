@@ -21,6 +21,7 @@ export default function TradeForm({ onClose, existingTrade }: Props) {
   const [formData, setFormData] = React.useState<Partial<Trade>>(
     existingTrade || {
       date: new Date().toISOString().split('T')[0],
+      time: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }),
       pair: 'GBP/USD',
       action: 'Buy',
       entryTime: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }),
@@ -33,6 +34,16 @@ export default function TradeForm({ onClose, existingTrade }: Props) {
       bankingLevel: '',
       riskRatio: 0,
       comments: '',
+      day: '',
+      direction: '',
+      orderType: '',
+      marketCondition: '',
+      ma: '',
+      fib: '',
+      gap: '',
+      mindset: '',
+      tradeLink: '',
+      trueReward: '',
     }
   );
 
@@ -61,6 +72,7 @@ export default function TradeForm({ onClose, existingTrade }: Props) {
   const handleReset = () => {
     setFormData({
       date: new Date().toISOString().split('T')[0],
+      time: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }),
       pair: 'EUR/USD',
       action: 'Buy',
       entryTime: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }),
@@ -73,6 +85,16 @@ export default function TradeForm({ onClose, existingTrade }: Props) {
       bankingLevel: '',
       riskRatio: 0,
       comments: '',
+      day: '',
+      direction: '',
+      orderType: '',
+      marketCondition: '',
+      ma: '',
+      fib: '',
+      gap: '',
+      mindset: '',
+      tradeLink: '',
+      trueReward: '',
     });
   };
 
@@ -91,6 +113,16 @@ export default function TradeForm({ onClose, existingTrade }: Props) {
             type="date"
             value={formData.date}
             onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Time</label>
+          <input
+            type="time"
+            value={formData.time}
+            onChange={(e) => setFormData({ ...formData, time: e.target.value })}
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
           />
         </div>
@@ -221,6 +253,106 @@ export default function TradeForm({ onClose, existingTrade }: Props) {
             step="0.1"
             value={formData.riskRatio}
             onChange={(e) => setFormData({ ...formData, riskRatio: parseFloat(e.target.value) })}
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Day</label>
+          <input
+            type="text"
+            value={formData.day}
+            onChange={(e) => setFormData({ ...formData, day: e.target.value })}
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Direction</label>
+          <input
+            type="text"
+            value={formData.direction}
+            onChange={(e) => setFormData({ ...formData, direction: e.target.value })}
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Order Type</label>
+          <input
+            type="text"
+            value={formData.orderType}
+            onChange={(e) => setFormData({ ...formData, orderType: e.target.value })}
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Market Condition</label>
+          <input
+            type="text"
+            value={formData.marketCondition}
+            onChange={(e) => setFormData({ ...formData, marketCondition: e.target.value })}
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700">MA</label>
+          <input
+            type="text"
+            value={formData.ma}
+            onChange={(e) => setFormData({ ...formData, ma: e.target.value })}
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700">FIB</label>
+          <input
+            type="text"
+            value={formData.fib}
+            onChange={(e) => setFormData({ ...formData, fib: e.target.value })}
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Gap</label>
+          <input
+            type="text"
+            value={formData.gap}
+            onChange={(e) => setFormData({ ...formData, gap: e.target.value })}
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Mindset</label>
+          <input
+            type="text"
+            value={formData.mindset}
+            onChange={(e) => setFormData({ ...formData, mindset: e.target.value })}
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Trade Link</label>
+          <input
+            type="text"
+            value={formData.tradeLink}
+            onChange={(e) => setFormData({ ...formData, tradeLink: e.target.value })}
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700">True Reward</label>
+          <input
+            type="text"
+            value={formData.trueReward}
+            onChange={(e) => setFormData({ ...formData, trueReward: e.target.value })}
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
           />
         </div>

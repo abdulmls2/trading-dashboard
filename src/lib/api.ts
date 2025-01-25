@@ -20,7 +20,17 @@ export async function createTrade(trade: Omit<Trade, 'id' | 'time'>) {
       pivots: trade.pivots,
       banking_level: trade.bankingLevel,
       risk_ratio: trade.riskRatio,
-      comments: trade.comments
+      comments: trade.comments,
+      day: trade.day,
+      direction: trade.direction,
+      order_type: trade.orderType,
+      market_condition: trade.marketCondition,
+      ma: trade.ma,
+      fib: trade.fib,
+      gap: trade.gap,
+      mindset: trade.mindset,
+      trade_link: trade.tradeLink,
+      true_reward: trade.trueReward
     }])
     .select()
     .single();
@@ -45,6 +55,16 @@ export async function updateTrade(id: string, trade: Partial<Omit<Trade, 'time'>
   if (trade.bankingLevel) updates.banking_level = trade.bankingLevel;
   if (trade.riskRatio) updates.risk_ratio = trade.riskRatio;
   if (trade.comments) updates.comments = trade.comments;
+  if (trade.day) updates.day = trade.day;
+  if (trade.direction) updates.direction = trade.direction;
+  if (trade.orderType) updates.order_type = trade.orderType;
+  if (trade.marketCondition) updates.market_condition = trade.marketCondition;
+  if (trade.ma) updates.ma = trade.ma;
+  if (trade.fib) updates.fib = trade.fib;
+  if (trade.gap) updates.gap = trade.gap;
+  if (trade.mindset) updates.mindset = trade.mindset;
+  if (trade.tradeLink) updates.trade_link = trade.tradeLink;
+  if (trade.trueReward) updates.true_reward = trade.trueReward;
 
   const { data, error } = await supabase
     .from('trades')
@@ -69,7 +89,33 @@ export async function deleteTrade(id: string) {
 export async function getTrades() {
   const { data, error } = await supabase
     .from('trades')
-    .select('*')
+    .select(`
+      id,
+      user_id,
+      date,
+      pair,
+      action,
+      entry_time,
+      exit_time,
+      lots,
+      pip_stop_loss,
+      pip_take_profit,
+      profit_loss,
+      pivots,
+      banking_level,
+      risk_ratio,
+      comments,
+      day,
+      direction,
+      order_type,
+      market_condition,
+      ma,
+      fib,
+      gap,
+      mindset,
+      trade_link,
+      true_reward
+    `)
     .order('date', { ascending: false });
 
   if (error) throw error;
@@ -79,7 +125,6 @@ export async function getTrades() {
     id: trade.id,
     userId: trade.user_id,
     date: trade.date,
-    time: trade.time,
     pair: trade.pair,
     action: trade.action,
     entryTime: trade.entry_time,
@@ -92,7 +137,16 @@ export async function getTrades() {
     bankingLevel: trade.banking_level,
     riskRatio: trade.risk_ratio,
     comments: trade.comments,
-    createdAt: trade.created_at
+    day: trade.day,
+    direction: trade.direction,
+    orderType: trade.order_type,
+    marketCondition: trade.market_condition,
+    ma: trade.ma,
+    fib: trade.fib,
+    gap: trade.gap,
+    mindset: trade.mindset,
+    tradeLink: trade.trade_link,
+    trueReward: trade.true_reward
   }));
 }
 

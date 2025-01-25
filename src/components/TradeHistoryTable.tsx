@@ -34,7 +34,6 @@ export default function TradeHistoryTable({ trades, onSelectTrade }: Props) {
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Number</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Date</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Time</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Pair</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Action</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Entry Time</th>
@@ -58,7 +57,6 @@ export default function TradeHistoryTable({ trades, onSelectTrade }: Props) {
               >
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{(page - 1) * itemsPerPage + index + 1}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trade.date}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trade.time}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trade.pair}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${

@@ -21,7 +21,6 @@ export default function TradeForm({ onClose, existingTrade }: Props) {
   const [formData, setFormData] = React.useState<Partial<Trade>>(
     existingTrade || {
       date: new Date().toISOString().split('T')[0],
-      time: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }),
       pair: 'GBP/USD',
       action: 'Buy',
       entryTime: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }),
@@ -62,7 +61,6 @@ export default function TradeForm({ onClose, existingTrade }: Props) {
   const handleReset = () => {
     setFormData({
       date: new Date().toISOString().split('T')[0],
-      time: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }),
       pair: 'EUR/USD',
       action: 'Buy',
       entryTime: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }),
@@ -93,16 +91,6 @@ export default function TradeForm({ onClose, existingTrade }: Props) {
             type="date"
             value={formData.date}
             onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Time</label>
-          <input
-            type="time"
-            value={formData.time}
-            onChange={(e) => setFormData({ ...formData, time: e.target.value })}
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
           />
         </div>

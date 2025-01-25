@@ -1,7 +1,7 @@
 import { supabase } from './supabase';
 import { Trade, PerformanceMetrics } from '../types';
 
-export async function createTrade(trade: Omit<Trade, 'id'>) {
+export async function createTrade(trade: Omit<Trade, 'id' | 'time'>) {
   const { data: { user } } = await supabase.auth.getUser();
   
   const { data, error } = await supabase
@@ -9,7 +9,6 @@ export async function createTrade(trade: Omit<Trade, 'id'>) {
     .insert([{
       user_id: user?.id,
       date: trade.date,
-      time: trade.time,
       pair: trade.pair,
       action: trade.action,
       entry_time: trade.entryTime,
@@ -30,11 +29,10 @@ export async function createTrade(trade: Omit<Trade, 'id'>) {
   return data;
 }
 
-export async function updateTrade(id: string, trade: Partial<Trade>) {
+export async function updateTrade(id: string, trade: Partial<Omit<Trade, 'time'>>) {
   const updates: Record<string, any> = {};
   
   if (trade.date) updates.date = trade.date;
-  if (trade.time) updates.time = trade.time;
   if (trade.pair) updates.pair = trade.pair;
   if (trade.action) updates.action = trade.action;
   if (trade.entryTime) updates.entry_time = trade.entryTime;

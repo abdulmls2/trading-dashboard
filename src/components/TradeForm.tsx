@@ -56,13 +56,25 @@ export default function TradeForm({ onClose, existingTrade }: Props) {
     setLoading(true);
 
     try {
+      // Create a new object without empty strings for optional fields
+      const submissionData = Object.fromEntries(
+        Object.entries(formData).map(([key, value]) => {
+          // Convert empty strings to null for optional fields
+          if (key === 'exitTime' && value === '') {
+            return [key, null];
+          }
+          return [key, value];
+        })
+      );
+
       if (existingTrade) {
-        await updateTrade(existingTrade.id, formData);
+        await updateTrade(existingTrade.id, submissionData);
       } else {
-        await createTrade(formData as Omit<Trade, 'id'>);
+        await createTrade(submissionData as Omit<Trade, 'id'>);
       }
       onClose();
     } catch (err) {
+      console.error('Submission error:', err); // Add this for debugging
       setError(err instanceof Error ? err.message : 'An error occurred while saving the trade');
     } finally {
       setLoading(false);

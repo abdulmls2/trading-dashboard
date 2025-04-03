@@ -27,15 +27,39 @@ export default function Performance() {
   const [selectedTrade, setSelectedTrade] = useState<Trade | null>(null);
   const [selectedMonth, setSelectedMonth] = useState('');
   const [trades, setTrades] = useState<Trade[]>([]);
+  const [filteredTrades, setFilteredTrades] = useState<Trade[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  // Function to filter trades by selected month
+  const filterTradesByMonth = (month: string) => {
+    if (month === "All Trades") {
+      setFilteredTrades(trades); // Show all trades
+      return;
+    }
+    
+    if (!month) {
+      setFilteredTrades(trades); // Reset to all trades if no month is selected
+      return;
+    }
+    
+    const monthIndex = months.indexOf(month);
+    const filtered = trades.filter(trade => {
+      const tradeDate = new Date(trade.date);
+      return tradeDate.getMonth() === monthIndex && tradeDate.getFullYear() === new Date().getFullYear();
+    });
+    
+    setFilteredTrades(filtered);
+  };
+
+  // Update the useEffect to set filtered trades initially
   useEffect(() => {
     async function loadTrades() {
       try {
         setLoading(true);
         const data = await getTrades();
         setTrades(data);
+        setFilteredTrades(data); // Set initial filtered trades
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load trades');
       } finally {
@@ -45,6 +69,13 @@ export default function Performance() {
 
     loadTrades();
   }, []);
+
+  // Update the month selection handler
+  const handleMonthChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selected = e.target.value;
+    setSelectedMonth(selected);
+    filterTradesByMonth(selected);
+  };
 
   const handleSelectTrade = (trade: Trade) => {
     if (showChat) {
@@ -84,10 +115,11 @@ export default function Performance() {
             <div className="flex items-center space-x-4">
               <select
                 value={selectedMonth}
-                onChange={(e) => setSelectedMonth(e.target.value)}
+                onChange={handleMonthChange}
                 className="border border-gray-300 rounded-md shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500 p-2"
               >
                 <option value="">Select Month</option>
+                <option value="All Trades">All Trades</option>
                 {months.map((month) => (
                   <option key={month} value={month}>{month}</option>
                 ))}
@@ -135,7 +167,7 @@ export default function Performance() {
                   </div>
                 ) : (
                   <TradeHistoryTable 
-                    trades={trades} 
+                    trades={filteredTrades}
                     onSelectTrade={handleSelectTrade}
                   />
                 )}

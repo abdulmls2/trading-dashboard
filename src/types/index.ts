@@ -39,3 +39,12 @@ export interface PerformanceMetrics {
   averageRRR: number;
   totalProfitLoss: number;
 }
+
+export interface CellCustomization {
+  id?: string;
+  tradeId: string;
+  columnKey: string;
+  backgroundColor: string;
+  textColor: string;
+  userId?: string;
+}

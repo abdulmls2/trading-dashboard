@@ -234,3 +234,114 @@ export async function calculateMonthlyMetrics(month: string) {
     month: startDate
   };
 }
+
+// Cell customization types
+export interface CellCustomization {
+  id?: string;
+  tradeId: string;
+  columnKey: string;
+  backgroundColor: string;
+  textColor: string;
+}
+
+export async function loadCellCustomizations() {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+  
+  const { data: userData } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('user_id', user.id)
+    .single();
+  
+  let query = supabase
+    .from('cell_customizations')
+    .select('*');
+  
+  // If not admin, filter by user_id
+  if (!userData?.role || userData.role !== 'admin') {
+    query = query.eq('user_id', user.id);
+  }
+  
+  const { data, error } = await query;
+    
+  if (error) {
+    console.error('Error loading cell customizations:', error);
+    return [];
+  }
+  
+  // Map from DB format to frontend format
+  return data.map(item => ({
+    id: item.id,
+    tradeId: item.trade_id,
+    columnKey: item.column_key,
+    backgroundColor: item.background_color || '',
+    textColor: item.text_color || '',
+    userId: item.user_id // Include userId for admins to know whose customization it is
+  }));
+}
+
+export async function saveCellCustomization(customization: CellCustomization) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('User not authenticated');
+  
+  // Check if customization already exists
+  const { data: existing } = await supabase
+    .from('cell_customizations')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('trade_id', customization.tradeId)
+    .eq('column_key', customization.columnKey)
+    .maybeSingle();
+    
+  if (existing) {
+    // Update existing customization
+    const { error } = await supabase
+      .from('cell_customizations')
+      .update({
+        background_color: customization.backgroundColor,
+        text_color: customization.textColor
+      })
+      .eq('id', existing.id);
+      
+    if (error) throw error;
+    return { ...customization, id: existing.id };
+  } else {
+    // Insert new customization
+    const { data, error } = await supabase
+      .from('cell_customizations')
+      .insert({
+        user_id: user.id,
+        trade_id: customization.tradeId,
+        column_key: customization.columnKey,
+        background_color: customization.backgroundColor,
+        text_color: customization.textColor
+      })
+      .select()
+      .single();
+      
+    if (error) throw error;
+    return {
+      id: data.id,
+      tradeId: data.trade_id,
+      columnKey: data.column_key,
+      backgroundColor: data.background_color || '',
+      textColor: data.text_color || ''
+    };
+  }
+}
+
+export async function deleteCellCustomization(tradeId: string, columnKey: string) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('User not authenticated');
+  
+  const { error } = await supabase
+    .from('cell_customizations')
+    .delete()
+    .eq('user_id', user.id)
+    .eq('trade_id', tradeId)
+    .eq('column_key', columnKey);
+    
+  if (error) throw error;
+  return true;
+}

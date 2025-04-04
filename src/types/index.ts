@@ -14,6 +14,16 @@ export interface Trade {
   bankingLevel: string;
   riskRatio: number;
   comments: string;
+  day: string;
+  direction: string;
+  orderType: string;
+  marketCondition: string;
+  ma: string;
+  fib: string;
+  gap: string;
+  mindset: string;
+  tradeLink: string;
+  trueReward: string;
 }
 
 export interface User {

@@ -1,19 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Header from '../components/Header';
 import PerformanceMetrics from '../components/PerformanceMetrics';
 import TradeHistoryTable from '../components/TradeHistoryTable';
 import TradeForm from '../components/TradeForm';
 import TradeChatBox from '../components/TradeChatBox';
 import { PlusCircle, MessageSquare } from 'lucide-react';
-import { Trade } from '../types';
+import { Trade, PerformanceMetrics as Metrics } from '../types';
 import { getTrades } from '../lib/api';
 
-// Mock metrics for now
-const mockMetrics = {
-  totalTrades: 150,
-  winRate: 65,
-  averageRRR: 1.8,
-  totalProfitLoss: 2547.89,
+// Default empty metrics
+const emptyMetrics: Metrics & { totalPips: number } = {
+  totalTrades: 0,
+  winRate: 0,
+  averageRRR: 0,
+  totalProfitLoss: 0,
+  totalPips: 0,
 };
 
 const months = [
@@ -30,6 +31,39 @@ export default function Performance() {
   const [filteredTrades, setFilteredTrades] = useState<Trade[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  // Calculate performance metrics based on filtered trades
+  const performanceMetrics = useMemo(() => {
+    if (filteredTrades.length === 0) return emptyMetrics;
+
+    const totalTrades = filteredTrades.length;
+    
+    // Count winning trades (trades with positive P/L)
+    const winningTrades = filteredTrades.filter(trade => trade.profitLoss > 0).length;
+    const winRate = totalTrades > 0 ? (winningTrades / totalTrades) * 100 : 0;
+    
+    // Calculate total P/L
+    const totalProfitLoss = filteredTrades.reduce((sum, trade) => sum + trade.profitLoss, 0);
+    
+    // Calculate average RRR (Risk-Reward Ratio)
+    const avgRRR = filteredTrades.reduce((sum, trade) => {
+      // Some trades might not have valid riskRatio data
+      return sum + (trade.riskRatio || 0);
+    }, 0) / totalTrades;
+    
+    // Calculate total pips (sum of take profit pips)
+    const totalPips = filteredTrades.reduce((sum, trade) => {
+      return sum + (trade.pipTakeProfit || 0);
+    }, 0);
+    
+    return {
+      totalTrades,
+      winRate: Math.round(winRate), // Round to whole percentage
+      averageRRR: isNaN(avgRRR) ? 0 : avgRRR,
+      totalProfitLoss,
+      totalPips,
+    };
+  }, [filteredTrades]);
 
   // Function to filter trades by selected month
   const filterTradesByMonth = (month: string) => {
@@ -58,8 +92,15 @@ export default function Performance() {
       try {
         setLoading(true);
         const data = await getTrades();
-        setTrades(data);
-        setFilteredTrades(data); // Set initial filtered trades
+        
+        // Map the API response data to match the Trade interface expected by our components
+        const formattedTrades = data.map(trade => ({
+          ...trade,
+          time: trade.entryTime, // Add the missing 'time' property required by Trade interface
+        })) as Trade[];
+        
+        setTrades(formattedTrades);
+        setFilteredTrades(formattedTrades); // Set initial filtered trades
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load trades');
       } finally {
@@ -97,7 +138,19 @@ export default function Performance() {
     // Refresh trades after form is closed
     try {
       const data = await getTrades();
-      setTrades(data);
+      // Map the API response data to match the Trade interface
+      const formattedTrades = data.map(trade => ({
+        ...trade,
+        time: trade.entryTime, // Add the missing 'time' property required by Trade interface
+      })) as Trade[];
+      
+      setTrades(formattedTrades);
+      // Re-apply any month filtering that was active
+      if (selectedMonth) {
+        filterTradesByMonth(selectedMonth);
+      } else {
+        setFilteredTrades(formattedTrades);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to refresh trades');
     }
@@ -151,7 +204,7 @@ export default function Performance() {
           )}
 
           <div className="space-y-8">
-            <PerformanceMetrics metrics={mockMetrics} />
+            <PerformanceMetrics metrics={performanceMetrics} />
             
             <div className={`grid ${showChat ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'} gap-8`}>
               <div className={showChat ? '' : 'w-full'}>

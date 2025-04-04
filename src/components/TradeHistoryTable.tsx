@@ -34,29 +34,27 @@ export default function TradeHistoryTable({ trades, onSelectTrade }: Props) {
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Number</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Date</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Pair</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Action</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Day</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Entry Time</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Exit Time</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Pair</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Action</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Direction</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Lots</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">SL (pips)</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">TP (pips)</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">P/L</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">True Reward</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Pivots</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Banking Level</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Risk Ratio</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Day</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Direction</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Order Type</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Market Condition</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Pivots</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Banking Level</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">MA</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">FIB</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Gap</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">True Reward</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Mindset</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Trade Link</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Comments</th>
-
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
@@ -68,6 +66,9 @@ export default function TradeHistoryTable({ trades, onSelectTrade }: Props) {
               >
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{(page - 1) * itemsPerPage + index + 1}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trade.date}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trade.day}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trade.entryTime}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trade.exitTime}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trade.pair}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
@@ -76,30 +77,22 @@ export default function TradeHistoryTable({ trades, onSelectTrade }: Props) {
                     {trade.action}
                   </span>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trade.entryTime}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trade.exitTime}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trade.direction}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trade.lots}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trade.pipStopLoss}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trade.pipTakeProfit}</td>
-                <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${
-                  trade.profitLoss >= 0 ? 'text-green-600' : 'text-red-600'
-                }`}>
-                  ${trade.profitLoss.toFixed(2)}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trade.pivots}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trade.bankingLevel}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trade.riskRatio}</td>
-                <td className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">{trade.comments}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trade.day}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trade.direction}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trade.orderType}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trade.marketCondition}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trade.pivots}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trade.bankingLevel}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trade.ma}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trade.fib}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trade.gap}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trade.trueReward}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trade.mindset}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trade.tradeLink}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trade.trueReward}</td>
+                <td className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">{trade.comments}</td>
               </tr>
             ))}
           </tbody>

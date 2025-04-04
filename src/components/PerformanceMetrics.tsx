@@ -3,7 +3,7 @@ import { PerformanceMetrics as Metrics } from '../types';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
 
 interface Props {
-  metrics: Metrics;
+  metrics: Metrics & { totalPips?: number };
 }
 
 export default function PerformanceMetrics({ metrics }: Props) {
@@ -47,9 +47,9 @@ export default function PerformanceMetrics({ metrics }: Props) {
           <div className="bg-white p-4 rounded-lg shadow">
             <h3 className="text-sm font-medium text-gray-500">Pips</h3>
             <p className={`mt-2 text-3xl font-semibold ${
-              metrics.totalProfitLoss >= 0 ? 'text-green-600' : 'text-red-600'
+              (metrics.totalPips || 0) >= 0 ? 'text-green-600' : 'text-red-600'
             }`}>
-              {metrics.totalProfitLoss.toFixed(2)} Pips
+              {(metrics.totalPips || 0).toFixed(1)}
             </p>
           </div>
 

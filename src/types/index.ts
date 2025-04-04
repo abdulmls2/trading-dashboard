@@ -24,6 +24,7 @@ export interface Trade {
   mindset: string;
   tradeLink: string;
   trueReward: string;
+  true_tp_sl: string;
 }
 
 export interface User {

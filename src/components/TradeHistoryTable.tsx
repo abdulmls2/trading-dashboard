@@ -52,6 +52,7 @@ export default function TradeHistoryTable({ trades, onSelectTrade }: Props) {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">FIB</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Gap</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">True Reward</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">True TP/SL</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Mindset</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Trade Link</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Comments</th>
@@ -90,6 +91,7 @@ export default function TradeHistoryTable({ trades, onSelectTrade }: Props) {
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trade.fib}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trade.gap}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trade.trueReward}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trade.true_tp_sl}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trade.mindset}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trade.tradeLink}</td>
                 <td className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">{trade.comments}</td>

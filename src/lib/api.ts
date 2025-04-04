@@ -30,7 +30,8 @@ export async function createTrade(trade: Omit<Trade, 'id' | 'time'>) {
       gap: trade.gap,
       mindset: trade.mindset,
       trade_link: trade.tradeLink,
-      true_reward: trade.trueReward
+      true_reward: trade.trueReward,
+      true_tp_sl: trade.true_tp_sl
     }])
     .select()
     .single();
@@ -65,6 +66,7 @@ export async function updateTrade(id: string, trade: Partial<Omit<Trade, 'time'>
   if (trade.mindset) updates.mindset = trade.mindset;
   if (trade.tradeLink) updates.trade_link = trade.tradeLink;
   if (trade.trueReward) updates.true_reward = trade.trueReward;
+  if (trade.true_tp_sl) updates.true_tp_sl = trade.true_tp_sl;
 
   const { data, error } = await supabase
     .from('trades')
@@ -114,7 +116,8 @@ export async function getTrades() {
       gap,
       mindset,
       trade_link,
-      true_reward
+      true_reward,
+      true_tp_sl
     `)
     .order('date', { ascending: false });
 
@@ -146,7 +149,8 @@ export async function getTrades() {
     gap: trade.gap,
     mindset: trade.mindset,
     tradeLink: trade.trade_link,
-    trueReward: trade.true_reward
+    trueReward: trade.true_reward,
+    true_tp_sl: trade.true_tp_sl
   }));
 }
 
@@ -174,7 +178,7 @@ export async function getPerformanceMetrics(month: string) {
   };
 }
 
-export async function updatePerformanceMetrics(metrics: Omit<PerformanceMetrics, 'id'>) {
+export async function updatePerformanceMetrics(metrics: Omit<PerformanceMetrics, 'id'> & { month: string }) {
   const { data: { user } } = await supabase.auth.getUser();
 
   const { data, error } = await supabase

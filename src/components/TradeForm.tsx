@@ -2,18 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Trade } from '../types';
 import { createTrade, updateTrade } from '../lib/api';
 
-// Extend the Trade type with the missing properties
-interface ExtendedTrade extends Trade {
-  day?: string;
-  direction?: string;
-  orderType?: string;
-  marketCondition?: string;
-  ma?: string;
-  fib?: string;
-  gap?: string;
-  mindset?: string;
-  tradeLink?: string;
-  trueReward?: string;
+// Make the Trade interface work with both create and update operations
+interface TradeFormData extends Omit<Trade, 'id'> {
+  id?: string;
 }
 
 const currencyPairs = [
@@ -69,14 +60,14 @@ const gapOptions = [
 
 interface Props {
   onClose: () => void;
-  existingTrade?: ExtendedTrade;
+  existingTrade?: Trade;
 }
 
 type TabType = 'basic' | 'technical' | 'analysis' | 'result' | 'notes';
 
 export default function TradeForm({ onClose, existingTrade }: Props) {
   const [activeTab, setActiveTab] = useState<TabType>('basic');
-  const [formData, setFormData] = React.useState<Partial<ExtendedTrade>>(
+  const [formData, setFormData] = React.useState<TradeFormData>(
     existingTrade || {
       date: new Date().toISOString().split('T')[0],
       pair: 'GBP/USD',
@@ -101,6 +92,8 @@ export default function TradeForm({ onClose, existingTrade }: Props) {
       mindset: '',
       tradeLink: '',
       trueReward: '',
+      true_tp_sl: '',
+      time: '', // Adding required time field with empty string default
     }
   );
 
@@ -140,7 +133,9 @@ export default function TradeForm({ onClose, existingTrade }: Props) {
       if (existingTrade) {
         await updateTrade(existingTrade.id, submissionData);
       } else {
-        await createTrade(submissionData as Omit<ExtendedTrade, 'id'>);
+        // The id is optional in our form, but not needed for create
+        const { id, ...createData } = submissionData;
+        await createTrade(createData as Omit<Trade, 'id'>);
       }
       onClose();
     } catch (err) {
@@ -177,6 +172,8 @@ export default function TradeForm({ onClose, existingTrade }: Props) {
       mindset: '',
       tradeLink: '',
       trueReward: '',
+      true_tp_sl: '',
+      time: '',
     });
     setActiveTab('basic');
   };
@@ -475,6 +472,16 @@ export default function TradeForm({ onClose, existingTrade }: Props) {
                 type="text"
                 value={formData.trueReward}
                 onChange={(e) => setFormData({ ...formData, trueReward: e.target.value })}
+                className={inputClassName}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">True TP/SL</label>
+              <input
+                type="text"
+                value={formData.true_tp_sl}
+                onChange={(e) => setFormData({ ...formData, true_tp_sl: e.target.value })}
                 className={inputClassName}
               />
             </div>

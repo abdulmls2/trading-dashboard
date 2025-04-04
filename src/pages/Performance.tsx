@@ -45,21 +45,24 @@ export default function Performance() {
     // Calculate total P/L
     const totalProfitLoss = filteredTrades.reduce((sum, trade) => sum + trade.profitLoss, 0);
     
-    // Calculate average RRR (Risk-Reward Ratio)
-    const avgRRR = filteredTrades.reduce((sum, trade) => {
-      // Some trades might not have valid riskRatio data
-      return sum + (trade.riskRatio || 0);
-    }, 0) / totalTrades;
+    // Calculate sum of trueReward values (no longer calculating average)
+    const totalTrueReward = filteredTrades.reduce((sum, trade) => {
+      // Parse trueReward as a number, default to 0 if not a valid number
+      const trueRewardValue = parseFloat(trade.trueReward || '0');
+      return sum + (isNaN(trueRewardValue) ? 0 : trueRewardValue);
+    }, 0);
     
-    // Calculate total pips (sum of take profit pips)
+    // Calculate total pips using true_tp_sl
     const totalPips = filteredTrades.reduce((sum, trade) => {
-      return sum + (trade.pipTakeProfit || 0);
+      // Parse true_tp_sl as a number, default to 0 if not a valid number
+      const trueTpSlValue = parseFloat(trade.true_tp_sl || '0');
+      return sum + (isNaN(trueTpSlValue) ? 0 : trueTpSlValue);
     }, 0);
     
     return {
       totalTrades,
       winRate: Math.round(winRate), // Round to whole percentage
-      averageRRR: isNaN(avgRRR) ? 0 : avgRRR,
+      averageRRR: totalTrueReward, // Now storing the sum rather than the average
       totalProfitLoss,
       totalPips,
     };
@@ -93,11 +96,11 @@ export default function Performance() {
         setLoading(true);
         const data = await getTrades();
         
-        // Map the API response data to match the Trade interface expected by our components
+        // Format the trades properly
         const formattedTrades = data.map(trade => ({
           ...trade,
           time: trade.entryTime, // Add the missing 'time' property required by Trade interface
-        })) as Trade[];
+        }));
         
         setTrades(formattedTrades);
         setFilteredTrades(formattedTrades); // Set initial filtered trades
@@ -138,11 +141,12 @@ export default function Performance() {
     // Refresh trades after form is closed
     try {
       const data = await getTrades();
-      // Map the API response data to match the Trade interface
+      
+      // Format the trades properly
       const formattedTrades = data.map(trade => ({
         ...trade,
         time: trade.entryTime, // Add the missing 'time' property required by Trade interface
-      })) as Trade[];
+      }));
       
       setTrades(formattedTrades);
       // Re-apply any month filtering that was active

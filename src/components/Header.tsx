@@ -1,11 +1,29 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Menu } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
 
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
-  const { signOut } = useAuth();
+  const { user, signOut } = useAuth();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    async function checkAdminStatus() {
+      if (!user) return;
+
+      const { data } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('user_id', user.id)
+        .single();
+
+      setIsAdmin(data?.role === 'admin');
+    }
+
+    checkAdminStatus();
+  }, [user]);
 
   const handleLogout = async () => {
     try {
@@ -19,10 +37,38 @@ export default function Header() {
     <header className="bg-white shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
-          <div className="flex">
+          <div className="flex items-center space-x-8">
             <Link to="/" className="flex items-center">
               <span className="text-xl font-bold text-indigo-600">CLF Journal</span>
             </Link>
+            <nav className="flex space-x-4">
+              <Link
+                to="/"
+                className="text-gray-900 hover:bg-gray-50 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
+              >
+                Dashboard
+              </Link>
+              <Link
+                to="/log-trade"
+                className="text-gray-900 hover:bg-gray-50 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
+              >
+                Log Trade
+              </Link>
+              <Link
+                to="/performance"
+                className="text-gray-900 hover:bg-gray-50 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
+              >
+                Performance
+              </Link>
+              {isAdmin && (
+                <Link
+                  to="/admin"
+                  className="text-indigo-600 hover:bg-indigo-50 hover:text-indigo-900 px-3 py-2 rounded-md text-sm font-medium"
+                >
+                  Admin Dashboard
+                </Link>
+              )}
+            </nav>
           </div>
           
           <div className="hidden sm:ml-6 sm:flex sm:items-center">

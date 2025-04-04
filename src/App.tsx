@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Dashboard from './pages/Dashboard';
 import LogTrade from './pages/LogTrade';
 import Performance from './pages/Performance';
+import AdminDashboard from './pages/AdminDashboard';
 import Auth from './pages/Auth';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -54,6 +55,14 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <Performance />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/admin"
+        element={
+          <PrivateRoute>
+            <AdminDashboard />
           </PrivateRoute>
         }
       />

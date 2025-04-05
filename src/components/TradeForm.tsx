@@ -61,11 +61,12 @@ const gapOptions = [
 interface Props {
   onClose: () => void;
   existingTrade?: Trade;
+  readOnly?: boolean;
 }
 
 type TabType = 'basic' | 'technical' | 'analysis' | 'result' | 'notes';
 
-export default function TradeForm({ onClose, existingTrade }: Props) {
+export default function TradeForm({ onClose, existingTrade, readOnly = false }: Props) {
   const [activeTab, setActiveTab] = useState<TabType>('basic');
   const [formData, setFormData] = React.useState<TradeFormData>(
     existingTrade || {
@@ -115,6 +116,13 @@ export default function TradeForm({ onClose, existingTrade }: Props) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Don't submit if in read-only mode
+    if (readOnly) {
+      onClose();
+      return;
+    }
+    
     setError('');
     setLoading(true);
 
@@ -178,7 +186,7 @@ export default function TradeForm({ onClose, existingTrade }: Props) {
     setActiveTab('basic');
   };
 
-  const inputClassName = "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 bg-blue-50";
+  const inputClassName = `mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 bg-blue-50 ${readOnly ? 'opacity-80 cursor-not-allowed' : ''}`;
   const selectClassName = inputClassName;
 
   const TabButton = ({ tab, label }: { tab: TabType; label: string }) => (
@@ -221,6 +229,7 @@ export default function TradeForm({ onClose, existingTrade }: Props) {
                 value={formData.date}
                 onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                 className={inputClassName}
+                disabled={readOnly}
               />
             </div>
 
@@ -230,6 +239,7 @@ export default function TradeForm({ onClose, existingTrade }: Props) {
                 value={formData.day}
                 onChange={(e) => setFormData({ ...formData, day: e.target.value })}
                 className={selectClassName}
+                disabled={readOnly}
               >
                 {tradingDays.map((day) => (
                   <option key={day} value={day}>
@@ -245,6 +255,7 @@ export default function TradeForm({ onClose, existingTrade }: Props) {
                 value={formData.pair}
                 onChange={(e) => setFormData({ ...formData, pair: e.target.value })}
                 className={selectClassName}
+                disabled={readOnly}
               >
                 {currencyPairs.map((pair) => (
                   <option key={pair} value={pair}>
@@ -260,6 +271,7 @@ export default function TradeForm({ onClose, existingTrade }: Props) {
                 value={formData.action}
                 onChange={(e) => setFormData({ ...formData, action: e.target.value as 'Buy' | 'Sell' })}
                 className={selectClassName}
+                disabled={readOnly}
               >
                 <option value="Buy">Buy</option>
                 <option value="Sell">Sell</option>
@@ -273,6 +285,7 @@ export default function TradeForm({ onClose, existingTrade }: Props) {
                 value={formData.entryTime}
                 onChange={(e) => setFormData({ ...formData, entryTime: e.target.value })}
                 className={inputClassName}
+                disabled={readOnly}
               />
             </div>
 
@@ -283,6 +296,7 @@ export default function TradeForm({ onClose, existingTrade }: Props) {
                 value={formData.exitTime}
                 onChange={(e) => setFormData({ ...formData, exitTime: e.target.value })}
                 className={inputClassName}
+                disabled={readOnly}
               />
             </div>
           </div>
@@ -296,6 +310,7 @@ export default function TradeForm({ onClose, existingTrade }: Props) {
                 value={formData.direction}
                 onChange={(e) => setFormData({ ...formData, direction: e.target.value })}
                 className={selectClassName}
+                disabled={readOnly}
               >
                 <option value="">Select Direction</option>
                 {directionOptions.map((option) => (
@@ -315,6 +330,7 @@ export default function TradeForm({ onClose, existingTrade }: Props) {
                 value={formData.lots}
                 onChange={(e) => setFormData({ ...formData, lots: parseFloat(e.target.value) })}
                 className={inputClassName}
+                disabled={readOnly}
               />
             </div>
 
@@ -325,6 +341,7 @@ export default function TradeForm({ onClose, existingTrade }: Props) {
                 value={formData.pipStopLoss}
                 onChange={(e) => setFormData({ ...formData, pipStopLoss: parseInt(e.target.value) })}
                 className={inputClassName}
+                disabled={readOnly}
               />
             </div>
 
@@ -335,6 +352,7 @@ export default function TradeForm({ onClose, existingTrade }: Props) {
                 value={formData.pipTakeProfit}
                 onChange={(e) => setFormData({ ...formData, pipTakeProfit: parseInt(e.target.value) })}
                 className={inputClassName}
+                disabled={readOnly}
               />
             </div>
 
@@ -346,6 +364,7 @@ export default function TradeForm({ onClose, existingTrade }: Props) {
                 value={formData.riskRatio}
                 onChange={(e) => setFormData({ ...formData, riskRatio: parseFloat(e.target.value) })}
                 className={inputClassName}
+                disabled={readOnly}
               />
             </div>
 
@@ -355,6 +374,7 @@ export default function TradeForm({ onClose, existingTrade }: Props) {
                 value={formData.orderType}
                 onChange={(e) => setFormData({ ...formData, orderType: e.target.value })}
                 className={selectClassName}
+                disabled={readOnly}
               >
                 <option value="">Select Order Type</option>
                 {orderTypeOptions.map((option) => (
@@ -375,6 +395,7 @@ export default function TradeForm({ onClose, existingTrade }: Props) {
                 value={formData.pivots}
                 onChange={(e) => setFormData({ ...formData, pivots: e.target.value })}
                 className={selectClassName}
+                disabled={readOnly}
               >
                 <option value="">Select Pivot</option>
                 <option value="R3">R3</option>
@@ -395,6 +416,7 @@ export default function TradeForm({ onClose, existingTrade }: Props) {
                 onChange={(e) => setFormData({ ...formData, bankingLevel: e.target.value })}
                 className={inputClassName}
                 placeholder="e.g., Major Support, Key Resistance"
+                disabled={readOnly}
               />
             </div>
 
@@ -404,6 +426,7 @@ export default function TradeForm({ onClose, existingTrade }: Props) {
                 value={formData.marketCondition}
                 onChange={(e) => setFormData({ ...formData, marketCondition: e.target.value })}
                 className={selectClassName}
+                disabled={readOnly}
               >
                 <option value="">Select Market Condition</option>
                 {marketConditionOptions.map((option) => (
@@ -420,6 +443,7 @@ export default function TradeForm({ onClose, existingTrade }: Props) {
                 value={formData.ma}
                 onChange={(e) => setFormData({ ...formData, ma: e.target.value })}
                 className={selectClassName}
+                disabled={readOnly}
               >
                 <option value="">Select MA</option>
                 {maOptions.map((option) => (
@@ -436,6 +460,7 @@ export default function TradeForm({ onClose, existingTrade }: Props) {
                 value={formData.fib}
                 onChange={(e) => setFormData({ ...formData, fib: e.target.value })}
                 className={selectClassName}
+                disabled={readOnly}
               >
                 <option value="">Select FIB</option>
                 {fibOptions.map((option) => (
@@ -452,6 +477,7 @@ export default function TradeForm({ onClose, existingTrade }: Props) {
                 value={formData.gap}
                 onChange={(e) => setFormData({ ...formData, gap: e.target.value })}
                 className={selectClassName}
+                disabled={readOnly}
               >
                 <option value="">Select Gap</option>
                 {gapOptions.map((option) => (
@@ -473,6 +499,7 @@ export default function TradeForm({ onClose, existingTrade }: Props) {
                 value={formData.trueReward}
                 onChange={(e) => setFormData({ ...formData, trueReward: e.target.value })}
                 className={inputClassName}
+                disabled={readOnly}
               />
             </div>
 
@@ -483,6 +510,7 @@ export default function TradeForm({ onClose, existingTrade }: Props) {
                 value={formData.true_tp_sl}
                 onChange={(e) => setFormData({ ...formData, true_tp_sl: e.target.value })}
                 className={inputClassName}
+                disabled={readOnly}
               />
             </div>
 
@@ -493,6 +521,7 @@ export default function TradeForm({ onClose, existingTrade }: Props) {
                 value={formData.tradeLink}
                 onChange={(e) => setFormData({ ...formData, tradeLink: e.target.value })}
                 className={inputClassName}
+                disabled={readOnly}
               />
             </div>
 
@@ -504,6 +533,7 @@ export default function TradeForm({ onClose, existingTrade }: Props) {
                 value={formData.profitLoss}
                 onChange={(e) => setFormData({ ...formData, profitLoss: parseFloat(e.target.value) })}
                 className={inputClassName}
+                disabled={readOnly}
               />
             </div>
           </div>
@@ -518,6 +548,7 @@ export default function TradeForm({ onClose, existingTrade }: Props) {
                 value={formData.mindset}
                 onChange={(e) => setFormData({ ...formData, mindset: e.target.value })}
                 className={inputClassName}
+                disabled={readOnly}
               />
             </div>
 
@@ -528,6 +559,7 @@ export default function TradeForm({ onClose, existingTrade }: Props) {
                 onChange={(e) => setFormData({ ...formData, comments: e.target.value })}
                 rows={4}
                 className={inputClassName}
+                disabled={readOnly}
               />
             </div>
           </div>
@@ -535,19 +567,22 @@ export default function TradeForm({ onClose, existingTrade }: Props) {
 
         <div className="flex justify-end mt-8">
           <div className="flex space-x-4">
+            {!readOnly && (
+              <button
+                type="button"
+                onClick={handleReset}
+                className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                Reset
+              </button>
+            )}
             <button
-              type="button"
-              onClick={handleReset}
-              className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            >
-              Reset
-            </button>
-            <button
-              type="submit"
+              type={readOnly ? "button" : "submit"}
+              onClick={readOnly ? onClose : undefined}
               disabled={loading}
               className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-400 disabled:cursor-not-allowed"
             >
-              {loading ? 'Saving...' : existingTrade ? 'Update Trade' : 'Submit Trade'}
+              {readOnly ? 'Close' : loading ? 'Saving...' : existingTrade ? 'Update Trade' : 'Submit Trade'}
             </button>
           </div>
         </div>

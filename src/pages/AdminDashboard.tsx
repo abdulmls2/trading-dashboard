@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import TradeHistoryTable from '../components/TradeHistoryTable';
 import { Trade as TradeType } from '../types';
+import TradeForm from '../components/TradeForm';
 
 interface UserProfile {
   id: string;
@@ -56,6 +57,9 @@ export default function AdminDashboard() {
   const [showTradesModal, setShowTradesModal] = useState(false);
   const [selectedUserEmail, setSelectedUserEmail] = useState('');
   const [selectedUserId, setSelectedUserId] = useState('');
+  const [selectedUserFullName, setSelectedUserFullName] = useState('');
+  const [showTradeForm, setShowTradeForm] = useState(false);
+  const [selectedTrade, setSelectedTrade] = useState<TradeType | null>(null);
 
   useEffect(() => {
     async function checkAdminAndLoadUsers() {
@@ -119,9 +123,11 @@ export default function AdminDashboard() {
     );
   }
 
-  const handleViewTrades = async (userId: string, email: string) => {
+  const handleViewTrades = async (userId: string, email: string, fullName: string | null) => {
     try {
       setSelectedUserId(userId);
+      setSelectedUserEmail(email);
+      setSelectedUserFullName(fullName || email); // Use email as fallback if no name
       
       const { data: trades, error: tradesError } = await supabase
         .from('trades')
@@ -163,7 +169,6 @@ export default function AdminDashboard() {
       }));
 
       setSelectedUserTrades(formattedTrades);
-      setSelectedUserEmail(email);
       setShowTradesModal(true);
     } catch (err) {
       console.error('Error fetching trades:', err);
@@ -173,8 +178,83 @@ export default function AdminDashboard() {
 
   // Handler for when a trade is selected in the table
   const handleSelectTrade = (trade: TradeType) => {
-    // Admin might want to view details or do something with selected trade
-    console.log('Selected trade:', trade);
+    setSelectedTrade(trade);
+    setShowTradeForm(true);
+  };
+
+  // Handle closing the trade form
+  const handleTradeFormClose = () => {
+    setShowTradeForm(false);
+    setSelectedTrade(null);
+    
+    // Refresh the trades list if we're viewing trades
+    if (showTradesModal && selectedUserId) {
+      refreshUserTrades(selectedUserId);
+    }
+  };
+
+  // Function to refresh trades for a user
+  const refreshUserTrades = async (userId: string) => {
+    console.log("Refreshing trades for user:", userId);
+    try {
+      const { data: trades, error: tradesError } = await supabase
+        .from('trades')
+        .select('*')
+        .eq('user_id', userId)
+        .order('date', { ascending: false });
+
+      if (tradesError) throw tradesError;
+
+      console.log("Fetched trades:", trades?.length || 0);
+
+      // Format trades from database format to TradeHistoryTable's expected format
+      const formattedTrades: TradeType[] = (trades || []).map((trade: DbTrade) => ({
+        id: trade.id,
+        userId: trade.user_id || '',
+        date: trade.date,
+        time: trade.entry_time, // Using entry_time as time
+        pair: trade.pair,
+        action: trade.action as 'Buy' | 'Sell',
+        entryTime: trade.entry_time,
+        exitTime: trade.exit_time,
+        lots: trade.lots,
+        pipStopLoss: trade.pip_stop_loss,
+        pipTakeProfit: trade.pip_take_profit,
+        profitLoss: trade.profit_loss,
+        pivots: trade.pivots || '',
+        bankingLevel: trade.banking_level || '',
+        riskRatio: trade.risk_ratio || 0,
+        comments: trade.comments,
+        day: trade.day || '',
+        direction: trade.direction || '',
+        orderType: trade.order_type || '',
+        marketCondition: trade.market_condition || '',
+        ma: trade.ma || '',
+        fib: trade.fib || '',
+        gap: trade.gap || '',
+        mindset: trade.mindset || '',
+        tradeLink: trade.trade_link || '',
+        trueReward: trade.true_reward || '',
+        true_tp_sl: trade.true_tp_sl || ''
+      }));
+
+      console.log("Setting formatted trades:", formattedTrades.length);
+      setSelectedUserTrades(formattedTrades);
+    } catch (err) {
+      console.error('Error refreshing trades:', err);
+      setError('Failed to refresh trades');
+    }
+  };
+
+  const handleExitFullscreen = () => {
+    setShowTradesModal(false);
+  };
+
+  // Create a refresh handler that specifically shows when it's triggered from the button
+  const handleRefreshTrades = () => {
+    console.log("==== REFRESH TRADES BUTTON CLICKED ====");
+    console.log("Selected user ID:", selectedUserId);
+    refreshUserTrades(selectedUserId);
   };
 
   // Render the user management table if not showing trades
@@ -226,7 +306,7 @@ export default function AdminDashboard() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         <button
-                          onClick={() => handleViewTrades(profile.user_id, profile.email)}
+                          onClick={() => handleViewTrades(profile.user_id, profile.email, profile.full_name)}
                           className="text-indigo-600 hover:text-indigo-900 font-medium"
                         >
                           View Trades
@@ -254,31 +334,51 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
-      <div className="fixed top-16 left-0 right-0 z-40 bg-white px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-        <h2 className="text-xl font-semibold text-gray-900">
-          Viewing Trades for {selectedUserEmail}
-        </h2>
-        <button
-          onClick={() => setShowTradesModal(false)}
-          className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
-        >
-          Back to User Management
-        </button>
-      </div>
       
-      <div className="mt-24 flex-grow px-4 pb-4">
+      <div className="mt-16 flex-grow px-4 pb-4">
         <div className="TradeHistoryTableWrapper h-full">
           {/* Set a large min-height to ensure the table fills the available space */}
-          <div style={{ minHeight: 'calc(100vh - 160px)' }}>
+          <div style={{ minHeight: 'calc(100vh - 80px)' }}>
             <TradeHistoryTable 
               trades={selectedUserTrades} 
               onSelectTrade={handleSelectTrade}
               forcedFullScreen={true}
               targetUserId={selectedUserId}
+              onExitFullscreen={handleExitFullscreen}
+              journalOwnerName={selectedUserFullName}
+              onRefresh={handleRefreshTrades}
             />
           </div>
         </div>
       </div>
+
+      {/* Trade Form Modal */}
+      {showTradeForm && (
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold text-gray-900">
+                  {selectedTrade ? 'Edit Trade for ' : 'View Trade Details for '}{selectedUserFullName}
+                </h2>
+                <button
+                  onClick={handleTradeFormClose}
+                  className="text-gray-400 hover:text-gray-500"
+                >
+                  <span className="sr-only">Close</span>
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <TradeForm 
+                onClose={handleTradeFormClose}
+                existingTrade={selectedTrade || undefined}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Trade, CellCustomization as CellCustomizationType } from '../types';
-import { ZoomIn, ZoomOut, Maximize, Minimize, Filter, ArrowLeft, ArrowRight, ChevronsLeft, ChevronsRight, Palette, X, Type } from 'lucide-react';
+import { ZoomIn, ZoomOut, Maximize, Minimize, Filter, ArrowLeft, ArrowRight, ChevronsLeft, ChevronsRight, Palette, X, Type, RefreshCw } from 'lucide-react';
 import { loadCellCustomizations, saveCellCustomization, deleteCellCustomization } from '../lib/api';
 
 interface Props {
@@ -8,6 +8,9 @@ interface Props {
   onSelectTrade: (trade: Trade) => void;
   forcedFullScreen?: boolean;
   targetUserId?: string;
+  onExitFullscreen?: () => void;
+  journalOwnerName?: string;
+  onRefresh?: () => void;
 }
 
 // Interface for cell customization - local state
@@ -32,6 +35,9 @@ export default function TradeHistoryTable({
   onSelectTrade,
   forcedFullScreen = false,
   targetUserId,
+  onExitFullscreen,
+  journalOwnerName,
+  onRefresh,
 }: Props) {
   const [page, setPage] = React.useState(1);
   const [scale, setScale] = useState(1);
@@ -166,12 +172,16 @@ export default function TradeHistoryTable({
   const handleZoomIn = () => setScale((prev) => prev + 0.1);
   const handleZoomOut = () => setScale((prev) => Math.max(prev - 0.1, 0.5));
   const toggleFullScreen = () => {
-    // Only toggle if not forced from parent
-    if (!forcedFullScreen) {
-      setIsFullScreen(!isFullScreen);
-      if (!isFullScreen) {
-        setPage(1); // Reset to page 1 when entering fullscreen mode
-      }
+    if (forcedFullScreen && onExitFullscreen) {
+      // If in forced fullscreen mode and callback exists, use it
+      onExitFullscreen();
+      return;
+    }
+    
+    // Regular toggle behavior for non-forced mode
+    setIsFullScreen(!isFullScreen);
+    if (!isFullScreen) {
+      setPage(1); // Reset to page 1 when entering fullscreen mode
     }
   };
   
@@ -492,6 +502,12 @@ export default function TradeHistoryTable({
               </div>
             )}
           </div>
+          
+          {journalOwnerName && (
+            <div className="ml-4 px-4 py-2 bg-indigo-50 text-indigo-800 font-medium rounded-md">
+              Journal of {journalOwnerName}
+            </div>
+          )}
         </div>
         
         <div className="flex items-center space-x-2">
@@ -500,6 +516,21 @@ export default function TradeHistoryTable({
               <p className="text-sm text-gray-700 mr-4">
                 Page {page} of {totalPages}
               </p>
+              {onRefresh && (
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log("Refresh button clicked");
+                    if (onRefresh) onRefresh();
+                  }}
+                  className="p-1.5 text-gray-500 hover:bg-gray-100 rounded"
+                  title="Refresh trades"
+                  aria-label="Refresh trades"
+                >
+                  <RefreshCw className="h-5 w-5" />
+                </button>
+              )}
               {totalPages > 1 && (
                 <div className="flex">
                   <button 
@@ -571,7 +602,7 @@ export default function TradeHistoryTable({
             </>
           )}
           <button onClick={toggleFullScreen} className="p-1.5 text-gray-500 hover:bg-gray-100 rounded" aria-label="Toggle Fullscreen">
-            {isFullScreen ? <Minimize className="h-5 w-5" /> : <Maximize className="h-5 w-5" />}
+            {isFullScreen || forcedFullScreen ? <Minimize className="h-5 w-5" /> : <Maximize className="h-5 w-5" />}
           </button>
         </div>
       </div>

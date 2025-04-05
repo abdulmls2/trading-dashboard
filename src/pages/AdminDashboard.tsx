@@ -15,6 +15,7 @@ interface UserProfile {
   full_name: string | null;
   role: string;
   created_at: string;
+  last_trade_date?: string;
 }
 
 // Interface for database trade records
@@ -90,7 +91,26 @@ export default function AdminDashboard() {
         return;
       }
 
-      setProfiles(userProfiles);
+      // Get the last trade date for each user
+      const enhancedProfiles = await Promise.all(
+        userProfiles.map(async (profile) => {
+          // Get the most recent trade for this user
+          const { data: latestTrade, error: tradeError } = await supabase
+            .from('trades')
+            .select('date')
+            .eq('user_id', profile.user_id)
+            .order('date', { ascending: false })
+            .limit(1);
+
+          if (tradeError || !latestTrade || latestTrade.length === 0) {
+            return { ...profile, last_trade_date: null };
+          }
+
+          return { ...profile, last_trade_date: latestTrade[0].date };
+        })
+      );
+
+      setProfiles(enhancedProfiles);
       setLoading(false);
     }
 
@@ -285,6 +305,9 @@ export default function AdminDashboard() {
                       Joined
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Last Journaled
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
@@ -301,15 +324,20 @@ export default function AdminDashboard() {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {profile.username || '-'}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {new Date(profile.created_at).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {profile.last_trade_date 
+                          ? new Date(profile.last_trade_date).toLocaleDateString() 
+                          : 'Never'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         <button
                           onClick={() => handleViewTrades(profile.user_id, profile.email, profile.full_name)}
                           className="text-indigo-600 hover:text-indigo-900 font-medium"
                         >
-                          View Trades
+                          View Journal
                         </button>
                       </td>
                     </tr>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Trade } from '../types';
-import { createTrade, updateTrade } from '../lib/api';
+import { createTrade, updateTrade, checkTradeAgainstRules, createTradeViolation } from '../lib/api';
+import { useAuth } from '../contexts/AuthContext';
 
 // Make the Trade interface work with both create and update operations
 interface TradeFormData extends Omit<Trade, 'id'> {
@@ -98,6 +99,17 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
     }
   );
 
+  const { user } = useAuth();
+  const [error, setError] = React.useState('');
+  const [loading, setLoading] = React.useState(false);
+  const [ruleViolations, setRuleViolations] = useState<Array<{
+    ruleType: string;
+    violatedValue: string;
+    allowedValues: string[];
+  }>>([]);
+  const [showViolationWarning, setShowViolationWarning] = useState(false);
+  const [acknowledgedViolations, setAcknowledgedViolations] = useState(false);
+
   // Update day when date changes, but only if the user hasn't manually changed it
   useEffect(() => {
     if (formData.date) {
@@ -111,8 +123,40 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
     }
   }, [formData.date]);
 
-  const [error, setError] = React.useState('');
-  const [loading, setLoading] = React.useState(false);
+  // Check for rule violations when key fields change
+  useEffect(() => {
+    const checkRules = async () => {
+      if (!user) return;
+
+      try {
+        // Only check these specific fields for rule violations
+        const partialTrade = {
+          pair: formData.pair,
+          day: formData.day,
+          direction: formData.direction,
+          lots: formData.lots
+        };
+
+        const result = await checkTradeAgainstRules(partialTrade, user.id);
+        
+        if (!result.isValid) {
+          setRuleViolations(result.violations);
+          // Only show the warning if we have violations and user has not acknowledged them yet
+          setShowViolationWarning(!acknowledgedViolations && result.violations.length > 0);
+        } else {
+          setRuleViolations([]);
+          setShowViolationWarning(false);
+        }
+      } catch (err) {
+        console.error('Error checking rules:', err);
+      }
+    };
+
+    // Don't check in read-only mode
+    if (!readOnly) {
+      checkRules();
+    }
+  }, [formData.pair, formData.day, formData.direction, formData.lots, user, readOnly, acknowledgedViolations]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -138,13 +182,32 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
         })
       );
 
+      let tradeId: string;
+      
       if (existingTrade) {
-        await updateTrade(existingTrade.id, submissionData);
+        const result = await updateTrade(existingTrade.id, submissionData);
+        tradeId = existingTrade.id;
       } else {
         // The id is optional in our form, but not needed for create
         const { id, ...createData } = submissionData;
-        await createTrade(createData as Omit<Trade, 'id'>);
+        const result = await createTrade(createData as Omit<Trade, 'id'>);
+        tradeId = result.id;
       }
+
+      // If there are acknowledged violations, record them
+      if (acknowledgedViolations && ruleViolations.length > 0 && user) {
+        for (const violation of ruleViolations) {
+          await createTradeViolation({
+            tradeId,
+            userId: user.id,
+            ruleType: violation.ruleType as any,
+            violatedValue: violation.violatedValue,
+            allowedValues: violation.allowedValues,
+            acknowledged: true
+          });
+        }
+      }
+
       onClose();
     } catch (err) {
       console.error('Submission error:', err);
@@ -186,6 +249,11 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
     setActiveTab('basic');
   };
 
+  const handleAcknowledgeViolations = () => {
+    setAcknowledgedViolations(true);
+    setShowViolationWarning(false);
+  };
+
   const inputClassName = `mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 bg-blue-50 ${readOnly ? 'opacity-80 cursor-not-allowed' : ''}`;
   const selectClassName = inputClassName;
 
@@ -208,6 +276,40 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md text-sm">
           {error}
+        </div>
+      )}
+
+      {/* Rule Violation Warning */}
+      {showViolationWarning && ruleViolations.length > 0 && (
+        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-md">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-yellow-800">Trading Rule Violation</h3>
+              <div className="mt-2 text-sm text-yellow-700">
+                <ul className="list-disc pl-5 space-y-1">
+                  {ruleViolations.map((violation, index) => (
+                    <li key={index}>
+                      <strong>{violation.ruleType.charAt(0).toUpperCase() + violation.ruleType.slice(1)}:</strong> {violation.violatedValue} is not in the allowed values: {violation.allowedValues.join(', ')}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="mt-4">
+                <button
+                  type="button"
+                  onClick={handleAcknowledgeViolations}
+                  className="text-sm font-medium text-yellow-800 hover:text-yellow-600 focus:outline-none"
+                >
+                  I understand and want to continue
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -579,7 +681,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
             <button
               type={readOnly ? "button" : "submit"}
               onClick={readOnly ? onClose : undefined}
-              disabled={loading}
+              disabled={loading || (showViolationWarning && !acknowledgedViolations)}
               className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-400 disabled:cursor-not-allowed"
             >
               {readOnly ? 'Close' : loading ? 'Saving...' : existingTrade ? 'Update Trade' : 'Submit Trade'}

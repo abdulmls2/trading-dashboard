@@ -358,24 +358,17 @@ export async function deleteCellCustomization(tradeId: string, columnKey: string
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('User not authenticated');
 
-  const { data: userData } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('user_id', user.id)
-    .single();
-    
-  const isAdmin = userData?.role === 'admin';
-  const userIdToDelete = (isAdmin && targetUserId) ? targetUserId : user.id;
+  // Determine which user ID to use
+  const userIdToUse = targetUserId || user.id;
 
   const { error } = await supabase
     .from('cell_customizations')
     .delete()
-    .eq('user_id', userIdToDelete)
     .eq('trade_id', tradeId)
-    .eq('column_key', columnKey);
-    
+    .eq('column_key', columnKey)
+    .eq('user_id', userIdToUse);
+
   if (error) throw error;
-  return true;
 }
 
 // Admin function to get all trades across users
@@ -443,4 +436,192 @@ export async function getAllTrades() {
     trueReward: trade.true_reward,
     true_tp_sl: trade.true_tp_sl
   }));
+}
+
+// Trading Rules Management
+export async function getUserTradingRules(userId: string) {
+  const { data, error } = await supabase
+    .from('user_trading_rules')
+    .select('*')
+    .eq('user_id', userId);
+
+  if (error) throw error;
+
+  return data.map(rule => ({
+    id: rule.id,
+    userId: rule.user_id,
+    ruleType: rule.rule_type,
+    allowedValues: rule.allowed_values,
+    createdAt: rule.created_at,
+    updatedAt: rule.updated_at
+  }));
+}
+
+export async function createTradingRule(rule: Omit<import('../types').UserTradingRule, 'id' | 'createdAt' | 'updatedAt'>) {
+  const { data, error } = await supabase
+    .from('user_trading_rules')
+    .insert({
+      user_id: rule.userId,
+      rule_type: rule.ruleType,
+      allowed_values: rule.allowedValues
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function updateTradingRule(id: string, rule: Partial<Omit<import('../types').UserTradingRule, 'id'>>) {
+  const updates: Record<string, any> = {};
+  
+  if (rule.ruleType) updates.rule_type = rule.ruleType;
+  if (rule.allowedValues) updates.allowed_values = rule.allowedValues;
+
+  const { data, error } = await supabase
+    .from('user_trading_rules')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteTradingRule(id: string) {
+  const { error } = await supabase
+    .from('user_trading_rules')
+    .delete()
+    .eq('id', id);
+
+  if (error) throw error;
+}
+
+// Trade Violations Management
+export async function getTradeViolations(userId?: string) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('User not authenticated');
+
+  const query = supabase
+    .from('trade_violations')
+    .select(`
+      *,
+      trades(*)
+    `);
+
+  // If a userId is specified, filter by it (for admin viewing)
+  // Otherwise, use the current user's ID
+  const finalQuery = userId ? query.eq('user_id', userId) : query.eq('user_id', user.id);
+  
+  const { data, error } = await finalQuery.order('created_at', { ascending: false });
+
+  if (error) throw error;
+
+  return data.map(violation => ({
+    id: violation.id,
+    tradeId: violation.trade_id,
+    userId: violation.user_id,
+    ruleType: violation.rule_type,
+    violatedValue: violation.violated_value,
+    allowedValues: violation.allowed_values,
+    acknowledged: violation.acknowledged,
+    createdAt: violation.created_at,
+    trade: violation.trades ? {
+      id: violation.trades.id,
+      date: violation.trades.date,
+      pair: violation.trades.pair,
+      action: violation.trades.action,
+      profitLoss: violation.trades.profit_loss
+    } : null
+  }));
+}
+
+export async function createTradeViolation(violation: Omit<import('../types').TradeViolation, 'id' | 'createdAt'>) {
+  const { data, error } = await supabase
+    .from('trade_violations')
+    .insert({
+      trade_id: violation.tradeId,
+      user_id: violation.userId,
+      rule_type: violation.ruleType,
+      violated_value: violation.violatedValue,
+      allowed_values: violation.allowedValues,
+      acknowledged: violation.acknowledged || false
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function acknowledgeTradeViolation(id: string) {
+  const { data, error } = await supabase
+    .from('trade_violations')
+    .update({ acknowledged: true })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+// Function to check trade against user rules
+export async function checkTradeAgainstRules(
+  trade: Partial<import('../types').Trade>, 
+  userId: string
+): Promise<{ isValid: boolean; violations: { ruleType: string; violatedValue: string; allowedValues: string[] }[] }> {
+  // Get user trading rules
+  const rules = await getUserTradingRules(userId);
+  const violations = [];
+
+  // Check each rule type
+  for (const rule of rules) {
+    let violatedValue = null;
+
+    switch(rule.ruleType) {
+      case 'pair':
+        if (trade.pair && !rule.allowedValues.includes(trade.pair)) {
+          violatedValue = trade.pair;
+        }
+        break;
+      case 'day':
+        if (trade.day && !rule.allowedValues.includes(trade.day)) {
+          violatedValue = trade.day;
+        }
+        break;
+      case 'direction':
+        if (trade.direction && !rule.allowedValues.includes(trade.direction)) {
+          violatedValue = trade.direction;
+        }
+        break;
+      case 'lot':
+        if (trade.lots !== undefined) {
+          // For lots, we expect allowedValues to contain min-max ranges like "0.01-0.5"
+          const isValid = rule.allowedValues.some((range: string) => {
+            const [min, max] = range.split('-').map(parseFloat);
+            return trade.lots! >= min && trade.lots! <= max;
+          });
+          
+          if (!isValid) {
+            violatedValue = trade.lots.toString();
+          }
+        }
+        break;
+    }
+
+    if (violatedValue) {
+      violations.push({
+        ruleType: rule.ruleType,
+        violatedValue,
+        allowedValues: rule.allowedValues
+      });
+    }
+  }
+
+  return {
+    isValid: violations.length === 0,
+    violations
+  };
 }

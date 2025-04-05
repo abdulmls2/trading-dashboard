@@ -49,3 +49,23 @@ export interface CellCustomization {
   textColor: string;
   userId?: string;
 }
+
+export interface UserTradingRule {
+  id?: string;
+  userId: string;
+  ruleType: 'pair' | 'day' | 'lot' | 'direction';
+  allowedValues: string[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface TradeViolation {
+  id?: string;
+  tradeId: string;
+  userId: string;
+  ruleType: 'pair' | 'day' | 'lot' | 'direction';
+  violatedValue: string;
+  allowedValues: string[];
+  acknowledged: boolean;
+  createdAt?: string;
+}

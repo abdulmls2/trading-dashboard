@@ -5,6 +5,7 @@ import Dashboard from './pages/Dashboard';
 import LogTrade from './pages/LogTrade';
 import Performance from './pages/Performance';
 import AdminDashboard from './pages/AdminDashboard';
+import Profile from './pages/Profile';
 import Auth from './pages/Auth';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -63,6 +64,14 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <AdminDashboard />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/profile"
+        element={
+          <PrivateRoute>
+            <Profile />
           </PrivateRoute>
         }
       />

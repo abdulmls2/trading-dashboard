@@ -44,7 +44,7 @@ export default function TradeHistoryTable({ trades, onSelectTrade }: Props) {
   
   const tableContainerRef = useRef<HTMLDivElement>(null);
   const tableWrapperRef = useRef<HTMLDivElement>(null);
-  const itemsPerPage = 10;
+  const itemsPerPage = isFullScreen ? 30 : 10;
 
   // Load saved customizations when component mounts
   useEffect(() => {
@@ -145,7 +145,12 @@ export default function TradeHistoryTable({ trades, onSelectTrade }: Props) {
 
   const handleZoomIn = () => setScale((prev) => prev + 0.1);
   const handleZoomOut = () => setScale((prev) => Math.max(prev - 0.1, 0.5));
-  const toggleFullScreen = () => setIsFullScreen(!isFullScreen);
+  const toggleFullScreen = () => {
+    setIsFullScreen(!isFullScreen);
+    if (!isFullScreen) {
+      setPage(1); // Reset to page 1 when entering fullscreen mode
+    }
+  };
   
   const toggleBackgroundCustomization = () => {
     setIsCustomizingBackground(!isCustomizingBackground);
@@ -492,6 +497,45 @@ export default function TradeHistoryTable({ trades, onSelectTrade }: Props) {
         </div>
         
         <div className="flex items-center space-x-2">
+          {isFullScreen && (
+            <div className="flex items-center mr-3">
+              <p className="text-sm text-gray-700 mr-4">
+                Page {page} of {totalPages}
+              </p>
+              {totalPages > 1 && (
+                <div className="flex">
+                  <button 
+                    onClick={() => setPage(1)} 
+                    disabled={page === 1}
+                    className={`relative inline-flex items-center px-2 py-1 border border-gray-300 bg-white text-sm ${page === 1 ? 'text-gray-300' : 'text-gray-600 hover:bg-gray-50'}`}
+                  >
+                    <ChevronsLeft className="h-4 w-4" />
+                  </button>
+                  <button 
+                    onClick={() => setPage(p => Math.max(1, p - 1))} 
+                    disabled={page === 1}
+                    className={`relative inline-flex items-center px-2 py-1 border border-gray-300 bg-white text-sm ${page === 1 ? 'text-gray-300' : 'text-gray-600 hover:bg-gray-50'}`}
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                  </button>
+                  <button 
+                    onClick={() => setPage(p => Math.min(totalPages, p + 1))} 
+                    disabled={page === totalPages}
+                    className={`relative inline-flex items-center px-2 py-1 border border-gray-300 bg-white text-sm ${page === totalPages ? 'text-gray-300' : 'text-gray-600 hover:bg-gray-50'}`}
+                  >
+                    <ArrowRight className="h-4 w-4" />
+                  </button>
+                  <button 
+                    onClick={() => setPage(totalPages)} 
+                    disabled={page === totalPages}
+                    className={`relative inline-flex items-center px-2 py-1 border border-gray-300 bg-white text-sm ${page === totalPages ? 'text-gray-300' : 'text-gray-600 hover:bg-gray-50'}`}
+                  >
+                    <ChevronsRight className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
           {tableWrapperRef.current && tableWrapperRef.current.scrollWidth > tableWrapperRef.current.clientWidth && (
             <div className="flex items-center mr-2">
               <button onClick={scrollLeft} className="p-1.5 text-gray-500 hover:bg-gray-100 rounded" aria-label="Scroll Left">
@@ -725,16 +769,14 @@ export default function TradeHistoryTable({ trades, onSelectTrade }: Props) {
 
       <div className="bg-gray-50 px-4 py-3 flex items-center justify-between border-t border-gray-200 rounded-b-lg">
         <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm text-gray-700">
-              Showing <span className="font-medium">{filteredTrades.length > 0 ? (page - 1) * itemsPerPage + 1 : 0}</span> to{' '}
-              <span className="font-medium">
-                {Math.min(page * itemsPerPage, filteredTrades.length)}
-              </span>{' '}
-              of <span className="font-medium">{filteredTrades.length}</span> results
-            </p>
-          </div>
-          {totalPages > 1 && (
+          {!isFullScreen && (
+            <div>
+              <p className="text-sm text-gray-700">
+                Page {page} of {totalPages}
+              </p>
+            </div>
+          )}
+          {totalPages > 1 && !isFullScreen && (
             <div>
               <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
                 {(() => {
@@ -786,20 +828,24 @@ export default function TradeHistoryTable({ trades, onSelectTrade }: Props) {
         </div>
         
         <div className="flex-1 flex justify-between sm:hidden">
-          <span className="text-sm text-gray-700">
-            Page {page} of {totalPages}
-          </span>
-          <select
-            value={page}
-            onChange={(e) => setPage(Number(e.target.value))}
-            className="ml-2 block w-24 rounded-md border-gray-300 py-2 pl-3 pr-10 text-base focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm"
-          >
-            {[...Array(totalPages)].map((_, i) => (
-              <option key={i + 1} value={i + 1}>
-                {i + 1}
-              </option>
-            ))}
-          </select>
+          {!isFullScreen && (
+            <>
+              <span className="text-sm text-gray-700">
+                Page {page} of {totalPages}
+              </span>
+              <select
+                value={page}
+                onChange={(e) => setPage(Number(e.target.value))}
+                className="ml-2 block w-24 rounded-md border-gray-300 py-2 pl-3 pr-10 text-base focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm"
+              >
+                {[...Array(totalPages)].map((_, i) => (
+                  <option key={i + 1} value={i + 1}>
+                    {i + 1}
+                  </option>
+                ))}
+              </select>
+            </>
+          )}
         </div>
       </div>
 

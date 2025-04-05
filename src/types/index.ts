@@ -1,5 +1,6 @@
 export interface Trade {
   id: string;
+  userId?: string;
   date: string;
   time: string;
   pair: string;

@@ -89,6 +89,11 @@ export async function deleteTrade(id: string) {
 }
 
 export async function getTrades() {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('User not authenticated');
+  
+  // Even for admins, we'll filter by their user_id 
+  // to ensure they only see their own trades in the trade history table
   const { data, error } = await supabase
     .from('trades')
     .select(`
@@ -119,6 +124,7 @@ export async function getTrades() {
       true_reward,
       true_tp_sl
     `)
+    .eq('user_id', user.id) // Always filter by current user's ID, regardless of role
     .order('date', { ascending: false });
 
   if (error) throw error;
@@ -344,4 +350,71 @@ export async function deleteCellCustomization(tradeId: string, columnKey: string
     
   if (error) throw error;
   return true;
+}
+
+// Admin function to get all trades across users
+export async function getAllTrades() {
+  const { data, error } = await supabase
+    .from('trades')
+    .select(`
+      id,
+      user_id,
+      date,
+      pair,
+      action,
+      entry_time,
+      exit_time,
+      lots,
+      pip_stop_loss,
+      pip_take_profit,
+      profit_loss,
+      pivots,
+      banking_level,
+      risk_ratio,
+      comments,
+      day,
+      direction,
+      order_type,
+      market_condition,
+      ma,
+      fib,
+      gap,
+      mindset,
+      trade_link,
+      true_reward,
+      true_tp_sl
+    `)
+    .order('date', { ascending: false });
+
+  if (error) throw error;
+
+  // Convert snake_case to camelCase
+  return data.map(trade => ({
+    id: trade.id,
+    userId: trade.user_id,
+    date: trade.date,
+    pair: trade.pair,
+    action: trade.action,
+    entryTime: trade.entry_time,
+    exitTime: trade.exit_time,
+    lots: trade.lots,
+    pipStopLoss: trade.pip_stop_loss,
+    pipTakeProfit: trade.pip_take_profit,
+    profitLoss: trade.profit_loss,
+    pivots: trade.pivots,
+    bankingLevel: trade.banking_level,
+    riskRatio: trade.risk_ratio,
+    comments: trade.comments,
+    day: trade.day,
+    direction: trade.direction,
+    orderType: trade.order_type,
+    marketCondition: trade.market_condition,
+    ma: trade.ma,
+    fib: trade.fib,
+    gap: trade.gap,
+    mindset: trade.mindset,
+    tradeLink: trade.trade_link,
+    trueReward: trade.true_reward,
+    true_tp_sl: trade.true_tp_sl
+  }));
 }

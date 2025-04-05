@@ -213,7 +213,6 @@ export default function AdminDashboard() {
     }
   };
 
-  // Function to refresh trades for a user
   const refreshUserTrades = async (userId: string) => {
     console.log("Refreshing trades for user:", userId);
     try {
@@ -268,13 +267,6 @@ export default function AdminDashboard() {
 
   const handleExitFullscreen = () => {
     setShowTradesModal(false);
-  };
-
-  // Create a refresh handler that specifically shows when it's triggered from the button
-  const handleRefreshTrades = () => {
-    console.log("==== REFRESH TRADES BUTTON CLICKED ====");
-    console.log("Selected user ID:", selectedUserId);
-    refreshUserTrades(selectedUserId);
   };
 
   // Render the user management table if not showing trades
@@ -374,7 +366,6 @@ export default function AdminDashboard() {
               targetUserId={selectedUserId}
               onExitFullscreen={handleExitFullscreen}
               journalOwnerName={selectedUserFullName}
-              onRefresh={handleRefreshTrades}
             />
           </div>
         </div>

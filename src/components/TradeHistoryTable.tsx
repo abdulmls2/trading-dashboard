@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Trade, CellCustomization as CellCustomizationType } from '../types';
-import { ZoomIn, ZoomOut, Maximize, Minimize, Filter, ArrowLeft, ArrowRight, ChevronsLeft, ChevronsRight, Palette, X, Type, RefreshCw } from 'lucide-react';
+import { ZoomIn, ZoomOut, Maximize, Minimize, Filter, ArrowLeft, ArrowRight, ChevronsLeft, ChevronsRight, Palette, X, Type } from 'lucide-react';
 import { loadCellCustomizations, saveCellCustomization, deleteCellCustomization } from '../lib/api';
 
 interface Props {
@@ -10,7 +10,6 @@ interface Props {
   targetUserId?: string;
   onExitFullscreen?: () => void;
   journalOwnerName?: string;
-  onRefresh?: () => void;
 }
 
 // Interface for cell customization - local state
@@ -37,7 +36,6 @@ export default function TradeHistoryTable({
   targetUserId,
   onExitFullscreen,
   journalOwnerName,
-  onRefresh,
 }: Props) {
   const [page, setPage] = React.useState(1);
   const [scale, setScale] = useState(1);
@@ -516,21 +514,6 @@ export default function TradeHistoryTable({
               <p className="text-sm text-gray-700 mr-4">
                 Page {page} of {totalPages}
               </p>
-              {onRefresh && (
-                <button
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    console.log("Refresh button clicked");
-                    if (onRefresh) onRefresh();
-                  }}
-                  className="p-1.5 text-gray-500 hover:bg-gray-100 rounded"
-                  title="Refresh trades"
-                  aria-label="Refresh trades"
-                >
-                  <RefreshCw className="h-5 w-5" />
-                </button>
-              )}
               {totalPages > 1 && (
                 <div className="flex">
                   <button 

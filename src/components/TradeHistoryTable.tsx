@@ -6,6 +6,8 @@ import { loadCellCustomizations, saveCellCustomization, deleteCellCustomization 
 interface Props {
   trades: Trade[];
   onSelectTrade: (trade: Trade) => void;
+  forcedFullScreen?: boolean;
+  targetUserId?: string;
 }
 
 // Interface for cell customization - local state
@@ -17,7 +19,7 @@ interface CellCustomization {
 }
 
 // Formatted customizations to include userId for admins
-interface FormattedCellCustomization {
+interface FormattedCellCustomization extends CellCustomizationType {
   tradeId: string;
   columnKey: string;
   backgroundColor: string;
@@ -25,10 +27,15 @@ interface FormattedCellCustomization {
   userId?: string;
 }
 
-export default function TradeHistoryTable({ trades, onSelectTrade }: Props) {
+export default function TradeHistoryTable({
+  trades,
+  onSelectTrade,
+  forcedFullScreen = false,
+  targetUserId,
+}: Props) {
   const [page, setPage] = React.useState(1);
   const [scale, setScale] = useState(1);
-  const [isFullScreen, setIsFullScreen] = useState(false);
+  const [isFullScreen, setIsFullScreen] = useState(forcedFullScreen);
   const [searchTerm, setSearchTerm] = useState('');
   const [hiddenColumns, setHiddenColumns] = useState<string[]>([]);
   const [showColumnSelector, setShowColumnSelector] = useState(false);
@@ -44,21 +51,29 @@ export default function TradeHistoryTable({ trades, onSelectTrade }: Props) {
   
   const tableContainerRef = useRef<HTMLDivElement>(null);
   const tableWrapperRef = useRef<HTMLDivElement>(null);
-  const itemsPerPage = isFullScreen ? 30 : 10;
+  const itemsPerPage = isFullScreen || forcedFullScreen ? 30 : 10;
 
-  // Load saved customizations when component mounts
+  // Update isFullScreen when forcedFullScreen prop changes
+  useEffect(() => {
+    setIsFullScreen(forcedFullScreen);
+  }, [forcedFullScreen]);
+
+  // Load saved customizations when component mounts or targetUserId changes
   useEffect(() => {
     const fetchCustomizations = async () => {
       setIsLoading(true);
       try {
-        const data = await loadCellCustomizations();
+        // Pass targetUserId to loadCellCustomizations if provided
+        const data = await loadCellCustomizations(targetUserId);
+        
         if (data && data.length > 0) {
-          // Check if user is admin based on returned data having different userIds
+          // Check if current user is admin (this is independent of targetUserId)
           const userIds = [...new Set(data.map((item: CellCustomizationType) => item.userId))];
-          setIsAdmin(userIds.length > 1 || (data[0].userId !== undefined && data.length > 0));
+          setIsAdmin(userIds.length > 1 || (data[0].userId !== undefined && data.length > 0 && !targetUserId));
           
           // Convert from API format to local format
-          const formattedCustomizations = data.map((item: CellCustomizationType) => ({
+          const formattedCustomizations: FormattedCellCustomization[] = data.map((item: CellCustomizationType) => ({
+            id: item.id,
             tradeId: item.tradeId,
             columnKey: item.columnKey,
             backgroundColor: item.backgroundColor || '',
@@ -66,16 +81,21 @@ export default function TradeHistoryTable({ trades, onSelectTrade }: Props) {
             userId: item.userId
           }));
           setCustomizations(formattedCustomizations);
+        } else {
+          // Reset customizations if no data or targetUserId changes to someone with no customizations
+          setCustomizations([]);
+          setIsAdmin(false); // Reset admin status if no data implies not admin or viewing specific user
         }
       } catch (error) {
         console.error('Failed to load customizations:', error);
+        setCustomizations([]); // Clear customizations on error
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchCustomizations();
-  }, []);
+  }, [targetUserId]);
 
   // Predefined colors for quick selection
   const predefinedColors = [
@@ -146,9 +166,12 @@ export default function TradeHistoryTable({ trades, onSelectTrade }: Props) {
   const handleZoomIn = () => setScale((prev) => prev + 0.1);
   const handleZoomOut = () => setScale((prev) => Math.max(prev - 0.1, 0.5));
   const toggleFullScreen = () => {
-    setIsFullScreen(!isFullScreen);
-    if (!isFullScreen) {
-      setPage(1); // Reset to page 1 when entering fullscreen mode
+    // Only toggle if not forced from parent
+    if (!forcedFullScreen) {
+      setIsFullScreen(!isFullScreen);
+      if (!isFullScreen) {
+        setPage(1); // Reset to page 1 when entering fullscreen mode
+      }
     }
   };
   
@@ -246,57 +269,66 @@ export default function TradeHistoryTable({ trades, onSelectTrade }: Props) {
   const applyColorToCell = async (color: string) => {
     if (!selectedCell) return;
     
+    // Find existing customization for the specific user (if targetUserId is provided)
     const existingIndex = customizations.findIndex(
-      c => c.tradeId === selectedCell.tradeId && c.columnKey === selectedCell.columnKey
+      c => c.tradeId === selectedCell.tradeId && 
+           c.columnKey === selectedCell.columnKey &&
+           (!targetUserId || c.userId === targetUserId) // Match targetUserId if provided
     );
     
     let updatedCustomizations: FormattedCellCustomization[];
-    let customization: FormattedCellCustomization;
-    
+    let customizationToSave: FormattedCellCustomization;
+    let originalCustomizationState = [...customizations]; // For reverting
+
     if (existingIndex >= 0) {
+      const existingCustomization = customizations[existingIndex];
       // Update existing customization
+      const updatedItem: FormattedCellCustomization = {
+        ...existingCustomization,
+        backgroundColor: selectedCell.mode === 'background' ? color : existingCustomization.backgroundColor,
+        textColor: selectedCell.mode === 'text' ? color : existingCustomization.textColor,
+      };
       updatedCustomizations = [...customizations];
-      if (selectedCell.mode === 'background') {
-        updatedCustomizations[existingIndex] = {
-          ...updatedCustomizations[existingIndex],
-          backgroundColor: color
-        };
-      } else {
-        updatedCustomizations[existingIndex] = {
-          ...updatedCustomizations[existingIndex],
-          textColor: color
-        };
-      }
-      customization = updatedCustomizations[existingIndex];
+      updatedCustomizations[existingIndex] = updatedItem;
+      customizationToSave = updatedItem;
     } else {
-      // Add new customization
-      customization = {
+      // Add new customization - id will be added after saving
+      const newCustomization: FormattedCellCustomization = {
         tradeId: selectedCell.tradeId,
         columnKey: selectedCell.columnKey,
         backgroundColor: selectedCell.mode === 'background' ? color : '',
         textColor: selectedCell.mode === 'text' ? color : '',
-        userId: selectedCell.mode === 'background' ? undefined : undefined
+        userId: targetUserId // Ensure userId is set if admin is modifying
+        // id is initially undefined
       };
-      updatedCustomizations = [...customizations, customization];
+      updatedCustomizations = [...customizations, newCustomization];
+      customizationToSave = newCustomization;
     }
     
     // Update local state immediately for responsive UI
     setCustomizations(updatedCustomizations);
     
-    // Save to database
+    // Save to database, passing targetUserId if admin is editing
     setIsSaving(true);
     try {
-      await saveCellCustomization(customization);
+      const savedData = await saveCellCustomization(customizationToSave, targetUserId);
+      
+      // Update the local state with the id and userId returned from the API
+      const finalCustomizations = updatedCustomizations.map(c => {
+        if (c.tradeId === savedData.tradeId && c.columnKey === savedData.columnKey && 
+            ((!c.userId && !savedData.userId) || c.userId === savedData.userId)) {
+          // Match found, update with saved data (especially the id)
+          return { ...c, id: savedData.id, userId: savedData.userId };
+        }
+        return c;
+      });
+      setCustomizations(finalCustomizations);
+      
     } catch (error) {
       console.error('Failed to save cell customization:', error);
       // Revert local state on error
-      if (existingIndex >= 0) {
-        setCustomizations(customizations);
-      } else {
-        setCustomizations(customizations.filter(
-          c => !(c.tradeId === selectedCell.tradeId && c.columnKey === selectedCell.columnKey)
-        ));
-      }
+      setCustomizations(originalCustomizationState);
+      // Optionally show an error message to the user
     } finally {
       setIsSaving(false);
     }
@@ -311,84 +343,56 @@ export default function TradeHistoryTable({ trades, onSelectTrade }: Props) {
   const removeCellCustomization = async () => {
     if (!selectedCell) return;
     
+    // Find existing customization for the specific user
     const existingIndex = customizations.findIndex(
-      c => c.tradeId === selectedCell.tradeId && c.columnKey === selectedCell.columnKey
+      c => c.tradeId === selectedCell.tradeId && 
+           c.columnKey === selectedCell.columnKey &&
+           (!targetUserId || c.userId === targetUserId)
     );
     
     if (existingIndex >= 0) {
-      const updatedCustomizations = [...customizations];
-      const customizationToUpdate = { ...updatedCustomizations[existingIndex] };
-      
+      const customizationToModify = { ...customizations[existingIndex] };
+      const originalCustomizationState = [...customizations]; // Keep original for revert
+
+      // Determine if we update (remove one color) or delete (remove both/last color)
+      let shouldDelete = false;
       if (selectedCell.mode === 'background') {
-        // Only remove background color
-        if (customizationToUpdate.textColor) {
-          customizationToUpdate.backgroundColor = '';
-          updatedCustomizations[existingIndex] = customizationToUpdate;
-          setCustomizations(updatedCustomizations);
-          
-          // Save to database
-          setIsSaving(true);
-          try {
-            await saveCellCustomization(customizationToUpdate);
-          } catch (error) {
-            console.error('Failed to update cell customization:', error);
-            setCustomizations(customizations); // Revert on error
-          } finally {
-            setIsSaving(false);
-          }
-        } else {
-          // Remove entire customization if no text color either
+        customizationToModify.backgroundColor = '';
+        if (!customizationToModify.textColor) {
+          shouldDelete = true;
+        }
+      } else { // selectedCell.mode === 'text'
+        customizationToModify.textColor = '';
+        if (!customizationToModify.backgroundColor) {
+          shouldDelete = true;
+        }
+      }
+
+      setIsSaving(true);
+      try {
+        if (shouldDelete) {
+          // Filter locally first for immediate UI feedback
           const filteredCustomizations = customizations.filter(
-            c => !(c.tradeId === selectedCell.tradeId && c.columnKey === selectedCell.columnKey)
+            (_, index) => index !== existingIndex
           );
           setCustomizations(filteredCustomizations);
-          
-          // Delete from database
-          setIsSaving(true);
-          try {
-            await deleteCellCustomization(selectedCell.tradeId, selectedCell.columnKey);
-          } catch (error) {
-            console.error('Failed to delete cell customization:', error);
-            setCustomizations(customizations); // Revert on error
-          } finally {
-            setIsSaving(false);
-          }
-        }
-      } else {
-        // Only remove text color
-        if (customizationToUpdate.backgroundColor) {
-          customizationToUpdate.textColor = '';
-          updatedCustomizations[existingIndex] = customizationToUpdate;
-          setCustomizations(updatedCustomizations);
-          
-          // Save to database
-          setIsSaving(true);
-          try {
-            await saveCellCustomization(customizationToUpdate);
-          } catch (error) {
-            console.error('Failed to update cell customization:', error);
-            setCustomizations(customizations); // Revert on error
-          } finally {
-            setIsSaving(false);
-          }
+          // Call delete API
+          await deleteCellCustomization(selectedCell.tradeId, selectedCell.columnKey, targetUserId);
         } else {
-          // Remove entire customization if no background color either
-          const filteredCustomizations = customizations.filter(
-            c => !(c.tradeId === selectedCell.tradeId && c.columnKey === selectedCell.columnKey)
-          );
-          setCustomizations(filteredCustomizations);
-          
-          // Delete from database
-          setIsSaving(true);
-          try {
-            await deleteCellCustomization(selectedCell.tradeId, selectedCell.columnKey);
-          } catch (error) {
-            console.error('Failed to delete cell customization:', error);
-            setCustomizations(customizations); // Revert on error
-          } finally {
-            setIsSaving(false);
-          }
+          // Update locally first
+          const updatedCustomizations = [...customizations];
+          updatedCustomizations[existingIndex] = customizationToModify;
+          setCustomizations(updatedCustomizations);
+          // Call save API with the modified customization (which now has one color removed)
+          await saveCellCustomization(customizationToModify, targetUserId);
         }
+      } catch (error) {
+        console.error(`Failed to ${shouldDelete ? 'delete' : 'update'} cell customization:`, error);
+        // Revert local state on error
+        setCustomizations(originalCustomizationState);
+        // Optionally show an error message to the user
+      } finally {
+        setIsSaving(false);
       }
     }
     
@@ -414,23 +418,17 @@ export default function TradeHistoryTable({ trades, onSelectTrade }: Props) {
     };
   }, [selectedCell]);
 
-  // Get cell customization - for admins, filter by current trade if other users' customizations exist
+  // Get cell customization - adjusted for targetUserId
   const getCellCustomization = (tradeId: string, columnKey: string) => {
-    // First try to find user's own customization
-    let customization = customizations.find(
-      c => c.tradeId === tradeId && c.columnKey === columnKey && (!c.userId || !isAdmin)
+    const customization = customizations.find(
+      c => c.tradeId === tradeId && 
+           c.columnKey === columnKey &&
+           (!targetUserId || c.userId === targetUserId) // Find customization for the specific user being viewed
     );
-    
-    if (!customization && isAdmin) {
-      // For admins, if no personal customization, show the first one found for this cell
-      customization = customizations.find(
-        c => c.tradeId === tradeId && c.columnKey === columnKey
-      );
-    }
     
     return {
       backgroundColor: customization?.backgroundColor || '',
-      textColor: customization?.textColor || ''
+      textColor: customization?.textColor || '',
     };
   };
 

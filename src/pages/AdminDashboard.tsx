@@ -3,20 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-
-interface Trade {
-  id: string;
-  date: string;
-  pair: string;
-  action: string;
-  entry_time: string;
-  exit_time: string;
-  lots: number;
-  pip_stop_loss: number;
-  pip_take_profit: number;
-  profit_loss: number;
-  comments: string;
-}
+import TradeHistoryTable from '../components/TradeHistoryTable';
+import { Trade as TradeType } from '../types';
 
 interface UserProfile {
   id: string;
@@ -28,15 +16,46 @@ interface UserProfile {
   created_at: string;
 }
 
+// Interface for database trade records
+interface DbTrade {
+  id: string;
+  date: string;
+  pair: string;
+  action: string;
+  entry_time: string;
+  exit_time: string;
+  lots: number;
+  pip_stop_loss: number;
+  pip_take_profit: number;
+  profit_loss: number;
+  comments: string;
+  user_id?: string;
+  day?: string;
+  direction?: string;
+  risk_ratio?: number;
+  order_type?: string;
+  market_condition?: string;
+  pivots?: string;
+  banking_level?: string;
+  ma?: string;
+  fib?: string;
+  gap?: string;
+  true_reward?: string;
+  true_tp_sl?: string;
+  mindset?: string;
+  trade_link?: string;
+}
+
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [profiles, setProfiles] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedUserTrades, setSelectedUserTrades] = useState<Trade[]>([]);
+  const [selectedUserTrades, setSelectedUserTrades] = useState<TradeType[]>([]);
   const [showTradesModal, setShowTradesModal] = useState(false);
   const [selectedUserEmail, setSelectedUserEmail] = useState('');
+  const [selectedUserId, setSelectedUserId] = useState('');
 
   useEffect(() => {
     async function checkAdminAndLoadUsers() {
@@ -102,6 +121,8 @@ export default function AdminDashboard() {
 
   const handleViewTrades = async (userId: string, email: string) => {
     try {
+      setSelectedUserId(userId);
+      
       const { data: trades, error: tradesError } = await supabase
         .from('trades')
         .select('*')
@@ -110,7 +131,38 @@ export default function AdminDashboard() {
 
       if (tradesError) throw tradesError;
 
-      setSelectedUserTrades(trades || []);
+      // Format trades from database format to TradeHistoryTable's expected format
+      const formattedTrades: TradeType[] = (trades || []).map((trade: DbTrade) => ({
+        id: trade.id,
+        userId: trade.user_id || '',
+        date: trade.date,
+        time: trade.entry_time, // Using entry_time as time
+        pair: trade.pair,
+        action: trade.action as 'Buy' | 'Sell',
+        entryTime: trade.entry_time,
+        exitTime: trade.exit_time,
+        lots: trade.lots,
+        pipStopLoss: trade.pip_stop_loss,
+        pipTakeProfit: trade.pip_take_profit,
+        profitLoss: trade.profit_loss,
+        pivots: trade.pivots || '',
+        bankingLevel: trade.banking_level || '',
+        riskRatio: trade.risk_ratio || 0,
+        comments: trade.comments,
+        day: trade.day || '',
+        direction: trade.direction || '',
+        orderType: trade.order_type || '',
+        marketCondition: trade.market_condition || '',
+        ma: trade.ma || '',
+        fib: trade.fib || '',
+        gap: trade.gap || '',
+        mindset: trade.mindset || '',
+        tradeLink: trade.trade_link || '',
+        trueReward: trade.true_reward || '',
+        true_tp_sl: trade.true_tp_sl || ''
+      }));
+
+      setSelectedUserTrades(formattedTrades);
       setSelectedUserEmail(email);
       setShowTradesModal(true);
     } catch (err) {
@@ -119,142 +171,114 @@ export default function AdminDashboard() {
     }
   };
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <Header />
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div className="px-4 sm:px-0">
-          <h1 className="text-2xl font-semibold text-gray-900 mb-6">
-            User Management
-          </h1>
+  // Handler for when a trade is selected in the table
+  const handleSelectTrade = (trade: TradeType) => {
+    // Admin might want to view details or do something with selected trade
+    console.log('Selected trade:', trade);
+  };
 
-          <div className="bg-white shadow overflow-hidden sm:rounded-lg">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Email
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Full Name
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Username
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Joined
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {profiles.map((profile) => (
-                  <tr key={profile.id}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {profile.email}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {profile.full_name || '-'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {profile.username || '-'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(profile.created_at).toLocaleDateString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      <button
-                        onClick={() => handleViewTrades(profile.user_id, profile.email)}
-                        className="text-indigo-600 hover:text-indigo-900 font-medium"
-                      >
-                        View Trades
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-                {profiles.length === 0 && (
+  // Render the user management table if not showing trades
+  if (!showTradesModal) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Header />
+        <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+          <div className="px-4 sm:px-0">
+            <h1 className="text-2xl font-semibold text-gray-900 mb-6">
+              User Management
+            </h1>
+
+            <div className="bg-white shadow overflow-hidden sm:rounded-lg">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
                   <tr>
-                    <td colSpan={4} className="px-6 py-4 text-center text-sm text-gray-500">
-                      No users found
-                    </td>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Email
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Full Name
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Username
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Joined
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
                   </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Trades Modal */}
-          {showTradesModal && (
-            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4">
-              <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[80vh] overflow-hidden">
-                <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-                  <h2 className="text-xl font-semibold text-gray-900">
-                    Trades for {selectedUserEmail}
-                  </h2>
-                  <button
-                    onClick={() => setShowTradesModal(false)}
-                    className="text-gray-400 hover:text-gray-500"
-                  >
-                    ✕
-                  </button>
-                </div>
-                <div className="px-6 py-4 overflow-auto max-h-[calc(80vh-8rem)]">
-                  {selectedUserTrades.length > 0 ? (
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pair</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Action</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Entry Time</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Exit Time</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">P/L</th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {selectedUserTrades.map((trade) => (
-                          <tr key={trade.id}>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {new Date(trade.date).toLocaleDateString()}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trade.pair}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm">
-                              <span
-                                className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                  trade.action === 'Buy'
-                                    ? 'bg-green-100 text-green-800'
-                                    : 'bg-red-100 text-red-800'
-                                }`}
-                              >
-                                {trade.action}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trade.entry_time}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trade.exit_time}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm">
-                              <span
-                                className={`font-medium ${
-                                  trade.profit_loss >= 0 ? 'text-green-600' : 'text-red-600'
-                                }`}
-                              >
-                                {trade.profit_loss >= 0 ? '+' : ''}{trade.profit_loss}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  ) : (
-                    <p className="text-center text-gray-500 py-4">No trades found for this user</p>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {profiles.map((profile) => (
+                    <tr key={profile.id}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {profile.email}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {profile.full_name || '-'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {profile.username || '-'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {new Date(profile.created_at).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <button
+                          onClick={() => handleViewTrades(profile.user_id, profile.email)}
+                          className="text-indigo-600 hover:text-indigo-900 font-medium"
+                        >
+                          View Trades
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {profiles.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-4 text-center text-sm text-gray-500">
+                        No users found
+                      </td>
+                    </tr>
                   )}
-                </div>
-              </div>
+                </tbody>
+              </table>
             </div>
-          )}
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  // Render the trade history in fullscreen mode
+  return (
+    <div className="min-h-screen flex flex-col">
+      <Header />
+      <div className="fixed top-16 left-0 right-0 z-40 bg-white px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+        <h2 className="text-xl font-semibold text-gray-900">
+          Viewing Trades for {selectedUserEmail}
+        </h2>
+        <button
+          onClick={() => setShowTradesModal(false)}
+          className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+        >
+          Back to User Management
+        </button>
+      </div>
+      
+      <div className="mt-24 flex-grow px-4 pb-4">
+        <div className="TradeHistoryTableWrapper h-full">
+          {/* Set a large min-height to ensure the table fills the available space */}
+          <div style={{ minHeight: 'calc(100vh - 160px)' }}>
+            <TradeHistoryTable 
+              trades={selectedUserTrades} 
+              onSelectTrade={handleSelectTrade}
+              forcedFullScreen={true}
+              targetUserId={selectedUserId}
+            />
+          </div>
         </div>
-      </main>
+      </div>
     </div>
   );
 }

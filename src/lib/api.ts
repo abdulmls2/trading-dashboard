@@ -250,7 +250,7 @@ export interface CellCustomization {
   textColor: string;
 }
 
-export async function loadCellCustomizations() {
+export async function loadCellCustomizations(userIdToLoad?: string) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return [];
   
@@ -260,14 +260,21 @@ export async function loadCellCustomizations() {
     .eq('user_id', user.id)
     .single();
   
+  const isAdmin = userData?.role === 'admin';
+  
   let query = supabase
     .from('cell_customizations')
     .select('*');
   
-  // If not admin, filter by user_id
-  if (!userData?.role || userData.role !== 'admin') {
+  // If admin is loading specific user's customizations
+  if (isAdmin && userIdToLoad) {
+    query = query.eq('user_id', userIdToLoad);
+  }
+  // If not admin, filter by own user_id
+  else if (!isAdmin) {
     query = query.eq('user_id', user.id);
   }
+  // If admin loading all customizations (for admin settings page, perhaps), no filter needed
   
   const { data, error } = await query;
     
@@ -283,19 +290,28 @@ export async function loadCellCustomizations() {
     columnKey: item.column_key,
     backgroundColor: item.background_color || '',
     textColor: item.text_color || '',
-    userId: item.user_id // Include userId for admins to know whose customization it is
+    userId: item.user_id // Include userId
   }));
 }
 
-export async function saveCellCustomization(customization: CellCustomization) {
+export async function saveCellCustomization(customization: CellCustomization, targetUserId?: string) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('User not authenticated');
   
-  // Check if customization already exists
+  const { data: userData } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('user_id', user.id)
+    .single();
+    
+  const isAdmin = userData?.role === 'admin';
+  const userIdToSave = (isAdmin && targetUserId) ? targetUserId : user.id;
+
+  // Check if customization already exists for the target user
   const { data: existing } = await supabase
     .from('cell_customizations')
     .select('id')
-    .eq('user_id', user.id)
+    .eq('user_id', userIdToSave)
     .eq('trade_id', customization.tradeId)
     .eq('column_key', customization.columnKey)
     .maybeSingle();
@@ -311,13 +327,13 @@ export async function saveCellCustomization(customization: CellCustomization) {
       .eq('id', existing.id);
       
     if (error) throw error;
-    return { ...customization, id: existing.id };
+    return { ...customization, id: existing.id, userId: userIdToSave };
   } else {
     // Insert new customization
     const { data, error } = await supabase
       .from('cell_customizations')
       .insert({
-        user_id: user.id,
+        user_id: userIdToSave,
         trade_id: customization.tradeId,
         column_key: customization.columnKey,
         background_color: customization.backgroundColor,
@@ -332,19 +348,29 @@ export async function saveCellCustomization(customization: CellCustomization) {
       tradeId: data.trade_id,
       columnKey: data.column_key,
       backgroundColor: data.background_color || '',
-      textColor: data.text_color || ''
+      textColor: data.text_color || '',
+      userId: data.user_id // Return the user ID it was saved for
     };
   }
 }
 
-export async function deleteCellCustomization(tradeId: string, columnKey: string) {
+export async function deleteCellCustomization(tradeId: string, columnKey: string, targetUserId?: string) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('User not authenticated');
-  
+
+  const { data: userData } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('user_id', user.id)
+    .single();
+    
+  const isAdmin = userData?.role === 'admin';
+  const userIdToDelete = (isAdmin && targetUserId) ? targetUserId : user.id;
+
   const { error } = await supabase
     .from('cell_customizations')
     .delete()
-    .eq('user_id', user.id)
+    .eq('user_id', userIdToDelete)
     .eq('trade_id', tradeId)
     .eq('column_key', columnKey);
     

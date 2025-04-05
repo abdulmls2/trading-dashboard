@@ -8,21 +8,23 @@ export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
   const { user, signOut } = useAuth();
   const [isAdmin, setIsAdmin] = useState(false);
+  const [userFullName, setUserFullName] = useState('');
 
   useEffect(() => {
-    async function checkAdminStatus() {
+    async function fetchUserData() {
       if (!user) return;
 
       const { data } = await supabase
         .from('profiles')
-        .select('role')
+        .select('role, full_name')
         .eq('user_id', user.id)
         .single();
 
       setIsAdmin(data?.role === 'admin');
+      setUserFullName(data?.full_name || '');
     }
 
-    checkAdminStatus();
+    fetchUserData();
   }, [user]);
 
   const handleLogout = async () => {
@@ -72,6 +74,11 @@ export default function Header() {
           </div>
           
           <div className="hidden sm:ml-6 sm:flex sm:items-center">
+            {user && (
+              <div className="mr-4 text-sm font-medium text-gray-700">
+                Welcome {userFullName}
+              </div>
+            )}
             <div className="relative ml-3">
               <button
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -104,6 +111,11 @@ export default function Header() {
           </div>
 
           <div className="flex items-center sm:hidden">
+            {user && (
+              <div className="mr-2 text-sm font-medium text-gray-700">
+                Welcome {userFullName}
+              </div>
+            )}
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
               className="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500"

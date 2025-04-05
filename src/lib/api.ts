@@ -1,5 +1,7 @@
 import { supabase } from './supabase';
 import { Trade, PerformanceMetrics } from '../types';
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 
 export async function createTrade(trade: Omit<Trade, 'id' | 'time'>) {
   const { data: { user } } = await supabase.auth.getUser();
@@ -574,6 +576,7 @@ export async function checkTradeAgainstRules(
 ): Promise<{ isValid: boolean; violations: { ruleType: string; violatedValue: string; allowedValues: string[] }[] }> {
   // Get user trading rules
   const rules = await getUserTradingRules(userId);
+  console.log('All rules to check:', rules);
   const violations = [];
 
   // Check each rule type
@@ -591,11 +594,6 @@ export async function checkTradeAgainstRules(
           violatedValue = trade.day;
         }
         break;
-      case 'direction':
-        if (trade.direction && !rule.allowedValues.includes(trade.direction)) {
-          violatedValue = trade.direction;
-        }
-        break;
       case 'lot':
         if (trade.lots !== undefined) {
           // For lots, we expect allowedValues to contain min-max ranges like "0.01-0.5"
@@ -607,6 +605,23 @@ export async function checkTradeAgainstRules(
           if (!isValid) {
             violatedValue = trade.lots.toString();
           }
+        }
+        break;
+      case 'action_direction':
+        // Check if the trade is going against the trend (Buy when Bearish or Sell when Bullish)
+        console.log('Checking action_direction rule:', {
+          allowedValues: rule.allowedValues,
+          action: trade.action,
+          direction: trade.direction
+        });
+        
+        if (rule.allowedValues.includes('No') && 
+            trade.action && trade.direction && 
+            ((trade.action === 'Buy' && trade.direction === 'Bearish') || 
+             (trade.action === 'Sell' && trade.direction === 'Bullish'))) {
+          
+          console.log('Violation detected: going against trend');
+          violatedValue = `${trade.action} when ${trade.direction}`;
         }
         break;
     }

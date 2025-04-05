@@ -10,8 +10,8 @@ import {
 const ruleTypeOptions = [
   { value: 'pair', label: 'Currency Pairs' },
   { value: 'day', label: 'Trading Days' },
-  { value: 'direction', label: 'Direction' },
-  { value: 'lot', label: 'Lot Size Range' }
+  { value: 'lot', label: 'Lot Size Range' },
+  { value: 'action_direction', label: 'Against Trend' }
 ];
 
 interface Props {
@@ -28,7 +28,7 @@ export default function UserTradingRulesForm({ userId, userEmail, onClose, onRul
   const [showAddForm, setShowAddForm] = useState(false);
   
   // States for new rule form
-  const [newRuleType, setNewRuleType] = useState<'pair' | 'day' | 'lot' | 'direction'>('pair');
+  const [newRuleType, setNewRuleType] = useState<'pair' | 'day' | 'lot' | 'action_direction'>('pair');
   const [newAllowedValues, setNewAllowedValues] = useState<string[]>([]);
   const [newValueInput, setNewValueInput] = useState('');
   
@@ -36,8 +36,8 @@ export default function UserTradingRulesForm({ userId, userEmail, onClose, onRul
   const presets = {
     pair: ['GBP/USD', 'EUR/USD', 'USD/JPY', 'USD/CHF', 'AUD/USD', 'USD/CAD', 'NZD/USD'],
     day: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
-    direction: ['Bullish', 'Bearish'],
-    lot: ['0.01-0.1', '0.1-0.5', '0.5-1.0', '1.0-5.0']
+    lot: ['0.01-0.1', '0.1-0.5', '0.5-1.0', '1.0-5.0'],
+    action_direction: ['No']
   };
 
   // Load existing rules

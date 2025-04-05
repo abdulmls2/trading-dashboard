@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Trade } from '../types';
-import { createTrade, updateTrade, checkTradeAgainstRules, createTradeViolation } from '../lib/api';
+import { createTrade, updateTrade, checkTradeAgainstRules, createTradeViolation, getUserTradingRules } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 
 // Make the Trade interface work with both create and update operations
@@ -109,6 +109,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
   }>>([]);
   const [showViolationWarning, setShowViolationWarning] = useState(false);
   const [acknowledgedViolations, setAcknowledgedViolations] = useState(false);
+  const [hasAgainstTrendRule, setHasAgainstTrendRule] = useState(false);
 
   // Update day when date changes, but only if the user hasn't manually changed it
   useEffect(() => {
@@ -133,11 +134,14 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
         const partialTrade = {
           pair: formData.pair,
           day: formData.day,
-          direction: formData.direction,
-          lots: formData.lots
+          lots: formData.lots,
+          action: formData.action,
+          direction: formData.direction
         };
 
+        console.log('Checking trade against rules:', partialTrade);
         const result = await checkTradeAgainstRules(partialTrade, user.id);
+        console.log('Rule check result:', result);
         
         if (!result.isValid) {
           setRuleViolations(result.violations);
@@ -156,7 +160,32 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
     if (!readOnly) {
       checkRules();
     }
-  }, [formData.pair, formData.day, formData.direction, formData.lots, user, readOnly, acknowledgedViolations]);
+  }, [formData.pair, formData.day, formData.lots, formData.action, formData.direction, user, readOnly, acknowledgedViolations]);
+
+  // Check if user has the against trend rule
+  useEffect(() => {
+    const checkAgainstTrendRule = async () => {
+      if (!user) return;
+      
+      try {
+        console.log('Checking against trend rule for user:', user.id);
+        const rules = await getUserTradingRules(user.id);
+        console.log('User trading rules:', rules);
+        
+        const againstTrendRule = rules.find(r => r.ruleType === 'action_direction');
+        console.log('Found action_direction rule:', againstTrendRule);
+        
+        const ruleStatus = !!againstTrendRule && againstTrendRule.allowedValues.includes('No');
+        console.log('Has against trend rule set to No:', ruleStatus);
+        
+        setHasAgainstTrendRule(ruleStatus);
+      } catch (err) {
+        console.error('Error checking against trend rule:', err);
+      }
+    };
+    
+    checkAgainstTrendRule();
+  }, [user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -294,7 +323,13 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
                 <ul className="list-disc pl-5 space-y-1">
                   {ruleViolations.map((violation, index) => (
                     <li key={index}>
-                      <strong>{violation.ruleType.charAt(0).toUpperCase() + violation.ruleType.slice(1)}:</strong> {violation.violatedValue} is not in the allowed values: {violation.allowedValues.join(', ')}
+                      {violation.ruleType === 'action_direction' ? (
+                        <strong>You are going against the trend, not allowed</strong>
+                      ) : (
+                        <>
+                          <strong>{violation.ruleType.charAt(0).toUpperCase() + violation.ruleType.slice(1)}:</strong> {violation.violatedValue} is not in the allowed values: {violation.allowedValues.join(', ')}
+                        </>
+                      )}
                     </li>
                   ))}
                 </ul>
@@ -303,7 +338,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
                 <button
                   type="button"
                   onClick={handleAcknowledgeViolations}
-                  className="text-sm font-medium text-yellow-800 hover:text-yellow-600 focus:outline-none"
+                  className="text-sm font-medium text-red-700 hover:text-red-500 focus:outline-none"
                 >
                   I understand and want to continue
                 </button>

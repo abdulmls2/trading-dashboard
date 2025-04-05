@@ -53,7 +53,7 @@ export interface CellCustomization {
 export interface UserTradingRule {
   id?: string;
   userId: string;
-  ruleType: 'pair' | 'day' | 'lot' | 'direction';
+  ruleType: 'pair' | 'day' | 'lot' | 'action_direction';
   allowedValues: string[];
   createdAt?: string;
   updatedAt?: string;
@@ -63,7 +63,7 @@ export interface TradeViolation {
   id?: string;
   tradeId: string;
   userId: string;
-  ruleType: 'pair' | 'day' | 'lot' | 'direction';
+  ruleType: 'pair' | 'day' | 'lot' | 'action_direction';
   violatedValue: string;
   allowedValues: string[];
   acknowledged: boolean;

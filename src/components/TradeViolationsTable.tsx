@@ -64,8 +64,8 @@ export default function TradeViolationsTable({ userId, onSelectTrade, className 
     switch (type) {
       case 'pair': return 'Currency Pair';
       case 'day': return 'Trading Day';
-      case 'direction': return 'Direction';
       case 'lot': return 'Lot Size';
+      case 'action_direction': return 'Against Trend';
       default: return type;
     }
   };

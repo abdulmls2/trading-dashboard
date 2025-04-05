@@ -22,11 +22,22 @@ const months = [
   'July', 'August', 'September', 'October', 'November', 'December'
 ];
 
+// Function to get available years (current year and 5 years back)
+const getAvailableYears = () => {
+  const currentYear = new Date().getFullYear();
+  const years = [];
+  for (let i = 0; i < 6; i++) {
+    years.push(currentYear - i);
+  }
+  return years;
+};
+
 export default function Performance() {
   const [showTradeForm, setShowTradeForm] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const [selectedTrade, setSelectedTrade] = useState<Trade | null>(null);
-  const [selectedMonth, setSelectedMonth] = useState('');
+  const [selectedMonth, setSelectedMonth] = useState(months[new Date().getMonth()]);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
   const [trades, setTrades] = useState<Trade[]>([]);
   const [filteredTrades, setFilteredTrades] = useState<Trade[]>([]);
   const [loading, setLoading] = useState(true);
@@ -89,6 +100,36 @@ export default function Performance() {
     setFilteredTrades(filtered);
   };
 
+  // Function to filter trades by selected month and year
+  const filterTrades = () => {
+    if (selectedMonth === "All Trades" && (!selectedYear || selectedYear === "All Years")) {
+      setFilteredTrades(trades); // Show all trades
+      return;
+    }
+    
+    let filtered = [...trades];
+    
+    // Filter by year if selected
+    if (selectedYear && selectedYear !== "All Years") {
+      const year = parseInt(selectedYear);
+      filtered = filtered.filter(trade => {
+        const tradeDate = new Date(trade.date);
+        return tradeDate.getFullYear() === year;
+      });
+    }
+    
+    // Further filter by month if selected
+    if (selectedMonth && selectedMonth !== "All Trades") {
+      const monthIndex = months.indexOf(selectedMonth);
+      filtered = filtered.filter(trade => {
+        const tradeDate = new Date(trade.date);
+        return tradeDate.getMonth() === monthIndex;
+      });
+    }
+    
+    setFilteredTrades(filtered);
+  };
+
   // Update the useEffect to set filtered trades initially
   useEffect(() => {
     async function loadTrades() {
@@ -118,7 +159,14 @@ export default function Performance() {
   const handleMonthChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selected = e.target.value;
     setSelectedMonth(selected);
-    filterTradesByMonth(selected);
+    filterTrades();
+  };
+
+  // Add year selection handler
+  const handleYearChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selected = e.target.value;
+    setSelectedYear(selected);
+    filterTrades();
   };
 
   const handleSelectTrade = (trade: Trade) => {
@@ -151,7 +199,7 @@ export default function Performance() {
       setTrades(formattedTrades);
       // Re-apply any month filtering that was active
       if (selectedMonth) {
-        filterTradesByMonth(selectedMonth);
+        filterTrades();
       } else {
         setFilteredTrades(formattedTrades);
       }
@@ -159,6 +207,13 @@ export default function Performance() {
       setError(err instanceof Error ? err.message : 'Failed to refresh trades');
     }
   };
+
+  // Update useEffect for filterTrades when dependencies change
+  useEffect(() => {
+    if (trades.length > 0) {
+      filterTrades();
+    }
+  }, [selectedMonth, selectedYear, trades]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -171,11 +226,20 @@ export default function Performance() {
             
             <div className="flex items-center space-x-4">
               <select
+                value={selectedYear}
+                onChange={handleYearChange}
+                className="border border-gray-300 rounded-md shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500 p-2"
+              >
+                <option value="All Years">All Years</option>
+                {getAvailableYears().map((year) => (
+                  <option key={year} value={year}>{year}</option>
+                ))}
+              </select>
+              <select
                 value={selectedMonth}
                 onChange={handleMonthChange}
                 className="border border-gray-300 rounded-md shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500 p-2"
               >
-                <option value="">Select Month</option>
                 <option value="All Trades">All Trades</option>
                 {months.map((month) => (
                   <option key={month} value={month}>{month}</option>

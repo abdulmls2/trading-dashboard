@@ -142,7 +142,7 @@ export default function TradeHistoryTable({
     };
 
     fetchViolations();
-  }, [targetUserId]);
+  }, [targetUserId, trades]);
 
   // Check if a trade has violations
   const hasViolations = (tradeId: string) => {

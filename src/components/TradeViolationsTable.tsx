@@ -17,15 +17,21 @@ interface ViolationData {
     action: string;
     profitLoss: number;
   } | null;
+  user?: {
+    email: string;
+    fullName: string | null;
+    username: string | null;
+  } | null;
 }
 
 interface Props {
   userId?: string;
   onSelectTrade?: (tradeId: string) => void;
   className?: string;
+  showAll?: boolean;
 }
 
-export default function TradeViolationsTable({ userId, onSelectTrade, className = '' }: Props) {
+export default function TradeViolationsTable({ userId, onSelectTrade, className = '', showAll = false }: Props) {
   const [violations, setViolations] = useState<ViolationData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -34,7 +40,7 @@ export default function TradeViolationsTable({ userId, onSelectTrade, className 
     async function loadViolations() {
       try {
         setLoading(true);
-        const data = await getTradeViolations(userId);
+        const data = await getTradeViolations(userId, showAll);
         setViolations(data);
       } catch (err) {
         console.error('Error loading violations:', err);
@@ -45,7 +51,7 @@ export default function TradeViolationsTable({ userId, onSelectTrade, className 
     }
 
     loadViolations();
-  }, [userId]);
+  }, [userId, showAll]);
 
   const handleAcknowledge = async (id: string) => {
     try {
@@ -99,6 +105,11 @@ export default function TradeViolationsTable({ userId, onSelectTrade, className 
       <table className="min-w-full divide-y divide-gray-200">
         <thead className="bg-gray-50">
           <tr>
+            {showAll && (
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                User
+              </th>
+            )}
             <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Date
             </th>
@@ -125,6 +136,11 @@ export default function TradeViolationsTable({ userId, onSelectTrade, className 
         <tbody className="bg-white divide-y divide-gray-200">
           {violations.map((violation) => (
             <tr key={violation.id}>
+              {showAll && (
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  {violation.user?.fullName || violation.user?.email || 'Unknown User'}
+                </td>
+              )}
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                 {violation.trade?.date ? new Date(violation.trade.date).toLocaleDateString() : 'N/A'}
               </td>

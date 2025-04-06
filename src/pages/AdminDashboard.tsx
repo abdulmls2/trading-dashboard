@@ -319,14 +319,69 @@ export default function AdminDashboard() {
   };
 
   // Handle selecting a trade from violations table
-  const handleSelectViolationTrade = (tradeId: string) => {
+  const handleSelectViolationTrade = async (tradeId: string) => {
+    // First check if the trade is already in the current selection
     const trade = selectedUserTrades.find(t => t.id === tradeId);
+    
     if (trade) {
       setSelectedTrade(trade);
       setShowTradeForm(true);
     } else {
-      // If trade is not in the current selection, you may need to fetch it
-      console.log('Trade not found in current selection, need to fetch:', tradeId);
+      // Trade is not in the current selection, need to fetch it
+      try {
+        // Fetch the specific trade from the database
+        const { data: tradeData, error } = await supabase
+          .from('trades')
+          .select('*, profiles:user_id(email, full_name)')
+          .eq('id', tradeId)
+          .single();
+        
+        if (error) throw error;
+        
+        if (tradeData) {
+          // Set the selected user info for showing in the modal
+          setSelectedUserId(tradeData.user_id);
+          setSelectedUserEmail(tradeData.profiles?.email || '');
+          setSelectedUserFullName(tradeData.profiles?.full_name || tradeData.profiles?.email || 'User');
+          
+          // Format the trade for the form
+          const formattedTrade: TradeType = {
+            id: tradeData.id,
+            userId: tradeData.user_id,
+            date: tradeData.date,
+            time: tradeData.entry_time,
+            pair: tradeData.pair,
+            action: tradeData.action as 'Buy' | 'Sell',
+            entryTime: tradeData.entry_time,
+            exitTime: tradeData.exit_time,
+            lots: tradeData.lots,
+            pipStopLoss: tradeData.pip_stop_loss,
+            pipTakeProfit: tradeData.pip_take_profit,
+            profitLoss: tradeData.profit_loss,
+            pivots: tradeData.pivots || '',
+            bankingLevel: tradeData.banking_level || '',
+            riskRatio: tradeData.risk_ratio || 0,
+            comments: tradeData.comments,
+            day: tradeData.day || '',
+            direction: tradeData.direction || '',
+            orderType: tradeData.order_type || '',
+            marketCondition: tradeData.market_condition || '',
+            ma: tradeData.ma || '',
+            fib: tradeData.fib || '',
+            gap: tradeData.gap || '',
+            mindset: tradeData.mindset || '',
+            tradeLink: tradeData.trade_link || '',
+            trueReward: tradeData.true_reward || '',
+            true_tp_sl: tradeData.true_tp_sl || ''
+          };
+          
+          setSelectedTrade(formattedTrade);
+          setShowTradeForm(true);
+        }
+      } catch (err) {
+        console.error('Error fetching trade:', err);
+        setError('Failed to fetch trade details');
+      }
     }
   };
 
@@ -470,6 +525,7 @@ export default function AdminDashboard() {
                 <TradeViolationsTable 
                   onSelectTrade={handleSelectViolationTrade} 
                   className="mt-4"
+                  showAll={true}
                 />
               </div>
             )}

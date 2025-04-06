@@ -501,10 +501,11 @@ export async function deleteTradingRule(id: string) {
 }
 
 // Trade Violations Management
-export async function getTradeViolations(userId?: string) {
+export async function getTradeViolations(userId?: string, showAll?: boolean) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('User not authenticated');
 
+  // First, query just the violations and trades
   const query = supabase
     .from('trade_violations')
     .select(`
@@ -512,13 +513,48 @@ export async function getTradeViolations(userId?: string) {
       trades(*)
     `);
 
-  // If a userId is specified, filter by it (for admin viewing)
+  // If showAll is true, don't filter by userId (for admin view of all violations)
+  // If a userId is specified, filter by it (for admin viewing a specific user)
   // Otherwise, use the current user's ID
-  const finalQuery = userId ? query.eq('user_id', userId) : query.eq('user_id', user.id);
+  let finalQuery;
+  if (showAll) {
+    finalQuery = query;
+  } else {
+    finalQuery = userId ? query.eq('user_id', userId) : query.eq('user_id', user.id);
+  }
   
   const { data, error } = await finalQuery.order('created_at', { ascending: false });
 
   if (error) throw error;
+  
+  // If no data, return empty array
+  if (!data || data.length === 0) return [];
+  
+  // Extract unique user IDs to get their profiles
+  const userIds = [...new Set(data.map(v => v.user_id))];
+  
+  // Get profile information for these users
+  const { data: profilesData } = await supabase
+    .from('profiles')
+    .select('user_id, email, full_name, username')
+    .in('user_id', userIds);
+    
+  // Create a mapping of user_id to profile
+  interface ProfileInfo {
+    email: string;
+    fullName: string | null;
+    username: string | null;
+  }
+  
+  const profileMap: Record<string, ProfileInfo> = {};
+  
+  (profilesData || []).forEach(profile => {
+    profileMap[profile.user_id] = {
+      email: profile.email,
+      fullName: profile.full_name,
+      username: profile.username
+    };
+  });
 
   return data.map(violation => ({
     id: violation.id,
@@ -535,7 +571,8 @@ export async function getTradeViolations(userId?: string) {
       pair: violation.trades.pair,
       action: violation.trades.action,
       profitLoss: violation.trades.profit_loss
-    } : null
+    } : null,
+    user: profileMap[violation.user_id] || null
   }));
 }
 

@@ -126,9 +126,6 @@ export default function TradeViolationsTable({ userId, onSelectTrade, className 
               Status
             </th>
             <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              P/L
-            </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Actions
             </th>
           </tr>
@@ -168,9 +165,6 @@ export default function TradeViolationsTable({ userId, onSelectTrade, className 
                     Pending
                   </span>
                 )}
-              </td>
-              <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${violation.trade?.profitLoss && violation.trade.profitLoss > 0 ? 'text-green-600' : violation.trade?.profitLoss && violation.trade.profitLoss < 0 ? 'text-red-600' : 'text-gray-900'}`}>
-                {violation.trade?.profitLoss ? violation.trade.profitLoss.toFixed(2) : 'N/A'}
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                 <div className="flex space-x-2">

@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Trade, CellCustomization as CellCustomizationType } from '../types';
-import { ZoomIn, ZoomOut, Maximize, Minimize, Filter, ArrowLeft, ArrowRight, ChevronsLeft, ChevronsRight, Palette, X, Type } from 'lucide-react';
-import { loadCellCustomizations, saveCellCustomization, deleteCellCustomization } from '../lib/api';
+import { Trade, CellCustomization as CellCustomizationType, TradeViolation } from '../types';
+import { ZoomIn, ZoomOut, Maximize, Minimize, Filter, ArrowLeft, ArrowRight, ChevronsLeft, ChevronsRight, Palette, X, Type, AlertTriangle } from 'lucide-react';
+import { loadCellCustomizations, saveCellCustomization, deleteCellCustomization, getTradeViolations } from '../lib/api';
 
 interface Props {
   trades: Trade[];
@@ -29,6 +29,16 @@ interface FormattedCellCustomization extends CellCustomizationType {
   userId?: string;
 }
 
+// Interface for violations data
+interface ViolationData {
+  id: string;
+  tradeId: string;
+  ruleType: string;
+  violatedValue: string;
+  allowedValues: string[];
+  acknowledged: boolean;
+}
+
 export default function TradeHistoryTable({
   trades,
   onSelectTrade,
@@ -52,6 +62,8 @@ export default function TradeHistoryTable({
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [violations, setViolations] = useState<ViolationData[]>([]);
+  const [isLoadingViolations, setIsLoadingViolations] = useState(false);
   
   const tableContainerRef = useRef<HTMLDivElement>(null);
   const tableWrapperRef = useRef<HTMLDivElement>(null);
@@ -100,6 +112,72 @@ export default function TradeHistoryTable({
 
     fetchCustomizations();
   }, [targetUserId]);
+
+  // Load trade violations when component mounts or targetUserId changes
+  useEffect(() => {
+    const fetchViolations = async () => {
+      setIsLoadingViolations(true);
+      try {
+        const data = await getTradeViolations(targetUserId);
+        if (data && data.length > 0) {
+          // Format violations for easy lookup
+          const formattedViolations = data.map(violation => ({
+            id: violation.id,
+            tradeId: violation.tradeId,
+            ruleType: violation.ruleType,
+            violatedValue: violation.violatedValue,
+            allowedValues: violation.allowedValues,
+            acknowledged: violation.acknowledged
+          }));
+          setViolations(formattedViolations);
+        } else {
+          setViolations([]);
+        }
+      } catch (error) {
+        console.error('Failed to load violations:', error);
+        setViolations([]);
+      } finally {
+        setIsLoadingViolations(false);
+      }
+    };
+
+    fetchViolations();
+  }, [targetUserId]);
+
+  // Check if a trade has violations
+  const hasViolations = (tradeId: string) => {
+    return violations.some(violation => violation.tradeId === tradeId);
+  };
+  
+  // Get unacknowledged violations count for a trade
+  const getUnacknowledgedViolationsCount = (tradeId: string) => {
+    return violations.filter(v => v.tradeId === tradeId && !v.acknowledged).length;
+  };
+
+  // Get rule violation details for a trade (for tooltip)
+  const getViolationDetails = (tradeId: string) => {
+    const tradeViolations = violations.filter(v => v.tradeId === tradeId);
+    if (!tradeViolations.length) return '';
+    
+    return tradeViolations.map(v => {
+      const ruleTypeFormatted = formatRuleType(v.ruleType);
+      if (v.ruleType === 'action_direction') {
+        return `${ruleTypeFormatted}: Not allowed`;
+      }
+      return `${ruleTypeFormatted}: ${v.violatedValue} not in allowed values`;
+    }).join('\n');
+  };
+  
+  // Format rule type for display
+  const formatRuleType = (type: string) => {
+    switch (type) {
+      case 'pair': return 'Currency Pair';
+      case 'day': return 'Trading Day';
+      case 'lot': return 'Lot Size';
+      case 'action_direction': return 'Against Trend';
+      default: return type.charAt(0).toUpperCase() + type.slice(1);
+    }
+  };
 
   // Predefined colors for quick selection
   const predefinedColors = [
@@ -634,39 +712,101 @@ export default function TradeHistoryTable({
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {paginatedTrades.map((trade, index) => (
-              <tr 
-                key={trade.id} 
-                onClick={() => !isCustomizing && onSelectTrade(trade)}
-                className={`hover:bg-blue-50 transition-colors divide-x divide-gray-200 group ${isCustomizing ? 'cursor-default' : 'cursor-pointer'}`}
-              >
-                {allColumns.map(column => {
-                  if (hiddenColumns.includes(column.key)) return null;
-                  
-                  const customization = getCellCustomization(trade.id, column.key);
-                  const cellStyle = {
-                    ...(customization.backgroundColor ? { backgroundColor: customization.backgroundColor } : {}),
-                    ...(customization.textColor ? { color: customization.textColor } : {}),
-                  };
-                  
-                  if (column.key === 'number') {
-                    return (
-                      <td 
-                        key={column.key} 
-                        className={`px-6 py-4 whitespace-nowrap text-sm text-gray-900 ${
-                          column.fixed ? 'sticky left-0 z-10 bg-white group-hover:bg-blue-50' : ''
-                        }`}
-                        style={cellStyle}
-                        onClick={(e) => handleCellClick(e, trade.id, column.key)}
-                      >
-                        {(page - 1) * itemsPerPage + index + 1}
-                      </td>
-                    );
-                  }
-                  
-                  if (column.key === 'action') {
-                    // Special handling for action cell with badge
-                    const badgeStyle = customization.textColor ? { color: customization.textColor } : {};
+            {paginatedTrades.map((trade, index) => {
+              const tradeHasViolations = hasViolations(trade.id);
+              const unacknowledgedCount = getUnacknowledgedViolationsCount(trade.id);
+              const violationTitle = tradeHasViolations ? getViolationDetails(trade.id) : '';
+                
+              return (
+                <tr 
+                  key={trade.id} 
+                  onClick={() => !isCustomizing && onSelectTrade(trade)}
+                  className={`hover:bg-blue-50 transition-colors divide-x divide-gray-200 group ${isCustomizing ? 'cursor-default' : 'cursor-pointer'}`}
+                  style={tradeHasViolations ? { 
+                    borderLeft: '5px solid #f59e0b',
+                    boxShadow: 'inset 1px 0 0 #f59e0b'
+                  } : {}}
+                >
+                  {allColumns.map(column => {
+                    if (hiddenColumns.includes(column.key)) return null;
+                    
+                    const customization = getCellCustomization(trade.id, column.key);
+                    const cellStyle = {
+                      ...(customization.backgroundColor ? { backgroundColor: customization.backgroundColor } : {}),
+                      ...(customization.textColor ? { color: customization.textColor } : {}),
+                    };
+                    
+                    if (column.key === 'number') {
+                      return (
+                        <td 
+                          key={column.key} 
+                          className={`px-6 py-4 whitespace-nowrap text-sm text-gray-900 ${
+                            column.fixed ? 'sticky left-0 z-10 bg-white group-hover:bg-blue-50' : ''
+                          }`}
+                          style={cellStyle}
+                          onClick={(e) => handleCellClick(e, trade.id, column.key)}
+                        >
+                          <div className="flex items-center">
+                            {(page - 1) * itemsPerPage + index + 1}
+                            {tradeHasViolations && (
+                              <div 
+                                className="ml-2 text-yellow-500"
+                                title={violationTitle}
+                              >
+                                <AlertTriangle className="h-4 w-4" />
+                                {unacknowledgedCount > 0 && (
+                                  <span className="ml-1 bg-red-500 text-white text-xs px-1 rounded-full">
+                                    {unacknowledgedCount}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      );
+                    }
+                    
+                    if (column.key === 'action') {
+                      // Special handling for action cell with badge
+                      const badgeStyle = customization.textColor ? { color: customization.textColor } : {};
+                      
+                      return (
+                        <td 
+                          key={column.key} 
+                          className={`px-6 py-4 whitespace-nowrap text-sm text-gray-900 ${
+                            column.fixed ? 'sticky left-0 z-10 bg-white group-hover:bg-blue-50' : ''
+                          }`}
+                          style={customization.backgroundColor ? { backgroundColor: customization.backgroundColor } : {}}
+                          onClick={(e) => handleCellClick(e, trade.id, column.key)}
+                        >
+                          <span 
+                            className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                              trade.action === 'Buy' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                            }`}
+                            style={badgeStyle}
+                          >
+                            {trade.action}
+                          </span>
+                        </td>
+                      );
+                    }
+                    
+                    if (column.key === 'comments') {
+                      return (
+                        <td 
+                          key={column.key} 
+                          className={`px-6 py-4 text-sm text-gray-900 max-w-xs ${
+                            column.fixed ? 'sticky left-0 z-10 bg-white group-hover:bg-blue-50' : ''
+                          }`}
+                          style={cellStyle}
+                          onClick={(e) => handleCellClick(e, trade.id, column.key)}
+                        >
+                          <div className={`transition-all duration-300 ${isFullScreen ? '' : 'line-clamp-2 group-hover:line-clamp-none'}`}>
+                            {trade[column.key]}
+                          </div>
+                        </td>
+                      );
+                    }
                     
                     return (
                       <td 
@@ -674,53 +814,16 @@ export default function TradeHistoryTable({
                         className={`px-6 py-4 whitespace-nowrap text-sm text-gray-900 ${
                           column.fixed ? 'sticky left-0 z-10 bg-white group-hover:bg-blue-50' : ''
                         }`}
-                        style={customization.backgroundColor ? { backgroundColor: customization.backgroundColor } : {}}
-                        onClick={(e) => handleCellClick(e, trade.id, column.key)}
-                      >
-                        <span 
-                          className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                            trade.action === 'Buy' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                          }`}
-                          style={badgeStyle}
-                        >
-                          {trade.action}
-                        </span>
-                      </td>
-                    );
-                  }
-                  
-                  if (column.key === 'comments') {
-                    return (
-                      <td 
-                        key={column.key} 
-                        className={`px-6 py-4 text-sm text-gray-900 max-w-xs ${
-                          column.fixed ? 'sticky left-0 z-10 bg-white group-hover:bg-blue-50' : ''
-                        }`}
                         style={cellStyle}
                         onClick={(e) => handleCellClick(e, trade.id, column.key)}
                       >
-                        <div className={`transition-all duration-300 ${isFullScreen ? '' : 'line-clamp-2 group-hover:line-clamp-none'}`}>
-                          {trade[column.key]}
-                        </div>
+                        {trade[column.key as keyof Trade]}
                       </td>
                     );
-                  }
-                  
-                  return (
-                    <td 
-                      key={column.key} 
-                      className={`px-6 py-4 whitespace-nowrap text-sm text-gray-900 ${
-                        column.fixed ? 'sticky left-0 z-10 bg-white group-hover:bg-blue-50' : ''
-                      }`}
-                      style={cellStyle}
-                      onClick={(e) => handleCellClick(e, trade.id, column.key)}
-                    >
-                      {trade[column.key as keyof Trade]}
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
+                  })}
+                </tr>
+              );
+            })}
             {paginatedTrades.length === 0 && (
               <tr>
                 <td colSpan={allColumns.length - hiddenColumns.length} className="px-6 py-10 text-center text-gray-500">

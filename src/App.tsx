@@ -7,6 +7,7 @@ import Performance from './pages/Performance';
 import AdminDashboard from './pages/AdminDashboard';
 import Profile from './pages/Profile';
 import Auth from './pages/Auth';
+import TradesAnalysis from './pages/TradesAnalysis';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -56,6 +57,14 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <Performance />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/trades-analysis"
+        element={
+          <PrivateRoute>
+            <TradesAnalysis />
           </PrivateRoute>
         }
       />

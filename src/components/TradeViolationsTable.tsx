@@ -176,9 +176,17 @@ export default function TradeViolationsTable({ userId, onSelectTrade, className 
                 <div className="flex space-x-2">
                   {onSelectTrade && (
                     <button
-                      onClick={() => onSelectTrade(violation.tradeId)}
-                      className="text-indigo-600 hover:text-indigo-900"
+                      onClick={() => {
+                        console.log('View Trade clicked for trade:', violation.tradeId);
+                        onSelectTrade(violation.tradeId);
+                      }}
+                      className="px-3 py-1 bg-indigo-100 rounded text-indigo-700 hover:bg-indigo-200 transition-colors flex items-center"
+                      title="View complete trade details"
                     >
+                      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
                       View Trade
                     </button>
                   )}

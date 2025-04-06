@@ -67,6 +67,7 @@ export default function AdminDashboard() {
   const [showRulesModal, setShowRulesModal] = useState(false);
   const [showViolationsModal, setShowViolationsModal] = useState(false);
   const [activeTab, setActiveTab] = useState<'users' | 'violations'>('users');
+  const [editMode, setEditMode] = useState(false);
 
   useEffect(() => {
     async function checkAdminAndLoadUsers() {
@@ -228,6 +229,7 @@ export default function AdminDashboard() {
   // Handler for when a trade is selected in the table
   const handleSelectTrade = (trade: TradeType) => {
     setSelectedTrade(trade);
+    setEditMode(true);
     setShowTradeForm(true);
   };
 
@@ -235,6 +237,7 @@ export default function AdminDashboard() {
   const handleTradeFormClose = () => {
     setShowTradeForm(false);
     setSelectedTrade(null);
+    setEditMode(false);
     
     // Refresh the trades list if we're viewing trades
     if (showTradesModal && selectedUserId) {
@@ -325,24 +328,40 @@ export default function AdminDashboard() {
     
     if (trade) {
       setSelectedTrade(trade);
+      setEditMode(false);
       setShowTradeForm(true);
     } else {
       // Trade is not in the current selection, need to fetch it
       try {
+        console.log('Fetching trade:', tradeId);
+        
         // Fetch the specific trade from the database
         const { data: tradeData, error } = await supabase
           .from('trades')
-          .select('*, profiles:user_id(email, full_name)')
+          .select('*')
           .eq('id', tradeId)
           .single();
         
-        if (error) throw error;
+        if (error) {
+          console.error('Error fetching trade data:', error);
+          throw error;
+        }
         
         if (tradeData) {
+          // Now fetch the profile data separately
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('email, full_name')
+            .eq('user_id', tradeData.user_id)
+            .single();
+            
+          console.log('Fetched trade data:', tradeData);
+          console.log('Fetched profile data:', profileData);
+          
           // Set the selected user info for showing in the modal
           setSelectedUserId(tradeData.user_id);
-          setSelectedUserEmail(tradeData.profiles?.email || '');
-          setSelectedUserFullName(tradeData.profiles?.full_name || tradeData.profiles?.email || 'User');
+          setSelectedUserEmail(profileData?.email || '');
+          setSelectedUserFullName(profileData?.full_name || profileData?.email || 'User');
           
           // Format the trade for the form
           const formattedTrade: TradeType = {
@@ -376,6 +395,7 @@ export default function AdminDashboard() {
           };
           
           setSelectedTrade(formattedTrade);
+          setEditMode(false);
           setShowTradeForm(true);
         }
       } catch (err) {
@@ -573,6 +593,47 @@ export default function AdminDashboard() {
             </div>
           </div>
         )}
+
+        {/* Trade Form Modal - Added here so it works in the violations view */}
+        {showTradeForm && (
+          <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-xl font-semibold text-gray-900">
+                    {editMode 
+                      ? 'Edit Trade for ' 
+                      : 'View Trade Details for '}{selectedUserFullName}
+                  </h2>
+                  <div className="flex space-x-4">
+                    {!editMode && (
+                      <button
+                        onClick={() => setEditMode(true)}
+                        className="px-3 py-1 bg-indigo-100 rounded text-indigo-700 hover:bg-indigo-200 transition-colors"
+                      >
+                        Edit
+                      </button>
+                    )}
+                    <button
+                      onClick={handleTradeFormClose}
+                      className="text-gray-400 hover:text-gray-500"
+                    >
+                      <span className="sr-only">Close</span>
+                      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+                <TradeForm 
+                  onClose={handleTradeFormClose}
+                  existingTrade={selectedTrade || undefined}
+                  readOnly={!editMode}
+                />
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -605,21 +666,34 @@ export default function AdminDashboard() {
             <div className="p-6">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-semibold text-gray-900">
-                  {selectedTrade ? 'Edit Trade for ' : 'View Trade Details for '}{selectedUserFullName}
+                  {editMode 
+                    ? 'Edit Trade for ' 
+                    : 'View Trade Details for '}{selectedUserFullName}
                 </h2>
-                <button
-                  onClick={handleTradeFormClose}
-                  className="text-gray-400 hover:text-gray-500"
-                >
-                  <span className="sr-only">Close</span>
-                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+                <div className="flex space-x-4">
+                  {!editMode && (
+                    <button
+                      onClick={() => setEditMode(true)}
+                      className="px-3 py-1 bg-indigo-100 rounded text-indigo-700 hover:bg-indigo-200 transition-colors"
+                    >
+                      Edit
+                    </button>
+                  )}
+                  <button
+                    onClick={handleTradeFormClose}
+                    className="text-gray-400 hover:text-gray-500"
+                  >
+                    <span className="sr-only">Close</span>
+                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
               </div>
               <TradeForm 
                 onClose={handleTradeFormClose}
                 existingTrade={selectedTrade || undefined}
+                readOnly={!editMode}
               />
             </div>
           </div>

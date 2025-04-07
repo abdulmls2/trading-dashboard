@@ -4,7 +4,7 @@ export interface Trade {
   date: string;
   time: string;
   pair: string;
-  action: 'Buy' | 'Sell' | '';
+  action: 'Buy' | 'Sell';
   entryTime: string;
   exitTime: string;
   lots: number;

@@ -73,7 +73,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
     existingTrade || {
       date: new Date().toISOString().split('T')[0],
       pair: 'GBP/USD',
-      action: '',
+      action: 'Buy',
       entryTime: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }),
       exitTime: '',
       lots: 0.01,
@@ -85,7 +85,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
       riskRatio: 0,
       comments: '',
       day: new Date().toLocaleDateString('en-US', { weekday: 'long' }),
-      direction: '',
+      direction: directionOptions[0],
       orderType: '',
       marketCondition: '',
       ma: '',
@@ -197,7 +197,6 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
     }
     
     setError('');
-    
     setLoading(true);
 
     try {
@@ -205,7 +204,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
       const submissionData = Object.fromEntries(
         Object.entries(formData).map(([key, value]) => {
           // Convert empty strings to null for optional fields
-          if ((key === 'exitTime' || key === 'action') && value === '') {
+          if (key === 'exitTime' && value === '') {
             return [key, null];
           }
           return [key, value];
@@ -252,7 +251,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
     setFormData({
       date: today.toISOString().split('T')[0],
       pair: 'EUR/USD',
-      action: '',
+      action: 'Buy',
       entryTime: today.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }),
       exitTime: '',
       lots: 0.01,
@@ -264,7 +263,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
       riskRatio: 0,
       comments: '',
       day: today.toLocaleDateString('en-US', { weekday: 'long' }),
-      direction: '',
+      direction: directionOptions[0],
       orderType: '',
       marketCondition: '',
       ma: '',
@@ -284,7 +283,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
     setShowViolationWarning(false);
   };
 
-  const inputClassName = `mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 ${readOnly ? 'bg-gray-50 opacity-90 cursor-not-allowed' : 'bg-gray-100'}`;
+  const inputClassName = `mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 ${readOnly ? 'bg-gray-50 opacity-90 cursor-not-allowed' : 'bg-white'}`;
   const selectClassName = inputClassName;
 
   const TabButton = ({ tab, label }: { tab: TabType; label: string }) => (
@@ -421,16 +420,13 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Action
-              </label>
+              <label className="block text-sm font-medium text-gray-700">Action</label>
               <select
                 value={formData.action}
-                onChange={(e) => setFormData({ ...formData, action: e.target.value as 'Buy' | 'Sell' | '' })}
+                onChange={(e) => setFormData({ ...formData, action: e.target.value as 'Buy' | 'Sell' })}
                 className={selectClassName}
                 disabled={readOnly}
               >
-                <option value="">Select Action</option>
                 <option value="Buy">Buy</option>
                 <option value="Sell">Sell</option>
               </select>
@@ -689,12 +685,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
                 type="number"
                 step="0.01"
                 value={formData.profitLoss}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  // Handle empty input by setting profitLoss to 0
-                  const numberValue = value === '' ? 0 : parseFloat(value);
-                  setFormData({ ...formData, profitLoss: numberValue });
-                }}
+                onChange={(e) => setFormData({ ...formData, profitLoss: parseFloat(e.target.value) })}
                 className={inputClassName}
                 disabled={readOnly}
               />

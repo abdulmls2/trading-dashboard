@@ -69,6 +69,10 @@ type TabType = 'basic' | 'technical' | 'analysis' | 'result' | 'notes';
 
 export default function TradeForm({ onClose, existingTrade, readOnly = false }: Props) {
   const [activeTab, setActiveTab] = useState<TabType>('basic');
+  const [profitLossInput, setProfitLossInput] = useState<string>(
+    // Initialize with existing trade value or empty string for new trades
+    existingTrade ? existingTrade.profitLoss.toString() : ''
+  );
   const [formData, setFormData] = React.useState<TradeFormData>(
     existingTrade || {
       date: new Date().toISOString().split('T')[0],
@@ -682,10 +686,21 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
             <div>
               <label className="block text-sm font-medium text-gray-700">Profit/Loss</label>
               <input
-                type="number"
-                step="0.01"
-                value={formData.profitLoss}
-                onChange={(e) => setFormData({ ...formData, profitLoss: parseFloat(e.target.value) })}
+                type="text"
+                value={profitLossInput}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  // Allow empty string, minus sign alone, or valid number (including negative)
+                  if (value === '' || value === '-' || !isNaN(parseFloat(value))) {
+                    setProfitLossInput(value);
+                    if (value !== '' && value !== '-') {
+                      setFormData({ ...formData, profitLoss: parseFloat(value) });
+                    } else {
+                      // If it's empty or just a minus sign, set profitLoss to 0 temporarily
+                      setFormData({ ...formData, profitLoss: 0 });
+                    }
+                  }
+                }}
                 className={inputClassName}
                 disabled={readOnly}
               />

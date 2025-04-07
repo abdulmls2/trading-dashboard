@@ -230,6 +230,7 @@ export default function TradeHistoryTable({
     { key: 'gap', display: 'Gap' },
     { key: 'trueReward', display: 'True Reward' },
     { key: 'true_tp_sl', display: 'True TP/SL' },
+    { key: 'profitLoss', display: 'Profit/Loss' },
     { key: 'mindset', display: 'Mindset' },
     { key: 'tradeLink', display: 'Trade Link' },
     { key: 'comments', display: 'Comments' }

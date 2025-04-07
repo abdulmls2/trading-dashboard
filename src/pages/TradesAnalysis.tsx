@@ -58,6 +58,9 @@ export default function TradesAnalysis() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [includeMarketCondition, setIncludeMarketCondition] = useState(false);
+  const [selectedMarketCondition, setSelectedMarketCondition] = useState("All");
+  const [availableMarketConditions, setAvailableMarketConditions] = useState<string[]>([]);
 
   // Load trades
   useEffect(() => {
@@ -72,6 +75,18 @@ export default function TradesAnalysis() {
           time: trade.entryTime, // Add the missing 'time' property required by Trade interface
         }));
         
+        // Extract unique market conditions for the filter dropdown
+        const marketConditions = new Set<string>();
+        formattedTrades.forEach(trade => {
+          if (trade.marketCondition && 
+              trade.marketCondition !== 'None' && 
+              trade.marketCondition !== 'none' && 
+              trade.marketCondition !== '') {
+            marketConditions.add(trade.marketCondition);
+          }
+        });
+        
+        setAvailableMarketConditions(["All", ...Array.from(marketConditions).sort()]);
         setTrades(formattedTrades);
         setFilteredTrades(formattedTrades); // Set initial filtered trades
       } catch (err) {
@@ -316,11 +331,17 @@ export default function TradesAnalysis() {
       wins: number, 
       losses: number, 
       profitLoss: number,
-      valueMap: Record<string, Record<string, number>> // Track actual values
+      valueMap: Record<string, Record<string, number>>, // Track actual values
+      marketCondition: string
     }> = {};
     
+    // Filter trades by selected market condition if needed
+    const tradesToAnalyze = selectedMarketCondition !== "All" 
+      ? filteredTrades.filter(trade => trade.marketCondition === selectedMarketCondition) 
+      : filteredTrades;
+    
     // Analyze each trade
-    filteredTrades.forEach(trade => {
+    tradesToAnalyze.forEach(trade => {
       // Create a combination key based on which confluences are present with their actual values
       const activeConfluences: string[] = [];
       const valueDetails: Record<string, string> = {};
@@ -349,10 +370,21 @@ export default function TradesAnalysis() {
       // Skip if no confluences are present
       if (activeConfluences.length === 0) return;
       
-      // Create key with actual values
-      const combinationKey = activeConfluences.map(code => {
+      // Add market condition if present and if user wants to include it
+      const marketCondition = trade.marketCondition && 
+                             trade.marketCondition !== 'None' && 
+                             trade.marketCondition !== 'none' && 
+                             trade.marketCondition !== '' 
+                             ? trade.marketCondition : 'Unknown';
+      
+      // Create key with actual values and market condition if needed
+      let combinationKey = activeConfluences.map(code => {
         return `${code}:${valueDetails[code]}`;
       }).join(' + ');
+      
+      if (includeMarketCondition) {
+        combinationKey += ` (${marketCondition})`;
+      }
       
       // Initialize the combination in our map if it doesn't exist
       if (!combinationPerformance[combinationKey]) {
@@ -366,7 +398,8 @@ export default function TradesAnalysis() {
             'B': {}, // Banking Level values
             'M': {}, // MA values
             'F': {}  // Fib values
-          }
+          },
+          marketCondition
         };
       }
       
@@ -402,7 +435,8 @@ export default function TradesAnalysis() {
           winRate: stats.total > 0 ? Math.round((stats.wins / stats.total) * 100) : 0,
           profitLoss: stats.profitLoss,
           avgProfitLoss: stats.total > 0 ? stats.profitLoss / stats.total : 0,
-          valueMap: stats.valueMap
+          valueMap: stats.valueMap,
+          marketCondition: stats.marketCondition
         };
       })
       // Sort by win rate (highest first) and then by average P/L
@@ -410,7 +444,7 @@ export default function TradesAnalysis() {
     
     // Return the top combinations (if we have that many)
     return result.slice(0, 15);
-  }, [filteredTrades]);
+  }, [filteredTrades, includeMarketCondition, selectedMarketCondition]);
 
   // Chart data for market conditions
   const marketConditionChartData = useMemo(() => {
@@ -661,6 +695,16 @@ export default function TradesAnalysis() {
       .replace(/F:/g, 'Fib: ');
   };
 
+  // Handle market condition inclusion toggle
+  const handleMarketConditionToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setIncludeMarketCondition(e.target.checked);
+  };
+
+  // Handle market condition selection
+  const handleMarketConditionChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedMarketCondition(e.target.value);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
@@ -893,7 +937,36 @@ export default function TradesAnalysis() {
 
               {/* Group of Confluence Analysis - Full width in its own row */}
               <div className="bg-white rounded-lg shadow p-6">
-                <h2 className="text-lg font-medium text-gray-900 mb-4">Group of Confluence Analysis</h2>
+                <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-4">
+                  <h2 className="text-lg font-medium text-gray-900">Group of Confluence Analysis</h2>
+                  
+                  <div className="flex flex-col sm:flex-row gap-4 mt-2 lg:mt-0">
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="includeMarketCondition"
+                        checked={includeMarketCondition}
+                        onChange={handleMarketConditionToggle}
+                        className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor="includeMarketCondition" className="ml-2 block text-sm text-gray-900">
+                        Include Market Condition
+                      </label>
+                    </div>
+                    
+                    <select
+                      value={selectedMarketCondition}
+                      onChange={handleMarketConditionChange}
+                      className="border border-gray-300 rounded-md shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500 p-2"
+                      disabled={!includeMarketCondition}
+                    >
+                      {availableMarketConditions.map((condition) => (
+                        <option key={condition} value={condition}>{condition}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                
                 <p className="text-sm text-gray-500 mb-4">
                   This analysis shows which specific combinations of confluences (Pivots, Banking Level, MA, Fib) perform best.
                 </p>
@@ -909,6 +982,9 @@ export default function TradesAnalysis() {
                         <thead className="bg-gray-50">
                           <tr>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Combination</th>
+                            {includeMarketCondition && (
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Market Condition</th>
+                            )}
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Wins</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Losses</th>
@@ -918,23 +994,36 @@ export default function TradesAnalysis() {
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                          {confluenceGroupAnalysis.map((item, index) => (
-                            <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                              <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                                {formatCombination(item.combination)}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.total}</td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600">{item.wins}</td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600">{item.losses}</td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.winRate}%</td>
-                              <td className={`px-6 py-4 whitespace-nowrap text-sm ${item.profitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                {item.profitLoss.toFixed(2)}
-                              </td>
-                              <td className={`px-6 py-4 whitespace-nowrap text-sm ${item.avgProfitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                {item.avgProfitLoss.toFixed(2)}
-                              </td>
-                            </tr>
-                          ))}
+                          {confluenceGroupAnalysis.map((item, index) => {
+                            const displayText = formatCombination(item.combination);
+                            // Extract the market condition from the parentheses at the end if present
+                            const parts = displayText.split(' (');
+                            const baseText = parts[0];
+                            const marketCondition = item.marketCondition || "Unknown";
+                            
+                            return (
+                              <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                                <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                                  {baseText}
+                                </td>
+                                {includeMarketCondition && (
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                    {marketCondition}
+                                  </td>
+                                )}
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.total}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600">{item.wins}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600">{item.losses}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.winRate}%</td>
+                                <td className={`px-6 py-4 whitespace-nowrap text-sm ${item.profitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                  {item.profitLoss.toFixed(2)}
+                                </td>
+                                <td className={`px-6 py-4 whitespace-nowrap text-sm ${item.avgProfitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                  {item.avgProfitLoss.toFixed(2)}
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>

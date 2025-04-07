@@ -49,6 +49,7 @@ const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
 // Confluence types to analyze
 const confluenceTypes = ['pivots', 'bankingLevel', 'ma', 'fib'];
+const confluenceLabels = ['Pivots', 'Banking Level', 'MA', 'Fib'];
 
 export default function TradesAnalysis() {
   const [trades, setTrades] = useState<Trade[]>([]);
@@ -305,6 +306,112 @@ export default function TradesAnalysis() {
     })).filter(item => item.total > 0); // Filter out confluence counts with no trades
   }, [filteredTrades]);
 
+  // Analyze which specific groups of confluences work best
+  const confluenceGroupAnalysis = useMemo(() => {
+    if (!filteredTrades.length) return null;
+    
+    // Map to store the performance of each confluence combination
+    const combinationPerformance: Record<string, { 
+      total: number, 
+      wins: number, 
+      losses: number, 
+      profitLoss: number,
+      valueMap: Record<string, Record<string, number>> // Track actual values
+    }> = {};
+    
+    // Analyze each trade
+    filteredTrades.forEach(trade => {
+      // Create a combination key based on which confluences are present with their actual values
+      const activeConfluences: string[] = [];
+      const valueDetails: Record<string, string> = {};
+      
+      // Check each confluence and store its value if present
+      if (trade.pivots && trade.pivots !== 'None' && trade.pivots !== 'none' && trade.pivots !== '') {
+        activeConfluences.push('P');
+        valueDetails['P'] = trade.pivots;
+      }
+      
+      if (trade.bankingLevel && trade.bankingLevel !== 'None' && trade.bankingLevel !== 'none' && trade.bankingLevel !== '') {
+        activeConfluences.push('B');
+        valueDetails['B'] = trade.bankingLevel;
+      }
+      
+      if (trade.ma && trade.ma !== 'None' && trade.ma !== 'none' && trade.ma !== '') {
+        activeConfluences.push('M');
+        valueDetails['M'] = trade.ma;
+      }
+      
+      if (trade.fib && trade.fib !== 'None' && trade.fib !== 'none' && trade.fib !== '') {
+        activeConfluences.push('F');
+        valueDetails['F'] = trade.fib;
+      }
+      
+      // Skip if no confluences are present
+      if (activeConfluences.length === 0) return;
+      
+      // Create key with actual values
+      const combinationKey = activeConfluences.map(code => {
+        return `${code}:${valueDetails[code]}`;
+      }).join(' + ');
+      
+      // Initialize the combination in our map if it doesn't exist
+      if (!combinationPerformance[combinationKey]) {
+        combinationPerformance[combinationKey] = { 
+          total: 0, 
+          wins: 0, 
+          losses: 0, 
+          profitLoss: 0,
+          valueMap: {
+            'P': {}, // Pivots values
+            'B': {}, // Banking Level values
+            'M': {}, // MA values
+            'F': {}  // Fib values
+          }
+        };
+      }
+      
+      // Update the stats for this combination
+      const combo = combinationPerformance[combinationKey];
+      combo.total += 1;
+      combo.profitLoss += trade.profitLoss;
+      
+      // Track value frequencies
+      for (const code of activeConfluences) {
+        const value = valueDetails[code];
+        if (!combo.valueMap[code][value]) {
+          combo.valueMap[code][value] = 0;
+        }
+        combo.valueMap[code][value] += 1;
+      }
+      
+      if (trade.profitLoss > 0) {
+        combo.wins += 1;
+      } else {
+        combo.losses += 1;
+      }
+    });
+    
+    // Convert to array and calculate derived metrics
+    const result = Object.entries(combinationPerformance)
+      .map(([combination, stats]) => {
+        return {
+          combination,
+          total: stats.total,
+          wins: stats.wins,
+          losses: stats.losses,
+          winRate: stats.total > 0 ? Math.round((stats.wins / stats.total) * 100) : 0,
+          profitLoss: stats.profitLoss,
+          avgProfitLoss: stats.total > 0 ? stats.profitLoss / stats.total : 0,
+          valueMap: stats.valueMap
+        };
+      })
+      // Sort by win rate (highest first) and then by average P/L
+      .sort((a, b) => b.winRate - a.winRate || b.avgProfitLoss - a.avgProfitLoss);
+    
+    // Return the top combinations (if we have that many)
+    return result.slice(0, 15);
+  }, [filteredTrades]);
+
   // Chart data for market conditions
   const marketConditionChartData = useMemo(() => {
     if (!marketConditionAnalysis) return null;
@@ -404,6 +511,32 @@ export default function TradesAnalysis() {
     };
   }, [confluenceAnalysis]);
 
+  // Chart data for confluence groups
+  const confluenceGroupChartData = useMemo(() => {
+    if (!confluenceGroupAnalysis) return null;
+    
+    return {
+      labels: confluenceGroupAnalysis.map(item => item.combination),
+      datasets: [
+        {
+          label: 'Win Rate %',
+          data: confluenceGroupAnalysis.map(item => item.winRate),
+          backgroundColor: 'rgba(75, 192, 192, 0.6)',
+          borderColor: 'rgba(75, 192, 192, 1)',
+          borderWidth: 1,
+        },
+        {
+          label: 'Avg P/L',
+          data: confluenceGroupAnalysis.map(item => item.avgProfitLoss),
+          backgroundColor: 'rgba(153, 102, 255, 0.6)',
+          borderColor: 'rgba(153, 102, 255, 1)',
+          borderWidth: 1,
+          yAxisID: 'y1',
+        }
+      ],
+    };
+  }, [confluenceGroupAnalysis]);
+
   // Chart options for bar charts
   const barChartOptions = {
     responsive: true,
@@ -453,6 +586,79 @@ export default function TradesAnalysis() {
         text: 'Performance by Number of Confluences',
       },
     },
+  };
+
+  // Chart options for confluence groups chart
+  const confluenceGroupChartOptions = {
+    responsive: true,
+    indexAxis: 'y' as const, // Horizontal bar chart
+    scales: {
+      y: {
+        type: 'category' as const,
+        display: true,
+        title: {
+          display: true,
+          text: 'Confluence Combinations'
+        },
+        ticks: {
+          // Simple truncation of long labels
+          callback: function(value: any, index: number): string {
+            const labels = confluenceGroupAnalysis?.map(item => item.combination) || [];
+            const label = labels[index] || '';
+            return label.length > 30 ? label.substring(0, 27) + '...' : label;
+          }
+        }
+      },
+      x: {
+        type: 'linear' as const,
+        display: true,
+        position: 'bottom' as const,
+        title: {
+          display: true,
+          text: 'Win Rate %'
+        }
+      },
+      y1: {
+        type: 'linear' as const,
+        display: true,
+        position: 'right' as const,
+        grid: {
+          drawOnChartArea: false,
+        },
+        title: {
+          display: true,
+          text: 'Average P/L'
+        }
+      },
+    },
+    plugins: {
+      legend: {
+        position: 'top' as const,
+      },
+      title: {
+        display: true,
+        text: 'Performance by Specific Confluence Combinations',
+      },
+      tooltip: {
+        enabled: true,
+        displayColors: true,
+        callbacks: {
+          title: function(tooltipItems: any[]) {
+            // Display the full combination name in the tooltip
+            return tooltipItems[0].label;
+          }
+        }
+      }
+    },
+  };
+
+  // Helper function to format the combination display
+  const formatCombination = (combination: string) => {
+    return combination
+      .replace(/P:/g, 'Pivot: ')
+      .replace(/B:/g, 'Banking: ')
+      .replace(/M:/g, 'MA: ')
+      .replace(/F:/g, 'Fib: ');
   };
 
   return (
@@ -682,6 +888,59 @@ export default function TradesAnalysis() {
                   </>
                 ) : (
                   <p className="text-gray-500">No confluence data available.</p>
+                )}
+              </div>
+
+              {/* Group of Confluence Analysis - Full width in its own row */}
+              <div className="bg-white rounded-lg shadow p-6">
+                <h2 className="text-lg font-medium text-gray-900 mb-4">Group of Confluence Analysis</h2>
+                <p className="text-sm text-gray-500 mb-4">
+                  This analysis shows which specific combinations of confluences (Pivots, Banking Level, MA, Fib) perform best.
+                </p>
+                {confluenceGroupAnalysis && confluenceGroupAnalysis.length > 0 ? (
+                  <>
+                    <div className="mb-6 h-96">
+                      {confluenceGroupChartData && (
+                        <Bar data={confluenceGroupChartData} options={confluenceGroupChartOptions} />
+                      )}
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Combination</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Wins</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Losses</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Win Rate</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total P/L</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Avg P/L</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {confluenceGroupAnalysis.map((item, index) => (
+                            <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                              <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                                {formatCombination(item.combination)}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.total}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600">{item.wins}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600">{item.losses}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.winRate}%</td>
+                              <td className={`px-6 py-4 whitespace-nowrap text-sm ${item.profitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                {item.profitLoss.toFixed(2)}
+                              </td>
+                              <td className={`px-6 py-4 whitespace-nowrap text-sm ${item.avgProfitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                {item.avgProfitLoss.toFixed(2)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-gray-500">No confluence group data available.</p>
                 )}
               </div>
             </div>

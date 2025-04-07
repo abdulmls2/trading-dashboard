@@ -7,18 +7,22 @@ import {
   CategoryScale,
   LinearScale,
   BarElement,
+  LineElement,
+  PointElement,
   Title,
   Tooltip,
   Legend,
   ArcElement,
 } from 'chart.js';
-import { Bar } from 'react-chartjs-2';
+import { Bar, Chart } from 'react-chartjs-2';
 
 // Register Chart.js components
 ChartJS.register(
   CategoryScale,
   LinearScale,
   BarElement,
+  LineElement,
+  PointElement,
   Title,
   Tooltip,
   Legend,
@@ -42,6 +46,9 @@ const getAvailableYears = () => {
 
 // Days of the week
 const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+
+// Confluence types to analyze
+const confluenceTypes = ['pivots', 'bankingLevel', 'ma', 'fib'];
 
 export default function TradesAnalysis() {
   const [trades, setTrades] = useState<Trade[]>([]);
@@ -249,6 +256,55 @@ export default function TradesAnalysis() {
     ];
   }, [filteredTrades]);
 
+  // Analyze the number of confluences and their impact on trade performance
+  const confluenceAnalysis = useMemo(() => {
+    if (!filteredTrades.length) return null;
+
+    // Initialize data structure to track trades by number of confluences
+    const byConfluenceCount: Record<number, { total: number, wins: number, losses: number, profitLoss: number }> = {
+      0: { total: 0, wins: 0, losses: 0, profitLoss: 0 },
+      1: { total: 0, wins: 0, losses: 0, profitLoss: 0 },
+      2: { total: 0, wins: 0, losses: 0, profitLoss: 0 },
+      3: { total: 0, wins: 0, losses: 0, profitLoss: 0 },
+      4: { total: 0, wins: 0, losses: 0, profitLoss: 0 }
+    };
+
+    filteredTrades.forEach(trade => {
+      // Count the number of confluences present in this trade
+      let confluenceCount = 0;
+      
+      if (trade.pivots && trade.pivots !== 'None' && trade.pivots !== 'none' && trade.pivots !== '') confluenceCount++;
+      if (trade.bankingLevel && trade.bankingLevel !== 'None' && trade.bankingLevel !== 'none' && trade.bankingLevel !== '') confluenceCount++;
+      if (trade.ma && trade.ma !== 'None' && trade.ma !== 'none' && trade.ma !== '') confluenceCount++;
+      if (trade.fib && trade.fib !== 'None' && trade.fib !== 'none' && trade.fib !== '') confluenceCount++;
+      
+      // Add trade data to the appropriate confluence count bucket
+      if (!byConfluenceCount[confluenceCount]) {
+        byConfluenceCount[confluenceCount] = { total: 0, wins: 0, losses: 0, profitLoss: 0 };
+      }
+      
+      byConfluenceCount[confluenceCount].total += 1;
+      byConfluenceCount[confluenceCount].profitLoss += trade.profitLoss;
+      
+      if (trade.profitLoss > 0) {
+        byConfluenceCount[confluenceCount].wins += 1;
+      } else {
+        byConfluenceCount[confluenceCount].losses += 1;
+      }
+    });
+    
+    // Convert to array format for easier rendering
+    return Object.entries(byConfluenceCount).map(([count, stats]) => ({
+      confluenceCount: parseInt(count),
+      total: stats.total,
+      wins: stats.wins,
+      losses: stats.losses,
+      winRate: stats.total > 0 ? Math.round((stats.wins / stats.total) * 100) : 0,
+      profitLoss: stats.profitLoss,
+      avgProfitLoss: stats.total > 0 ? stats.profitLoss / stats.total : 0
+    })).filter(item => item.total > 0); // Filter out confluence counts with no trades
+  }, [filteredTrades]);
+
   // Chart data for market conditions
   const marketConditionChartData = useMemo(() => {
     if (!marketConditionAnalysis) return null;
@@ -320,6 +376,34 @@ export default function TradesAnalysis() {
     };
   }, [trendAnalysis]);
 
+  // Chart data for confluence analysis
+  const confluenceChartData = useMemo(() => {
+    if (!confluenceAnalysis) return null;
+    
+    return {
+      labels: confluenceAnalysis.map(item => `${item.confluenceCount} Confluence${item.confluenceCount !== 1 ? 's' : ''}`),
+      datasets: [
+        {
+          label: 'Win Rate %',
+          data: confluenceAnalysis.map(item => item.winRate),
+          backgroundColor: 'rgba(75, 192, 192, 0.6)',
+          borderColor: 'rgba(75, 192, 192, 1)',
+          borderWidth: 1,
+          type: 'bar' as const,
+        },
+        {
+          label: 'Avg P/L',
+          data: confluenceAnalysis.map(item => item.avgProfitLoss),
+          backgroundColor: 'rgba(153, 102, 255, 0.6)',
+          borderColor: 'rgba(153, 102, 255, 1)',
+          borderWidth: 1,
+          yAxisID: 'y1',
+          type: 'bar' as const,
+        }
+      ],
+    };
+  }, [confluenceAnalysis]);
+
   // Chart options for bar charts
   const barChartOptions = {
     responsive: true,
@@ -330,6 +414,43 @@ export default function TradesAnalysis() {
       title: {
         display: true,
         text: 'Performance by Category',
+      },
+    },
+  };
+
+  // Chart options for confluence chart with dual Y axis
+  const confluenceChartOptions = {
+    responsive: true,
+    scales: {
+      y: {
+        type: 'linear' as const,
+        display: true,
+        position: 'left' as const,
+        title: {
+          display: true,
+          text: 'Win Rate & Trade Count'
+        }
+      },
+      y1: {
+        type: 'linear' as const,
+        display: true,
+        position: 'right' as const,
+        grid: {
+          drawOnChartArea: false,
+        },
+        title: {
+          display: true,
+          text: 'Average P/L'
+        }
+      },
+    },
+    plugins: {
+      legend: {
+        position: 'top' as const,
+      },
+      title: {
+        display: true,
+        text: 'Performance by Number of Confluences',
       },
     },
   };
@@ -508,6 +629,59 @@ export default function TradesAnalysis() {
                   </>
                 ) : (
                   <p className="text-gray-500">No trend data available.</p>
+                )}
+              </div>
+
+              {/* Number of Confluences Analysis - Full width in its own row */}
+              <div className="bg-white rounded-lg shadow p-6">
+                <h2 className="text-lg font-medium text-gray-900 mb-4">Number of Confluences Analysis</h2>
+                <p className="text-sm text-gray-500 mb-4">
+                  This analysis tracks the performance based on the number of confluences present (pivots, banking level, MA, fib).
+                </p>
+                {confluenceAnalysis && confluenceAnalysis.length > 0 ? (
+                  <>
+                    <div className="mb-6 h-64">
+                      {confluenceChartData && (
+                        <Bar data={confluenceChartData} options={confluenceChartOptions} />
+                      )}
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Confluences</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Wins</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Losses</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Win Rate</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total P/L</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Avg P/L</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {confluenceAnalysis.map((item, index) => (
+                            <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                {item.confluenceCount} {item.confluenceCount === 1 ? 'Confluence' : 'Confluences'}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.total}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600">{item.wins}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600">{item.losses}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.winRate}%</td>
+                              <td className={`px-6 py-4 whitespace-nowrap text-sm ${item.profitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                {item.profitLoss.toFixed(2)}
+                              </td>
+                              <td className={`px-6 py-4 whitespace-nowrap text-sm ${item.avgProfitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                {item.avgProfitLoss.toFixed(2)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-gray-500">No confluence data available.</p>
                 )}
               </div>
             </div>

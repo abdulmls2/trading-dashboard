@@ -10,7 +10,7 @@ export interface Trade {
   lots: number;
   pipStopLoss: number;
   pipTakeProfit: number;
-  profitLoss: string;
+  profitLoss: number;
   pivots: string;
   bankingLevel: string;
   riskRatio: number;

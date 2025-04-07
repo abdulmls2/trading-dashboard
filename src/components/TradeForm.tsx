@@ -79,7 +79,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
       lots: 0.01,
       pipStopLoss: 0,
       pipTakeProfit: 0,
-      profitLoss: '',
+      profitLoss: 0,
       pivots: '',
       bankingLevel: '',
       riskRatio: 0,
@@ -197,6 +197,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
     }
     
     setError('');
+    
     setLoading(true);
 
     try {
@@ -204,7 +205,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
       const submissionData = Object.fromEntries(
         Object.entries(formData).map(([key, value]) => {
           // Convert empty strings to null for optional fields
-          if (key === 'exitTime' && value === '') {
+          if ((key === 'exitTime' || key === 'action') && value === '') {
             return [key, null];
           }
           return [key, value];
@@ -257,7 +258,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
       lots: 0.01,
       pipStopLoss: 0,
       pipTakeProfit: 0,
-      profitLoss: '',
+      profitLoss: 0,
       pivots: '',
       bankingLevel: '',
       riskRatio: 0,
@@ -420,7 +421,9 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">Action</label>
+              <label className="block text-sm font-medium text-gray-700">
+                Action
+              </label>
               <select
                 value={formData.action}
                 onChange={(e) => setFormData({ ...formData, action: e.target.value as 'Buy' | 'Sell' | '' })}
@@ -683,9 +686,15 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
             <div>
               <label className="block text-sm font-medium text-gray-700">Profit/Loss</label>
               <input
-                type="text"
+                type="number"
+                step="0.01"
                 value={formData.profitLoss}
-                onChange={(e) => setFormData({ ...formData, profitLoss: e.target.value })}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  // Handle empty input by setting profitLoss to 0
+                  const numberValue = value === '' ? 0 : parseFloat(value);
+                  setFormData({ ...formData, profitLoss: numberValue });
+                }}
                 className={inputClassName}
                 disabled={readOnly}
               />

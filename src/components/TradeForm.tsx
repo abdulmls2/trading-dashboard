@@ -73,19 +73,19 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
     existingTrade || {
       date: new Date().toISOString().split('T')[0],
       pair: 'GBP/USD',
-      action: 'Buy',
+      action: '',
       entryTime: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }),
       exitTime: '',
       lots: 0.01,
       pipStopLoss: 0,
       pipTakeProfit: 0,
-      profitLoss: 0,
+      profitLoss: '',
       pivots: '',
       bankingLevel: '',
       riskRatio: 0,
       comments: '',
       day: new Date().toLocaleDateString('en-US', { weekday: 'long' }),
-      direction: directionOptions[0],
+      direction: '',
       orderType: '',
       marketCondition: '',
       ma: '',
@@ -251,19 +251,19 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
     setFormData({
       date: today.toISOString().split('T')[0],
       pair: 'EUR/USD',
-      action: 'Buy',
+      action: '',
       entryTime: today.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }),
       exitTime: '',
       lots: 0.01,
       pipStopLoss: 0,
       pipTakeProfit: 0,
-      profitLoss: 0,
+      profitLoss: '',
       pivots: '',
       bankingLevel: '',
       riskRatio: 0,
       comments: '',
       day: today.toLocaleDateString('en-US', { weekday: 'long' }),
-      direction: directionOptions[0],
+      direction: '',
       orderType: '',
       marketCondition: '',
       ma: '',
@@ -423,10 +423,11 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
               <label className="block text-sm font-medium text-gray-700">Action</label>
               <select
                 value={formData.action}
-                onChange={(e) => setFormData({ ...formData, action: e.target.value as 'Buy' | 'Sell' })}
+                onChange={(e) => setFormData({ ...formData, action: e.target.value as 'Buy' | 'Sell' | '' })}
                 className={selectClassName}
                 disabled={readOnly}
               >
+                <option value="">Select Action</option>
                 <option value="Buy">Buy</option>
                 <option value="Sell">Sell</option>
               </select>
@@ -682,10 +683,9 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
             <div>
               <label className="block text-sm font-medium text-gray-700">Profit/Loss</label>
               <input
-                type="number"
-                step="0.01"
+                type="text"
                 value={formData.profitLoss}
-                onChange={(e) => setFormData({ ...formData, profitLoss: parseFloat(e.target.value) })}
+                onChange={(e) => setFormData({ ...formData, profitLoss: e.target.value })}
                 className={inputClassName}
                 disabled={readOnly}
               />

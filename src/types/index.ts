@@ -4,13 +4,13 @@ export interface Trade {
   date: string;
   time: string;
   pair: string;
-  action: 'Buy' | 'Sell';
+  action: 'Buy' | 'Sell' | '';
   entryTime: string;
   exitTime: string;
   lots: number;
   pipStopLoss: number;
   pipTakeProfit: number;
-  profitLoss: number;
+  profitLoss: string;
   pivots: string;
   bankingLevel: string;
   riskRatio: number;

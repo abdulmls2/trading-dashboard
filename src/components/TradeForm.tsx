@@ -229,16 +229,22 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
 
       // If there are acknowledged violations, record them
       if (acknowledgedViolations && ruleViolations.length > 0 && user) {
-        for (const violation of ruleViolations) {
-          await createTradeViolation({
-            tradeId,
-            userId: user.id,
-            ruleType: violation.ruleType as any,
-            violatedValue: violation.violatedValue,
-            allowedValues: violation.allowedValues,
-            acknowledged: true
-          });
+        // Only create violations if this is a new trade or if editing and the violations changed
+        if (!existingTrade) {
+          // For new trades, create all violations
+          for (const violation of ruleViolations) {
+            await createTradeViolation({
+              tradeId,
+              userId: user.id,
+              ruleType: violation.ruleType as any,
+              violatedValue: violation.violatedValue,
+              allowedValues: violation.allowedValues,
+              acknowledged: true
+            });
+          }
         }
+        // For existing trades, don't create new violations as they were already recorded
+        // If we need to update existing violations, we would implement that logic here
       }
 
       onClose();

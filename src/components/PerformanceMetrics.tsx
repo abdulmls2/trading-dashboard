@@ -290,7 +290,7 @@ export default function PerformanceMetricsComponent({
       </div>
 
       {/* Violated Trades - Use prop value */}
-      <div className="bg-white p-6 rounded-lg shadow border-l-4 border-red-400 col-span-1 md:col-span-2"> {/* Adjusted span */}
+      <div className="bg-white p-6 rounded-lg shadow border-l-4 border-red-400">
         <h3 className="text-sm font-medium text-gray-500 uppercase">Violated Trades</h3>
         <div className="flex items-baseline">
           <p className="mt-2 text-3xl font-bold text-gray-900 flex items-center">

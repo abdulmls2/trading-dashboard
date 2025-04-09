@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { PerformanceMetrics as Metrics } from '../types';
+import { AlertTriangle } from 'lucide-react';
 
 interface Props {
   metrics: Metrics & { totalPips?: number };
@@ -253,13 +254,13 @@ export default function PerformanceMetrics({ metrics }: Props) {
       <div className="bg-white p-6 rounded-lg shadow border-l-4 border-red-400">
         <h3 className="text-sm font-medium text-gray-500 uppercase">Violated Trades</h3>
         <div className="flex items-baseline">
-          <p className="mt-2 text-3xl font-bold text-gray-900">
-            {metrics.violationsCount || 0}
+          <p className="mt-2 text-3xl font-bold text-gray-900 flex items-center">
             {(metrics.violationsCount || 0) > 0 && (
-              <span className="ml-2 text-sm text-red-500 font-normal">
-                Rule violations detected
+              <span className="mr-2 text-yellow-500">
+                <AlertTriangle className="h-5 w-5" />
               </span>
             )}
+            {metrics.violationsCount || 0}
           </p>
         </div>
       </div>

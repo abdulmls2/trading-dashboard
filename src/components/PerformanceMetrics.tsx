@@ -8,6 +8,7 @@ interface Props {
   monthlyPipTarget?: number;
   capital?: number;
   violationsCount?: number;
+  violatedTradesCount?: number;
   onUpdateMetrics: (updates: Partial<Pick<Metrics, 'monthlyPipTarget' | 'capital'>>) => Promise<void>;
   isLoading?: boolean; // Optional loading state
 }
@@ -17,6 +18,7 @@ export default function PerformanceMetricsComponent({
   monthlyPipTarget = 10, // Provide default if undefined
   capital = 100,      // Provide default if undefined
   violationsCount = 0,
+  violatedTradesCount = 0,
   onUpdateMetrics,
   isLoading // Destructure isLoading 
 }: Props) {
@@ -289,9 +291,9 @@ export default function PerformanceMetricsComponent({
         </div>
       </div>
 
-      {/* Violated Trades - Use prop value */}
+      {/* Violated Trades - Show both metrics */}
       <div className="bg-white p-6 rounded-lg shadow border-l-4 border-red-400">
-        <h3 className="text-sm font-medium text-gray-500 uppercase">Violated Trades</h3>
+        <h3 className="text-sm font-medium text-gray-500 uppercase">Violations</h3>
         <div className="flex items-baseline">
           <p className="mt-2 text-3xl font-bold text-gray-900 flex items-center">
             {violationsCount > 0 && (
@@ -299,9 +301,14 @@ export default function PerformanceMetricsComponent({
                 <AlertTriangle className="h-5 w-5" />
               </span>
             )}
-            {violationsCount}
+            {violatedTradesCount}
           </p>
         </div>
+        {violationsCount > 0 && (
+          <p className="text-sm text-red-500 mt-1">
+            {violatedTradesCount} trades - {violationsCount} violations
+          </p>
+        )}
       </div>
     </div>
   );

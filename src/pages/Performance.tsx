@@ -9,13 +9,14 @@ import { Trade, PerformanceMetrics as Metrics } from '../types';
 import { getTrades, getTradeViolations, getPerformanceMetrics, updatePerformanceMetrics } from '../lib/api';
 
 // Default empty calculated metrics
-const emptyCalculatedMetrics: Omit<Metrics, 'monthlyPipTarget' | 'capital'> & { totalPips: number } = {
+const emptyCalculatedMetrics: Omit<Metrics, 'monthlyPipTarget' | 'capital'> & { totalPips: number; violatedTradesCount: number } = {
   totalTrades: 0,
   winRate: 0,
   averageRRR: 0,
   totalProfitLoss: 0,
   totalPips: 0,
   violationsCount: 0,
+  violatedTradesCount: 0,
 };
 
 // Default empty DB metrics
@@ -71,6 +72,10 @@ export default function Performance() {
     }, 0);
     const violationsCount = violations.length;
     
+    // Calculate the number of unique trades that have violations
+    const tradeIdsWithViolations = new Set(violations.map(v => v.tradeId));
+    const violatedTradesCount = tradeIdsWithViolations.size;
+    
     return {
       totalTrades,
       winRate: Math.round(winRate),
@@ -78,6 +83,7 @@ export default function Performance() {
       totalProfitLoss,
       totalPips,
       violationsCount,
+      violatedTradesCount,
     };
   }, [filteredTrades, violations]);
 
@@ -312,6 +318,7 @@ export default function Performance() {
               monthlyPipTarget={monthlyDbMetrics?.monthlyPipTarget ?? defaultDbMetrics.monthlyPipTarget}
               capital={monthlyDbMetrics?.capital ?? defaultDbMetrics.capital}
               violationsCount={calculatedPerformanceMetrics.violationsCount}
+              violatedTradesCount={calculatedPerformanceMetrics.violatedTradesCount}
               onUpdateMetrics={handleUpdateMonthlyMetrics}
               isLoading={loadingMetrics} // Pass loading state
             />

@@ -124,7 +124,8 @@ export async function getTrades() {
       mindset,
       trade_link,
       true_reward,
-      true_tp_sl
+      true_tp_sl,
+      created_at
     `)
     .eq('user_id', user.id) // Always filter by current user's ID, regardless of role
     .order('date', { ascending: false });
@@ -158,7 +159,8 @@ export async function getTrades() {
     mindset: trade.mindset,
     tradeLink: trade.trade_link,
     trueReward: trade.true_reward,
-    true_tp_sl: trade.true_tp_sl
+    true_tp_sl: trade.true_tp_sl,
+    created_at: trade.created_at
   }));
 }
 
@@ -423,7 +425,8 @@ export async function getAllTrades() {
       mindset,
       trade_link,
       true_reward,
-      true_tp_sl
+      true_tp_sl,
+      created_at
     `)
     .order('date', { ascending: false });
 
@@ -456,7 +459,8 @@ export async function getAllTrades() {
     mindset: trade.mindset,
     tradeLink: trade.trade_link,
     trueReward: trade.true_reward,
-    true_tp_sl: trade.true_tp_sl
+    true_tp_sl: trade.true_tp_sl,
+    created_at: trade.created_at
   }));
 }
 

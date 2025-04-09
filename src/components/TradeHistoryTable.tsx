@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Trade, CellCustomization as CellCustomizationType, TradeViolation } from '../types';
-import { ZoomIn, ZoomOut, Maximize, Minimize, Filter, ArrowLeft, ArrowRight, ChevronsLeft, ChevronsRight, Palette, X, Type, AlertTriangle } from 'lucide-react';
+import { ZoomIn, ZoomOut, Maximize, Minimize, Filter, ArrowLeft, ArrowRight, ChevronsLeft, ChevronsRight, Palette, X, Type, AlertTriangle, ArrowUpDown } from 'lucide-react';
 import { loadCellCustomizations, saveCellCustomization, deleteCellCustomization, getTradeViolations } from '../lib/api';
 
 interface Props {
@@ -64,6 +64,7 @@ export default function TradeHistoryTable({
   const [isAdmin, setIsAdmin] = useState(false);
   const [violations, setViolations] = useState<ViolationData[]>([]);
   const [isLoadingViolations, setIsLoadingViolations] = useState(false);
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   
   const tableContainerRef = useRef<HTMLDivElement>(null);
   const tableWrapperRef = useRef<HTMLDivElement>(null);
@@ -243,8 +244,43 @@ export default function TradeHistoryTable({
     )
   );
   
-  const totalPages = Math.ceil(filteredTrades.length / itemsPerPage);
-  const paginatedTrades = filteredTrades.slice((page - 1) * itemsPerPage, page * itemsPerPage);
+  // Sort trades by created_at field
+  const sortedTrades = [...filteredTrades].sort((a, b) => {
+    // Handle cases where created_at might be missing
+    if (!a.created_at && !b.created_at) {
+      // Fall back to date field if created_at is missing for both
+      return sortOrder === 'asc' 
+        ? new Date(a.date).getTime() - new Date(b.date).getTime()
+        : new Date(b.date).getTime() - new Date(a.date).getTime();
+    }
+    if (!a.created_at) return sortOrder === 'asc' ? -1 : 1;
+    if (!b.created_at) return sortOrder === 'asc' ? 1 : -1;
+    
+    // Parse dates safely
+    let dateA, dateB;
+    try {
+      dateA = new Date(a.created_at).getTime();
+      if (isNaN(dateA)) {
+        dateA = new Date(a.date).getTime(); // Fallback to date field
+      }
+    } catch (e) {
+      dateA = new Date(a.date).getTime(); // Fallback to date field
+    }
+    
+    try {
+      dateB = new Date(b.created_at).getTime();
+      if (isNaN(dateB)) {
+        dateB = new Date(b.date).getTime(); // Fallback to date field
+      }
+    } catch (e) {
+      dateB = new Date(b.date).getTime(); // Fallback to date field
+    }
+    
+    return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
+  });
+  
+  const totalPages = Math.ceil(sortedTrades.length / itemsPerPage);
+  const paginatedTrades = sortedTrades.slice((page - 1) * itemsPerPage, page * itemsPerPage);
 
   const handleZoomIn = () => setScale((prev) => prev + 0.1);
   const handleZoomOut = () => setScale((prev) => Math.max(prev - 0.1, 0.5));
@@ -276,10 +312,11 @@ export default function TradeHistoryTable({
   
   const isCustomizing = isCustomizingBackground || isCustomizingText;
 
+  // Update useEffect to reset page when sort order changes
   useEffect(() => {
-    // Reset page when search changes
+    // Reset page when search or sort changes
     setPage(1);
-  }, [searchTerm]);
+  }, [searchTerm, sortOrder]);
 
   // Toggle column visibility
   const toggleColumnVisibility = (columnKey: string) => {
@@ -519,6 +556,12 @@ export default function TradeHistoryTable({
     };
   };
 
+  // Toggle sort order
+  const toggleSortOrder = () => {
+    setSortOrder(prevOrder => prevOrder === 'asc' ? 'desc' : 'asc');
+    setPage(1); // Reset to page 1 when changing sort order
+  };
+
   return (
     <div 
       className={`shadow rounded-lg flex flex-col transition-all duration-300 ${isFullScreen ? 'fixed inset-0 z-50 bg-white p-4' : ''}`}
@@ -579,6 +622,17 @@ export default function TradeHistoryTable({
               </div>
             )}
           </div>
+          
+          <button
+            onClick={toggleSortOrder}
+            className={`flex items-center space-x-1 px-3 py-2 bg-white border rounded-lg text-sm hover:bg-gray-50 ${
+              sortOrder === 'desc' ? 'text-blue-600 border-blue-300' : 'text-gray-700'
+            }`}
+            title={`Sort by date added (${sortOrder === 'asc' ? 'oldest first' : 'newest first'})`}
+          >
+            <ArrowUpDown className="h-4 w-4 mr-1" />
+            <span>Date Added {sortOrder === 'asc' ? '(Oldest)' : '(Newest)'}</span>
+          </button>
           
           {journalOwnerName && (
             <div className="ml-4 px-4 py-2 bg-indigo-50 text-indigo-800 font-medium rounded-md">

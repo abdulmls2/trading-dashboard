@@ -26,6 +26,7 @@ export interface Trade {
   tradeLink: string;
   trueReward: string;
   true_tp_sl: string;
+  created_at?: string;
 }
 
 export interface User {

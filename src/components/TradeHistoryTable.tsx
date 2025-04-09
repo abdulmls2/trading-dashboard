@@ -229,6 +229,7 @@ export default function TradeHistoryTable({
     { key: 'ma', display: 'MA' },
     { key: 'fib', display: 'FIB' },
     { key: 'gap', display: 'Gap' },
+    { key: 'additional_confluences', display: 'Additional Confluences' },
     { key: 'trueReward', display: 'True Reward' },
     { key: 'true_tp_sl', display: 'True TP/SL' },
     { key: 'profitLoss', display: 'Profit/Loss' },

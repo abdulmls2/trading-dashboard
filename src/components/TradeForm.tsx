@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Trade } from '../types';
 import { createTrade, updateTrade, checkTradeAgainstRules, createTradeViolation, getUserTradingRules } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
+import { Clipboard, AlertTriangle } from 'lucide-react';
 
 // Make the Trade interface work with both create and update operations
 interface TradeFormData extends Omit<Trade, 'id'> {
@@ -65,7 +66,7 @@ interface Props {
   readOnly?: boolean;
 }
 
-type TabType = 'basic' | 'technical' | 'analysis' | 'result' | 'notes';
+type TabType = 'basic' | 'technical' | 'analysis' | 'result' | 'notes' | 'import';
 
 export default function TradeForm({ onClose, existingTrade, readOnly = false }: Props) {
   const [activeTab, setActiveTab] = useState<TabType>('basic');
@@ -99,6 +100,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
       tradeLink: '',
       trueReward: '',
       true_tp_sl: '',
+      additional_confluences: '',
       time: '', // Adding required time field with empty string default
     }
   );
@@ -114,6 +116,17 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
   const [showViolationWarning, setShowViolationWarning] = useState(false);
   const [acknowledgedViolations, setAcknowledgedViolations] = useState(false);
   const [hasAgainstTrendRule, setHasAgainstTrendRule] = useState(false);
+
+  // New state for import
+  const [importData, setImportData] = useState('');
+  const [importPreview, setImportPreview] = useState<TradeFormData | null>(null);
+  const [multipleTradesPreview, setMultipleTradesPreview] = useState<TradeFormData[]>([]);
+  const [importError, setImportError] = useState('');
+  const [isMultipleImport, setIsMultipleImport] = useState(false);
+  const [selectedPreviewIndex, setSelectedPreviewIndex] = useState<number>(0);
+
+  // State to track which trades have violations
+  const [tradesWithViolations, setTradesWithViolations] = useState<Set<number>>(new Set());
 
   // Update day when date changes, but only if the user hasn't manually changed it
   useEffect(() => {
@@ -283,6 +296,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
       tradeLink: '',
       trueReward: '',
       true_tp_sl: '',
+      additional_confluences: '',
       time: '',
     });
     setActiveTab('basic');
@@ -310,6 +324,474 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
     </button>
   );
 
+  // Helper function to parse date in DD/MM/YYYY format
+  const parseDate = (dateStr: string): string => {
+    if (!dateStr) return '';
+    
+    // Check if it's already in the right format (YYYY-MM-DD)
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      return dateStr;
+    }
+    
+    // Handle DD/MM/YYYY format
+    const parts = dateStr.split('/');
+    if (parts.length === 3) {
+      const day = parts[0].padStart(2, '0');
+      const month = parts[1].padStart(2, '0');
+      let year = parts[2];
+      
+      // Handle 2-digit years by assuming 20xx
+      if (year.length === 2) {
+        year = `20${year}`;
+      }
+      
+      return `${year}-${month}-${day}`;
+    }
+    
+    return dateStr;
+  };
+  
+  // Function to check multiple trades for rule violations
+  const checkMultipleTradesForViolations = async (trades: TradeFormData[]) => {
+    if (!user || !trades.length) return;
+    
+    try {
+      // Check first trade for violations to show in the UI
+      const partialTrade = {
+        pair: trades[0].pair,
+        day: trades[0].day,
+        lots: trades[0].lots,
+        action: trades[0].action,
+        direction: trades[0].direction
+      };
+      
+      const result = await checkTradeAgainstRules(partialTrade, user.id);
+      
+      if (!result.isValid) {
+        setRuleViolations(result.violations);
+        // Auto-acknowledge violations silently
+        setAcknowledgedViolations(true);
+        // Don't show warning
+        setShowViolationWarning(false);
+      } else {
+        setRuleViolations([]);
+        setShowViolationWarning(false);
+      }
+      
+      // Track which trades have violations (but don't display them)
+      const violationsSet = new Set<number>();
+      if (!result.isValid) violationsSet.add(0);
+      
+      // Also check if any other trades might have violations
+      let violationCount = !result.isValid ? 1 : 0;
+      
+      if (trades.length > 1) {
+        for (let i = 1; i < trades.length; i++) {
+          const trade = trades[i];
+          const partialTrade = {
+            pair: trade.pair,
+            day: trade.day,
+            lots: trade.lots,
+            action: trade.action,
+            direction: trade.direction
+          };
+          
+          const tradeResult = await checkTradeAgainstRules(partialTrade, user.id);
+          if (!tradeResult.isValid) {
+            violationCount++;
+            violationsSet.add(i);
+          }
+        }
+      }
+      
+      // Update the tracking state silently
+      setTradesWithViolations(violationsSet);
+      
+      // No need to show any warning messages about violations
+      
+      return violationCount > 0;
+    } catch (err) {
+      console.error('Error checking multiple trades for violations:', err);
+      return false;
+    }
+  };
+  
+  // Function to handle import from clipboard
+  const handleImport = () => {
+    if (!importData.trim()) {
+      setImportError('Please paste data first');
+      return;
+    }
+    
+    try {
+      setImportError('');
+      setMultipleTradesPreview([]);
+      setImportPreview(null);
+      setIsMultipleImport(false);
+      setRuleViolations([]);
+      setShowViolationWarning(false);
+      setTradesWithViolations(new Set());
+      setSelectedPreviewIndex(0);
+      
+      // Check if we have multiple lines (multiple trades)
+      const lines = importData.trim().split(/\r?\n/);
+      
+      if (lines.length > 1) {
+        // Process multiple trades
+        setIsMultipleImport(true);
+        const parsedTrades: TradeFormData[] = [];
+        
+        for (const line of lines) {
+          if (!line.trim()) continue; // Skip empty lines
+          
+          const parsedTrade = parseSingleTradeLine(line);
+          if (parsedTrade) {
+            parsedTrades.push(parsedTrade);
+          }
+        }
+        
+        if (parsedTrades.length === 0) {
+          setImportError('Could not parse any valid trades from the data.');
+          return;
+        }
+        
+        setMultipleTradesPreview(parsedTrades);
+        
+        // Check for rule violations
+        if (user) {
+          checkMultipleTradesForViolations(parsedTrades);
+        }
+      } else {
+        // Process single trade
+        const parsedTrade = parseSingleTradeLine(importData);
+        if (!parsedTrade) {
+          setImportError('Failed to parse trade data. Please check the format.');
+          return;
+        }
+        
+        setImportPreview(parsedTrade);
+        
+        // Check for rule violations if user is logged in
+        if (user) {
+          const partialTrade = {
+            pair: parsedTrade.pair,
+            day: parsedTrade.day,
+            lots: parsedTrade.lots,
+            action: parsedTrade.action,
+            direction: parsedTrade.direction
+          };
+          
+          checkTradeAgainstRules(partialTrade, user.id).then(result => {
+            if (!result.isValid) {
+              setRuleViolations(result.violations);
+              // Silently acknowledge violations without showing warnings
+              setAcknowledgedViolations(true);
+              setShowViolationWarning(false);
+            } else {
+              setRuleViolations([]);
+              setShowViolationWarning(false);
+            }
+          }).catch(err => {
+            console.error('Error checking rules for imported trade:', err);
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Import error:', error);
+      setImportError('Failed to parse import data. Please check the format.');
+    }
+  };
+  
+  // Helper function to parse a single trade line
+  const parseSingleTradeLine = (line: string): TradeFormData | null => {
+    try {
+      // Split the pasted content by tabs or multiple spaces and trim each value
+      const values = line.trim().split(/\t|\s{2,}/).map(val => val.trim());
+      
+      if (values.length < 10) {
+        console.warn('Not enough data in line:', line);
+        return null;
+      }
+      
+      // Check if we have a currency pair
+      const pairValue = values[3] || '';
+      let normalizedPair = pairValue;
+      
+      // Handle shortened pair names (like 'GU' for 'GBP/USD')
+      if (pairValue === 'GU') normalizedPair = 'GBP/USD';
+      if (pairValue === 'EU') normalizedPair = 'EUR/USD';
+      if (pairValue === 'UJ') normalizedPair = 'USD/JPY';
+      if (pairValue === 'UC') normalizedPair = 'USD/CHF';
+      if (pairValue === 'AU') normalizedPair = 'AUD/USD';
+      if (pairValue === 'UC') normalizedPair = 'USD/CAD';
+      if (pairValue === 'NU') normalizedPair = 'NZD/USD';
+      
+      // Convert action to correct format
+      const actionValue = values[4] || '';
+      let normalizedAction: 'Buy' | 'Sell' = 'Buy';
+      if (actionValue.toLowerCase().includes('sell') || 
+          actionValue.toLowerCase().includes('short')) {
+        normalizedAction = 'Sell';
+      }
+      
+      // Get entry time - ensure it's a valid time format
+      const entryTimeValue = values[2] || '';
+      // Default to current time if empty
+      const validEntryTime = entryTimeValue.trim() || 
+                            new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
+      
+      // Extract profit/loss value
+      let profitLossValue = 0;
+      if (values.length > 19) {
+        const plStr = values[19] || '';
+        // Handle currency symbols and negative values
+        const plMatch = plStr.match(/-?\s*[£$]?(\d+\.?\d*)/);
+        if (plMatch && plMatch[1]) {
+          profitLossValue = parseFloat(plMatch[1]);
+          // Apply negative sign if present in original string
+          if (plStr.includes('-')) {
+            profitLossValue = -Math.abs(profitLossValue);
+          }
+        }
+      }
+      
+      // Parse true_tp_sl field
+      let trueTpSlValue = '';
+      if (values.length > 20) {
+        // Check if the value is a number
+        const tpSlValue = values[20] || '';
+        if (!isNaN(parseFloat(tpSlValue))) {
+          trueTpSlValue = tpSlValue;
+        }
+      }
+      
+      // Parse trueReward field
+      let trueRewardValue = '';
+      if (values.length > 21) {
+        trueRewardValue = values[21] || '';
+      }
+      
+      // Parse tradeLink field
+      let tradeLinkValue = '';
+      if (values.length > 22) {
+        tradeLinkValue = values[22] || '';
+      }
+      
+      // Parse additional_confluences field
+      let additionalConfluencesValue = '';
+      if (values.length > 17) {
+        additionalConfluencesValue = values[17] || '';
+      }
+      
+      // Parse comments field
+      let commentsValue = '';
+      if (values.length > 23) {
+        commentsValue = values[23] || '';
+      }
+      
+      // Parse mindset field
+      let mindsetValue = '';
+      if (values.length > 18) {
+        mindsetValue = values[18] || '';
+      }
+      
+      const importedTrade: TradeFormData = {
+        date: parseDate(values[0] || ''),
+        day: values[1] || '',
+        entryTime: validEntryTime,
+        pair: normalizedPair,
+        action: normalizedAction,
+        direction: values[5] || directionOptions[0],
+        lots: parseFloat(values[6]) || 0.01,
+        pipStopLoss: parseInt(values[7]) || 0,
+        pipTakeProfit: parseInt(values[8]) || 0,
+        riskRatio: parseFloat(values[9]) || 0,
+        orderType: values[10] || '',
+        marketCondition: values[11] || '',
+        ma: values[12] || '',                      // MA (index 12)
+        fib: values[13] || '',                     // FIB (index 13)
+        pivots: values[14] || '',                  // Pivot (index 14)
+        gap: values[15] || '',                     // Gap (index 15)
+        bankingLevel: values[16] || '',            // Banking Level (index 16)
+        additional_confluences: additionalConfluencesValue,  // Additional Confluences (index 17)
+        mindset: mindsetValue,                     // Mindset (index 18)
+        profitLoss: profitLossValue,               // P/L (index 19)
+        true_tp_sl: trueTpSlValue,                 // TrueTpSl (index 20)
+        trueReward: trueRewardValue,               // TrueReward (index 21)
+        tradeLink: tradeLinkValue,                 // Trade Link (index 22)
+        comments: commentsValue,                   // Comments (index 23)
+        exitTime: '',
+        time: validEntryTime,                      // ENSURE time has the same valid value as entryTime
+      };
+      
+      return importedTrade;
+    } catch (error) {
+      console.error('Error parsing trade line:', error);
+      return null;
+    }
+  };
+  
+  // Function to apply the imported data
+  const applyImport = () => {
+    if (isMultipleImport && multipleTradesPreview.length > 0) {
+      // Use the currently selected trade
+      setFormData(multipleTradesPreview[selectedPreviewIndex]);
+      
+      // If there's profit/loss, update the input state too
+      if (multipleTradesPreview[selectedPreviewIndex].profitLoss) {
+        setProfitLossInput(multipleTradesPreview[selectedPreviewIndex].profitLoss.toString());
+      }
+      
+      setActiveTab('basic'); // Switch to the basic tab to show the imported data
+      setImportPreview(null);
+      setMultipleTradesPreview([]);
+      setImportData('');
+      setIsMultipleImport(false);
+      
+      // Set a message for the user
+      setImportError('Note: Applied trade #' + (selectedPreviewIndex + 1) + '. For all trades, use the "Import All Trades" button instead.');
+    } else if (importPreview) {
+      setFormData(importPreview);
+      // If there's profit/loss, update the input state too
+      if (importPreview.profitLoss) {
+        setProfitLossInput(importPreview.profitLoss.toString());
+      }
+      setActiveTab('basic'); // Switch to the basic tab to show the imported data
+      setImportPreview(null);
+      setImportData('');
+    }
+  };
+  
+  // Function to apply a specific trade from the multiple preview list
+  const applySpecificTrade = (index: number) => {
+    if (multipleTradesPreview[index]) {
+      setFormData(multipleTradesPreview[index]);
+      // If there's profit/loss, update the input state too
+      if (multipleTradesPreview[index].profitLoss) {
+        setProfitLossInput(multipleTradesPreview[index].profitLoss.toString());
+      }
+      setActiveTab('basic'); // Switch to the basic tab to show the imported data
+      setImportPreview(null);
+      setMultipleTradesPreview([]);
+      setImportData('');
+      setIsMultipleImport(false);
+    }
+  };
+  
+  // Function to clear import data
+  const clearImport = () => {
+    setImportData('');
+    setImportPreview(null);
+    setMultipleTradesPreview([]);
+    setImportError('');
+    setIsMultipleImport(false);
+  };
+  
+  // Clipboard paste event handler
+  const handlePaste = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      setImportData(text);
+      setImportError('');
+    } catch (error) {
+      console.error('Clipboard access error:', error);
+      setImportError('Unable to access clipboard. Please paste the data manually.');
+    }
+  };
+
+  // Function to import and submit all trades at once
+  const importAndSubmitAllTrades = async () => {
+    if (!multipleTradesPreview.length) return;
+    
+    setLoading(true);
+    setError('');
+    let successCount = 0;
+    let failureCount = 0;
+    
+    try {
+      // Process each trade in sequence
+      for (const trade of multipleTradesPreview) {
+        try {
+          // Ensure time field has a valid value (use entryTime if time is empty)
+          if (!trade.time || trade.time.trim() === '') {
+            trade.time = trade.entryTime || new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
+          }
+          
+          // Prepare the trade data for submission
+          const submissionData = Object.fromEntries(
+            Object.entries(trade).map(([key, value]) => {
+              // Convert empty strings to null for optional fields
+              if ((key === 'exitTime' || key === 'tradeLink') && value === '') {
+                return [key, null];
+              }
+              return [key, value];
+            })
+          );
+          
+          // Remove the id property if it exists
+          const { id, ...createData } = submissionData;
+          
+          // Check for rule violations for this specific trade
+          if (user) {
+            // Only check specific fields that might cause violations
+            const partialTrade = {
+              pair: trade.pair,
+              day: trade.day,
+              lots: trade.lots,
+              action: trade.action,
+              direction: trade.direction
+            };
+            
+            // Check if this trade would violate any rules
+            const ruleCheckResult = await checkTradeAgainstRules(partialTrade, user.id);
+            
+            // Create the trade
+            const result = await createTrade(createData as Omit<Trade, 'id'>);
+            const tradeId = result.id;
+            
+            // If there are violations, record them with automatic acknowledgment
+            if (!ruleCheckResult.isValid && user) {
+              for (const violation of ruleCheckResult.violations) {
+                await createTradeViolation({
+                  tradeId,
+                  userId: user.id,
+                  ruleType: violation.ruleType as any,
+                  violatedValue: violation.violatedValue,
+                  allowedValues: violation.allowedValues,
+                  acknowledged: true
+                });
+              }
+            }
+            
+            successCount++;
+          } else {
+            // If no user is logged in, simply create the trade without checking rules
+            await createTrade(createData as Omit<Trade, 'id'>);
+            successCount++;
+          }
+        } catch (err) {
+          console.error('Error submitting trade:', err);
+          failureCount++;
+        }
+      }
+      
+      // Close the form only if at least one trade was successful
+      if (successCount > 0) {
+        // Show a message with the results before closing
+        const resultMessage = `Successfully imported ${successCount} trades${failureCount > 0 ? ` (${failureCount} failed)` : ''}.`;
+        alert(resultMessage);
+        onClose();
+      } else {
+        setError(`Failed to import any trades. Please check the data and try again.`);
+      }
+    } catch (err) {
+      console.error('Bulk import error:', err);
+      setError(err instanceof Error ? err.message : 'An error occurred during bulk import');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {readOnly && (
@@ -335,52 +817,13 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
         </div>
       )}
 
-      {/* Rule Violation Warning */}
-      {showViolationWarning && ruleViolations.length > 0 && (
-        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-md">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <div className="ml-3">
-              <h3 className="text-sm font-medium text-yellow-800">Trading Rule Violation</h3>
-              <div className="mt-2 text-sm text-yellow-700">
-                <ul className="list-disc pl-5 space-y-1">
-                  {ruleViolations.map((violation, index) => (
-                    <li key={index}>
-                      {violation.ruleType === 'action_direction' ? (
-                        <strong>You are going against the trend, not allowed</strong>
-                      ) : (
-                        <>
-                          <strong>{violation.ruleType.charAt(0).toUpperCase() + violation.ruleType.slice(1)}:</strong> {violation.violatedValue} is not in the allowed values: {violation.allowedValues.join(', ')}
-                        </>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div className="mt-4">
-                <button
-                  type="button"
-                  onClick={handleAcknowledgeViolations}
-                  className="text-sm font-medium text-red-700 hover:text-red-500 focus:outline-none"
-                >
-                  I understand and want to continue
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       <div className="flex space-x-2 border-b border-gray-300">
         <TabButton tab="basic" label="Basic Info" />
         <TabButton tab="technical" label="Technical Details" />
         <TabButton tab="analysis" label="Confluences" />
         <TabButton tab="result" label="Result" />
         <TabButton tab="notes" label="Notes & Links" />
+        {!readOnly && <TabButton tab="import" label="Import" />}
       </div>
 
       <div className="mt-4">
@@ -651,6 +1094,18 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
                 ))}
               </select>
             </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700">Additional Confluences</label>
+              <textarea
+                value={formData.additional_confluences}
+                onChange={(e) => setFormData({ ...formData, additional_confluences: e.target.value })}
+                rows={3}
+                className={inputClassName}
+                placeholder="Enter any additional confluences that influenced this trade"
+                disabled={readOnly}
+              />
+            </div>
           </div>
         )}
 
@@ -673,17 +1128,6 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
                 type="text"
                 value={formData.true_tp_sl}
                 onChange={(e) => setFormData({ ...formData, true_tp_sl: e.target.value })}
-                className={inputClassName}
-                disabled={readOnly}
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Trade Link</label>
-              <input
-                type="text"
-                value={formData.tradeLink}
-                onChange={(e) => setFormData({ ...formData, tradeLink: e.target.value })}
                 className={inputClassName}
                 disabled={readOnly}
               />
@@ -728,6 +1172,18 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
             </div>
 
             <div>
+              <label className="block text-sm font-medium text-gray-700">Trade Link</label>
+              <input
+                type="text"
+                value={formData.tradeLink}
+                onChange={(e) => setFormData({ ...formData, tradeLink: e.target.value })}
+                className={inputClassName}
+                placeholder="Enter URL to trade chart or analysis"
+                disabled={readOnly}
+              />
+            </div>
+
+            <div>
               <label className="block text-sm font-medium text-gray-700">Comments</label>
               <textarea
                 value={formData.comments}
@@ -740,6 +1196,393 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
           </div>
         )}
 
+        {/* New Import Tab */}
+        {activeTab === 'import' && !readOnly && (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Import Trade Data</h3>
+              <p className="text-sm text-gray-500 mb-4">
+                Paste data from Excel or spreadsheet applications. You can paste multiple trades (one per line) or a single trade.
+              </p>
+              <div className="bg-gray-50 p-3 rounded-md text-xs overflow-x-auto mb-4">
+                <code>Date | Day | Time | Pair | Action | Direction | Lots | SL | TP | RR | OrderType | MarketCondition | MA | FIB | Pivot | Gap | BankingLevel | Additional_Confluences | Mindset | P/L | TrueTpSl | TrueReward | TradeLink | Comments</code>
+              </div>
+              
+              <div className="flex items-center mb-2">
+                <button
+                  type="button"
+                  onClick={handlePaste}
+                  className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 mr-2"
+                >
+                  <Clipboard className="h-4 w-4 mr-2" />
+                  Paste from Clipboard
+                </button>
+                <button
+                  type="button"
+                  onClick={clearImport}
+                  className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                >
+                  Clear
+                </button>
+              </div>
+              
+              <textarea
+                value={importData}
+                onChange={(e) => setImportData(e.target.value)}
+                rows={4}
+                placeholder="Paste your data here..."
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+              />
+              
+              {importError && (
+                <p className="mt-2 text-sm text-red-600">{importError}</p>
+              )}
+              
+              <div className="mt-4 flex justify-end">
+                <button
+                  type="button"
+                  onClick={handleImport}
+                  className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                >
+                  Preview Import
+                </button>
+              </div>
+            </div>
+            
+            {/* Preview for single trade */}
+            {importPreview && !isMultipleImport && (
+              <div className="mt-6">
+                <h4 className="text-md font-medium text-gray-900 mb-3">Import Preview</h4>
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">Date:</p>
+                      <p className="text-sm">{importPreview.date}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">Day:</p>
+                      <p className="text-sm">{importPreview.day}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">Entry Time:</p>
+                      <p className="text-sm">{importPreview.entryTime}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">Pair:</p>
+                      <p className="text-sm">{importPreview.pair}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">Action:</p>
+                      <p className="text-sm">{importPreview.action}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">Direction:</p>
+                      <p className="text-sm">{importPreview.direction}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">Lots:</p>
+                      <p className="text-sm">{importPreview.lots}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">SL (pips):</p>
+                      <p className="text-sm">{importPreview.pipStopLoss}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">TP (pips):</p>
+                      <p className="text-sm">{importPreview.pipTakeProfit}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">Risk Ratio:</p>
+                      <p className="text-sm">{importPreview.riskRatio}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">Order Type:</p>
+                      <p className="text-sm">{importPreview.orderType}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">Market Condition:</p>
+                      <p className="text-sm">{importPreview.marketCondition}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">MA:</p>
+                      <p className="text-sm">{importPreview.ma}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">FIB:</p>
+                      <p className="text-sm">{importPreview.fib}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">Pivots:</p>
+                      <p className="text-sm">{importPreview.pivots}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">Gap:</p>
+                      <p className="text-sm">{importPreview.gap}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">Banking Level:</p>
+                      <p className="text-sm">{importPreview.bankingLevel}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">Additional Confluences:</p>
+                      <p className="text-sm text-gray-900 truncate">{importPreview.additional_confluences}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">Mindset:</p>
+                      <p className="text-sm">{importPreview.mindset}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">Profit/Loss:</p>
+                      <p className={`text-sm ${importPreview.profitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {importPreview.profitLoss}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">True TP/SL:</p>
+                      <p className="text-sm">{importPreview.true_tp_sl}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">True Reward:</p>
+                      <p className="text-sm">{importPreview.trueReward}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">Trade Link:</p>
+                      <p className="text-sm text-gray-900 truncate">{importPreview.tradeLink}</p>
+                    </div>
+                    <div className="col-span-2">
+                      <p className="text-sm font-medium text-gray-500">Comments:</p>
+                      <p className="text-sm text-gray-900">{importPreview.comments}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-4 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={applyImport}
+                      className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                    >
+                      Apply Import
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Preview for multiple trades */}
+            {isMultipleImport && multipleTradesPreview.length > 0 && (
+              <div className="mt-6">
+                <div className="flex justify-between items-center mb-3">
+                  <h4 className="text-md font-medium text-gray-900">Multiple Trades Preview ({multipleTradesPreview.length})</h4>
+                </div>
+                
+                <div className="bg-white border rounded-lg overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                          <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Pair</th>
+                          <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Action</th>
+                          <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Time</th>
+                          <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Lots</th>
+                          <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">SL</th>
+                          <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">TP</th>
+                          <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">P/L</th>
+                          <th scope="col" className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {multipleTradesPreview.map((trade, index) => (
+                          <tr key={index} className={`hover:bg-gray-50 ${selectedPreviewIndex === index ? 'bg-blue-50' : ''}`}>
+                            <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
+                              {trade.date}
+                            </td>
+                            <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">{trade.pair}</td>
+                            <td className="px-3 py-2 whitespace-nowrap text-sm">
+                              <span 
+                                className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                                  trade.action === 'Buy' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                }`}
+                              >
+                                {trade.action}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">{trade.entryTime}</td>
+                            <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">{trade.lots}</td>
+                            <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">{trade.pipStopLoss}</td>
+                            <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">{trade.pipTakeProfit}</td>
+                            <td className="px-3 py-2 whitespace-nowrap text-sm font-medium">
+                              <span className={trade.profitLoss >= 0 ? 'text-green-600' : 'text-red-600'}>
+                                {trade.profitLoss}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 whitespace-nowrap text-right text-sm font-medium">
+                              <button
+                                type="button"
+                                onClick={() => setSelectedPreviewIndex(index)}
+                                className={`text-blue-600 hover:text-blue-900 ${selectedPreviewIndex === index ? 'font-bold' : ''}`}
+                              >
+                                Preview
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+                
+                {/* Options for multiple trades */}
+                <div className="mt-6 flex flex-col space-y-4">
+                  <div className="flex justify-between items-center">
+                    <div className="flex flex-col">
+                      <p className="text-sm text-gray-700">
+                        Ready to import all {multipleTradesPreview.length} trades at once
+                      </p>
+                    </div>
+                    <div className="flex space-x-3">
+                      <button
+                        type="button"
+                        onClick={importAndSubmitAllTrades}
+                        disabled={loading}
+                        className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-400 disabled:cursor-not-allowed"
+                      >
+                        {loading ? 'Importing...' : `Import All ${multipleTradesPreview.length} Trades`}
+                      </button>
+                    </div>
+                  </div>
+                  
+                  {loading && (
+                    <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-md">
+                      <p className="text-sm">Importing trades. Please wait...</p>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Detailed view of the selected trade */}
+                {multipleTradesPreview.length > 0 && (
+                  <div className="mt-6">
+                    <div className="flex justify-between items-center mb-2">
+                      <h5 className="text-sm font-medium text-gray-700">
+                        Trade #{selectedPreviewIndex + 1} Details
+                      </h5>
+                      <button 
+                        type="button"
+                        onClick={applyImport}
+                        className="text-sm font-medium text-blue-600 hover:text-blue-800"
+                      >
+                        Apply This Trade
+                      </button>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                        <div>
+                          <p className="text-xs font-medium text-gray-500">Date:</p>
+                          <p className="text-xs">{multipleTradesPreview[selectedPreviewIndex].date}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500">Day:</p>
+                          <p className="text-xs">{multipleTradesPreview[selectedPreviewIndex].day}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500">Entry Time:</p>
+                          <p className="text-xs">{multipleTradesPreview[selectedPreviewIndex].entryTime}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500">Pair:</p>
+                          <p className="text-xs">{multipleTradesPreview[selectedPreviewIndex].pair}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500">Action:</p>
+                          <p className="text-xs">{multipleTradesPreview[selectedPreviewIndex].action}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500">Direction:</p>
+                          <p className="text-xs">{multipleTradesPreview[selectedPreviewIndex].direction}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500">Lots:</p>
+                          <p className="text-xs">{multipleTradesPreview[selectedPreviewIndex].lots}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500">SL (pips):</p>
+                          <p className="text-xs">{multipleTradesPreview[selectedPreviewIndex].pipStopLoss}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500">TP (pips):</p>
+                          <p className="text-xs">{multipleTradesPreview[selectedPreviewIndex].pipTakeProfit}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500">Risk Ratio:</p>
+                          <p className="text-xs">{multipleTradesPreview[selectedPreviewIndex].riskRatio}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500">Order Type:</p>
+                          <p className="text-xs">{multipleTradesPreview[selectedPreviewIndex].orderType}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500">Market Condition:</p>
+                          <p className="text-xs">{multipleTradesPreview[selectedPreviewIndex].marketCondition}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500">MA:</p>
+                          <p className="text-xs">{multipleTradesPreview[selectedPreviewIndex].ma}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500">FIB:</p>
+                          <p className="text-xs">{multipleTradesPreview[selectedPreviewIndex].fib}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500">Pivots:</p>
+                          <p className="text-xs">{multipleTradesPreview[selectedPreviewIndex].pivots}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500">Gap:</p>
+                          <p className="text-xs">{multipleTradesPreview[selectedPreviewIndex].gap}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500">Banking Level:</p>
+                          <p className="text-xs">{multipleTradesPreview[selectedPreviewIndex].bankingLevel}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500">Additional Confluences:</p>
+                          <p className="text-xs text-gray-900 truncate">{multipleTradesPreview[selectedPreviewIndex].additional_confluences}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500">Mindset:</p>
+                          <p className="text-xs">{multipleTradesPreview[selectedPreviewIndex].mindset}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500">Profit/Loss:</p>
+                          <p className={`text-xs ${multipleTradesPreview[selectedPreviewIndex].profitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {multipleTradesPreview[selectedPreviewIndex].profitLoss}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500">True TP/SL:</p>
+                          <p className="text-xs">{multipleTradesPreview[selectedPreviewIndex].true_tp_sl}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500">True Reward:</p>
+                          <p className="text-xs">{multipleTradesPreview[selectedPreviewIndex].trueReward}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500">Trade Link:</p>
+                          <p className="text-xs text-gray-900 truncate">{multipleTradesPreview[selectedPreviewIndex].tradeLink}</p>
+                        </div>
+                        <div className="col-span-2">
+                          <p className="text-xs font-medium text-gray-500">Comments:</p>
+                          <p className="text-xs text-gray-900">{multipleTradesPreview[selectedPreviewIndex].comments}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+        
         <div className="flex justify-end mt-8">
           <div className="flex space-x-4">
             {!readOnly && (
@@ -754,7 +1597,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
             <button
               type={readOnly ? "button" : "submit"}
               onClick={readOnly ? onClose : undefined}
-              disabled={loading || (showViolationWarning && !acknowledgedViolations)}
+              disabled={loading}
               className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-400 disabled:cursor-not-allowed"
             >
               {readOnly ? 'Close' : loading ? 'Saving...' : existingTrade ? 'Update Trade' : 'Submit Trade'}

@@ -33,7 +33,8 @@ export async function createTrade(trade: Omit<Trade, 'id' | 'time'>) {
       mindset: trade.mindset,
       trade_link: trade.tradeLink,
       true_reward: trade.trueReward,
-      true_tp_sl: trade.true_tp_sl
+      true_tp_sl: trade.true_tp_sl,
+      additional_confluences: trade.additional_confluences
     }])
     .select()
     .single();
@@ -69,6 +70,7 @@ export async function updateTrade(id: string, trade: Partial<Omit<Trade, 'time'>
   if (trade.tradeLink) updates.trade_link = trade.tradeLink;
   if (trade.trueReward) updates.true_reward = trade.trueReward;
   if (trade.true_tp_sl) updates.true_tp_sl = trade.true_tp_sl;
+  if (trade.additional_confluences) updates.additional_confluences = trade.additional_confluences;
 
   const { data, error } = await supabase
     .from('trades')
@@ -125,6 +127,7 @@ export async function getTrades() {
       trade_link,
       true_reward,
       true_tp_sl,
+      additional_confluences,
       created_at
     `)
     .eq('user_id', user.id) // Always filter by current user's ID, regardless of role
@@ -160,6 +163,7 @@ export async function getTrades() {
     tradeLink: trade.trade_link,
     trueReward: trade.true_reward,
     true_tp_sl: trade.true_tp_sl,
+    additional_confluences: trade.additional_confluences,
     created_at: trade.created_at
   }));
 }
@@ -426,6 +430,7 @@ export async function getAllTrades() {
       trade_link,
       true_reward,
       true_tp_sl,
+      additional_confluences,
       created_at
     `)
     .order('date', { ascending: false });
@@ -460,6 +465,7 @@ export async function getAllTrades() {
     tradeLink: trade.trade_link,
     trueReward: trade.true_reward,
     true_tp_sl: trade.true_tp_sl,
+    additional_confluences: trade.additional_confluences,
     created_at: trade.created_at
   }));
 }

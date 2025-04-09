@@ -35,10 +35,17 @@ export interface User {
 }
 
 export interface PerformanceMetrics {
+  id?: string;
+  userId?: string;
   totalTrades: number;
   winRate: number;
   averageRRR: number;
   totalProfitLoss: number;
+  month?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  monthlyPipTarget?: number;
+  capital?: number;
   violationsCount?: number;
 }
 

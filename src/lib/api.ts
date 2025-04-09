@@ -182,28 +182,48 @@ export async function getPerformanceMetrics(month: string) {
     totalProfitLoss: data.total_profit_loss,
     month: data.month,
     createdAt: data.created_at,
-    updatedAt: data.updated_at
+    updatedAt: data.updated_at,
+    monthlyPipTarget: data.monthly_pip_target,
+    capital: data.capital
   };
 }
 
-export async function updatePerformanceMetrics(metrics: Omit<PerformanceMetrics, 'id'> & { month: string }) {
+export async function updatePerformanceMetrics(metrics: Partial<Omit<PerformanceMetrics, 'id'>> & { month: string }) {
   const { data: { user } } = await supabase.auth.getUser();
+
+  const upsertData: Record<string, any> = {
+    user_id: user?.id,
+    month: metrics.month
+  };
+
+  if (metrics.totalTrades !== undefined) upsertData.total_trades = metrics.totalTrades;
+  if (metrics.winRate !== undefined) upsertData.win_rate = metrics.winRate;
+  if (metrics.averageRRR !== undefined) upsertData.average_rrr = metrics.averageRRR;
+  if (metrics.totalProfitLoss !== undefined) upsertData.total_profit_loss = metrics.totalProfitLoss;
+  if (metrics.monthlyPipTarget !== undefined) upsertData.monthly_pip_target = metrics.monthlyPipTarget;
+  if (metrics.capital !== undefined) upsertData.capital = metrics.capital;
 
   const { data, error } = await supabase
     .from('performance_metrics')
-    .upsert([{
-      user_id: user?.id,
-      total_trades: metrics.totalTrades,
-      win_rate: metrics.winRate,
-      average_rrr: metrics.averageRRR,
-      total_profit_loss: metrics.totalProfitLoss,
-      month: metrics.month
-    }])
+    .upsert([upsertData], { onConflict: 'user_id, month' })
     .select()
     .single();
 
   if (error) throw error;
-  return data;
+  
+  return {
+    id: data.id,
+    userId: data.user_id,
+    totalTrades: data.total_trades,
+    winRate: data.win_rate,
+    averageRRR: data.average_rrr,
+    totalProfitLoss: data.total_profit_loss,
+    month: data.month,
+    createdAt: data.created_at,
+    updatedAt: data.updated_at,
+    monthlyPipTarget: data.monthly_pip_target,
+    capital: data.capital
+  };
 }
 
 export async function calculateMonthlyMetrics(month: string) {

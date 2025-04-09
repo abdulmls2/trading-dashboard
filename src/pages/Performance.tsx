@@ -1,21 +1,27 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Header from '../components/Header';
-import PerformanceMetrics from '../components/PerformanceMetrics';
+import PerformanceMetricsComponent from '../components/PerformanceMetrics';
 import TradeHistoryTable from '../components/TradeHistoryTable';
 import TradeForm from '../components/TradeForm';
 import TradeChatBox from '../components/TradeChatBox';
 import { PlusCircle, MessageSquare } from 'lucide-react';
 import { Trade, PerformanceMetrics as Metrics } from '../types';
-import { getTrades, getTradeViolations } from '../lib/api';
+import { getTrades, getTradeViolations, getPerformanceMetrics, updatePerformanceMetrics } from '../lib/api';
 
-// Default empty metrics
-const emptyMetrics: Metrics & { totalPips: number } = {
+// Default empty calculated metrics
+const emptyCalculatedMetrics: Omit<Metrics, 'monthlyPipTarget' | 'capital'> & { totalPips: number } = {
   totalTrades: 0,
   winRate: 0,
   averageRRR: 0,
   totalProfitLoss: 0,
   totalPips: 0,
   violationsCount: 0,
+};
+
+// Default empty DB metrics
+const defaultDbMetrics: Partial<Metrics> = {
+  monthlyPipTarget: 10, // Default value
+  capital: 100, // Default value
 };
 
 const months = [
@@ -43,35 +49,26 @@ export default function Performance() {
   const [filteredTrades, setFilteredTrades] = useState<Trade[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [refreshKey, setRefreshKey] = useState(0);
   const [violations, setViolations] = useState<any[]>([]);
+  const [monthlyDbMetrics, setMonthlyDbMetrics] = useState<Metrics | null>(null); // State for DB-fetched metrics
+  const [loadingMetrics, setLoadingMetrics] = useState(false); // Separate loading state for metrics
 
   // Calculate performance metrics based on filtered trades and violations
-  const performanceMetrics = useMemo(() => {
-    if (filteredTrades.length === 0) return emptyMetrics;
+  const calculatedPerformanceMetrics = useMemo(() => {
+    if (filteredTrades.length === 0) return emptyCalculatedMetrics;
 
     const totalTrades = filteredTrades.length;
-    
-    // Count winning trades (trades with positive P/L)
     const winningTrades = filteredTrades.filter(trade => trade.profitLoss > 0).length;
     const winRate = totalTrades > 0 ? (winningTrades / totalTrades) * 100 : 0;
-    
-    // Calculate total P/L
     const totalProfitLoss = filteredTrades.reduce((sum, trade) => sum + trade.profitLoss, 0);
-    
-    // Calculate sum of trueReward values
     const totalTrueReward = filteredTrades.reduce((sum, trade) => {
       const trueRewardValue = parseFloat(trade.trueReward || '0');
       return sum + (isNaN(trueRewardValue) ? 0 : trueRewardValue);
     }, 0);
-    
-    // Calculate total pips using true_tp_sl
     const totalPips = filteredTrades.reduce((sum, trade) => {
       const trueTpSlValue = parseFloat(trade.true_tp_sl || '0');
       return sum + (isNaN(trueTpSlValue) ? 0 : trueTpSlValue);
     }, 0);
-    
-    // Get the current violations count
     const violationsCount = violations.length;
     
     return {
@@ -84,99 +81,137 @@ export default function Performance() {
     };
   }, [filteredTrades, violations]);
 
-  // Function to filter trades by selected month
-  const filterTradesByMonth = (month: string) => {
-    if (month === "All Trades") {
-      setFilteredTrades(trades); // Show all trades
-      return;
-    }
-    
-    if (!month) {
-      setFilteredTrades(trades); // Reset to all trades if no month is selected
-      return;
-    }
-    
-    const monthIndex = months.indexOf(month);
-    const filtered = trades.filter(trade => {
-      const tradeDate = new Date(trade.date);
-      return tradeDate.getMonth() === monthIndex && tradeDate.getFullYear() === new Date().getFullYear();
-    });
-    
-    setFilteredTrades(filtered);
-  };
+  // Function to format date as YYYY-MM-01 for API calls
+  const getMonthString = useCallback((year: number, monthName: string): string | null => {
+    const monthIndex = months.indexOf(monthName);
+    if (monthIndex === -1) return null; // Invalid month name
+    // Ensure month is 2 digits (e.g., 01, 10)
+    const monthString = (monthIndex + 1).toString().padStart(2, '0'); 
+    return `${year}-${monthString}-01`;
+  }, []);
 
-  // Function to filter trades by selected month and year
-  const filterTrades = () => {
-    if (selectedMonth === "All Trades" && (!selectedYear || selectedYear === "All Years")) {
-      setFilteredTrades(trades); // Show all trades
+  // Function to fetch metrics for a given month/year
+  const fetchMonthlyMetrics = useCallback(async (year: number, monthName: string) => {
+    const monthStr = getMonthString(year, monthName);
+    if (!monthStr) {
+      setMonthlyDbMetrics(null); // Reset if month/year is invalid or "All"
       return;
     }
     
+    setLoadingMetrics(true);
+    try {
+      const data = await getPerformanceMetrics(monthStr);
+      setMonthlyDbMetrics(data);
+    } catch (err) {
+      console.error("Failed to load monthly metrics:", err);
+      setError(err instanceof Error ? err.message : 'Failed to load monthly metrics');
+      setMonthlyDbMetrics(null); // Reset on error
+    } finally {
+      setLoadingMetrics(false);
+    }
+  }, [getMonthString]);
+
+  // Filter trades whenever trades, selectedMonth, or selectedYear changes
+  const filterTrades = useCallback(() => {
     let filtered = [...trades];
-    
-    // Filter by year if selected
-    if (selectedYear && selectedYear !== "All Years") {
-      const year = parseInt(selectedYear);
-      filtered = filtered.filter(trade => {
-        const tradeDate = new Date(trade.date);
-        return tradeDate.getFullYear() === year;
-      });
-    }
-    
-    // Further filter by month if selected
-    if (selectedMonth && selectedMonth !== "All Trades") {
-      const monthIndex = months.indexOf(selectedMonth);
-      filtered = filtered.filter(trade => {
-        const tradeDate = new Date(trade.date);
-        return tradeDate.getMonth() === monthIndex;
-      });
-    }
-    
-    setFilteredTrades(filtered);
-  };
+    let yearToFilter: number | null = null;
+    let monthToFilter: string | null = null;
 
-  // Update the useEffect to load trades and violations
+    if (selectedYear && selectedYear !== "All Years") {
+      yearToFilter = parseInt(selectedYear);
+      filtered = filtered.filter(trade => new Date(trade.date).getFullYear() === yearToFilter);
+    }
+
+    if (selectedMonth && selectedMonth !== "All Trades" && yearToFilter !== null) {
+      monthToFilter = selectedMonth;
+      const monthIndex = months.indexOf(selectedMonth);
+      filtered = filtered.filter(trade => new Date(trade.date).getMonth() === monthIndex);
+    } else if (selectedMonth && selectedMonth !== "All Trades") {
+        // If only month is selected (implicitly current year)
+        yearToFilter = new Date().getFullYear(); 
+        monthToFilter = selectedMonth;
+        const monthIndex = months.indexOf(selectedMonth);
+        filtered = trades.filter(trade => {
+            const tradeDate = new Date(trade.date);
+            return tradeDate.getMonth() === monthIndex && tradeDate.getFullYear() === yearToFilter;
+        });
+    }
+
+    setFilteredTrades(filtered);
+
+    // Fetch metrics for the selected period if a specific month and year are chosen
+    if (monthToFilter && yearToFilter) {
+      fetchMonthlyMetrics(yearToFilter, monthToFilter);
+    } else {
+      setMonthlyDbMetrics(null); // Clear metrics if showing "All"
+    }
+  }, [trades, selectedMonth, selectedYear, fetchMonthlyMetrics]);
+
+  // Initial data load for trades and violations
   useEffect(() => {
-    async function loadData() {
+    async function loadInitialData() {
       try {
         setLoading(true);
-        // Fetch both trades and violations in parallel
         const [tradeData, violationData] = await Promise.all([
           getTrades(),
           getTradeViolations()
         ]);
         
-        // Format the trades properly
-        const formattedTrades = tradeData.map(trade => ({
-          ...trade,
-          time: trade.entryTime, // Add the missing 'time' property required by Trade interface
-        }));
-        
+        const formattedTrades = tradeData.map(trade => ({ ...trade, time: trade.entryTime }));
         setTrades(formattedTrades);
-        setFilteredTrades(formattedTrades); // Set initial filtered trades
-        setViolations(violationData); // Store violations
-      } catch (err) {
+        setViolations(violationData);
+        // Initial filter and metrics fetch will be triggered by the filterTrades effect
+      } catch (err) { 
         setError(err instanceof Error ? err.message : 'Failed to load data');
       } finally {
         setLoading(false);
       }
     }
+    loadInitialData();
+  }, []); // Runs only once on mount
 
-    loadData();
-  }, []);
+  // Effect to run filtering and metric fetching when selections change
+  useEffect(() => {
+    if (trades.length > 0) {
+      filterTrades();
+    }
+  }, [selectedMonth, selectedYear, trades, filterTrades]);
 
-  // Update the month selection handler
+  // Handler to update monthly metrics in DB
+  const handleUpdateMonthlyMetrics = useCallback(async (updates: Partial<Metrics>) => {
+    const year = selectedYear === 'All Years' ? new Date().getFullYear() : parseInt(selectedYear);
+    const monthName = selectedMonth === 'All Trades' ? months[new Date().getMonth()] : selectedMonth;
+    const monthStr = getMonthString(year, monthName);
+
+    if (!monthStr) {
+      setError('Cannot update metrics without a selected month and year.');
+      return;
+    }
+
+    try {
+      const currentMetrics = monthlyDbMetrics || {}; // Use existing or empty object
+      const updatedData = await updatePerformanceMetrics({
+        ...currentMetrics, // Include existing fields 
+        ...updates,      // Apply updates
+        month: monthStr, // Ensure month is included
+      });
+      setMonthlyDbMetrics(updatedData); // Update local state with response
+    } catch (err) {
+      console.error("Failed to update monthly metrics:", err);
+      setError(err instanceof Error ? err.message : 'Failed to update metrics');
+    }
+  }, [selectedYear, selectedMonth, monthlyDbMetrics, getMonthString]);
+
+  // Update month selection handler
   const handleMonthChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const selected = e.target.value;
-    setSelectedMonth(selected);
-    filterTrades();
+    setSelectedMonth(e.target.value);
+    // filterTrades will be called by the useEffect dependency change
   };
 
-  // Add year selection handler
+  // Update year selection handler
   const handleYearChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const selected = e.target.value;
-    setSelectedYear(selected);
-    filterTrades();
+    setSelectedYear(e.target.value);
+    // filterTrades will be called by the useEffect dependency change
   };
 
   const handleSelectTrade = (trade: Trade) => {
@@ -198,37 +233,22 @@ export default function Performance() {
     setSelectedTrade(null);
     // Refresh trades and violations after form is closed
     try {
+      setLoading(true); // Show loading indicator during refresh
       const [tradeData, violationData] = await Promise.all([
         getTrades(),
         getTradeViolations()
       ]);
       
-      // Format the trades properly
-      const formattedTrades = tradeData.map(trade => ({
-        ...trade,
-        time: trade.entryTime, // Add the missing 'time' property required by Trade interface
-      }));
-      
+      const formattedTrades = tradeData.map(trade => ({ ...trade, time: trade.entryTime }));
       setTrades(formattedTrades);
       setViolations(violationData);
-      
-      // Re-apply any month filtering that was active
-      if (selectedMonth) {
-        filterTrades();
-      } else {
-        setFilteredTrades(formattedTrades);
-      }
+      // Let the useEffect handle re-filtering and fetching metrics
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to refresh data');
+    } finally {
+      setLoading(false);
     }
   };
-
-  // Update useEffect for filterTrades when dependencies change
-  useEffect(() => {
-    if (trades.length > 0) {
-      filterTrades();
-    }
-  }, [selectedMonth, selectedYear, trades]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -287,7 +307,14 @@ export default function Performance() {
           )}
 
           <div className="space-y-8">
-            <PerformanceMetrics metrics={performanceMetrics} refreshKey={refreshKey} />
+            <PerformanceMetricsComponent 
+              metrics={calculatedPerformanceMetrics} 
+              monthlyPipTarget={monthlyDbMetrics?.monthlyPipTarget ?? defaultDbMetrics.monthlyPipTarget}
+              capital={monthlyDbMetrics?.capital ?? defaultDbMetrics.capital}
+              violationsCount={calculatedPerformanceMetrics.violationsCount}
+              onUpdateMetrics={handleUpdateMonthlyMetrics}
+              isLoading={loadingMetrics} // Pass loading state
+            />
             
             <div className={`grid ${showChat ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'} gap-8`}>
               <div className={showChat ? '' : 'w-full'}>

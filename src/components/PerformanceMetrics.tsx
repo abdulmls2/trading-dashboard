@@ -2,30 +2,58 @@ import React, { useState } from 'react';
 import { PerformanceMetrics as Metrics } from '../types';
 import { AlertTriangle } from 'lucide-react';
 
+// Define the expected props, including calculated metrics, DB fields, and the update handler
 interface Props {
-  metrics: Metrics & { totalPips?: number };
+  metrics: Omit<Metrics, 'monthlyPipTarget' | 'capital'> & { totalPips?: number };
+  monthlyPipTarget?: number;
+  capital?: number;
+  violationsCount?: number;
+  onUpdateMetrics: (updates: Partial<Pick<Metrics, 'monthlyPipTarget' | 'capital'>>) => Promise<void>;
+  isLoading?: boolean; // Optional loading state
 }
 
-export default function PerformanceMetrics({ metrics }: Props) {
-  const [pipTarget, setPipTarget] = useState(10);
+export default function PerformanceMetricsComponent({ 
+  metrics, 
+  monthlyPipTarget = 10, // Provide default if undefined
+  capital = 100,      // Provide default if undefined
+  violationsCount = 0,
+  onUpdateMetrics,
+  isLoading // Destructure isLoading 
+}: Props) {
+  // Local state only for the editing UI, not the values themselves
   const [isEditingPipTarget, setIsEditingPipTarget] = useState(false);
-  const [tempPipTarget, setTempPipTarget] = useState(pipTarget.toString());
+  const [tempPipTarget, setTempPipTarget] = useState(monthlyPipTarget.toString());
   
-  const [capital, setCapital] = useState(34);
   const [isEditingCapital, setIsEditingCapital] = useState(false);
   const [tempCapital, setTempCapital] = useState(capital.toString());
+
+  // Update temp state if the prop changes (e.g., after successful save)
+  React.useEffect(() => {
+    setTempPipTarget(monthlyPipTarget.toString());
+  }, [monthlyPipTarget]);
+
+  React.useEffect(() => {
+    setTempCapital(capital.toString());
+  }, [capital]);
   
   const handleEditPipTarget = () => {
-    setTempPipTarget(pipTarget.toString());
+    setTempPipTarget(monthlyPipTarget.toString()); // Start edit with current prop value
     setIsEditingPipTarget(true);
   };
 
-  const handleSavePipTarget = () => {
+  const handleSavePipTarget = async () => {
     const newTarget = parseInt(tempPipTarget);
     if (!isNaN(newTarget) && newTarget >= 0) {
-      setPipTarget(newTarget);
+      try {
+        await onUpdateMetrics({ monthlyPipTarget: newTarget });
+        setIsEditingPipTarget(false);
+      } catch (error) {
+        console.error("Failed to update pip target:", error);
+        // Optionally show an error message to the user
+      }
+    } else {
+       setIsEditingPipTarget(false); // Close editor even if invalid
     }
-    setIsEditingPipTarget(false);
   };
 
   const handleCancelPipTarget = () => {
@@ -41,16 +69,23 @@ export default function PerformanceMetrics({ metrics }: Props) {
   };
   
   const handleEditCapital = () => {
-    setTempCapital(capital.toString());
+    setTempCapital(capital.toString()); // Start edit with current prop value
     setIsEditingCapital(true);
   };
 
-  const handleSaveCapital = () => {
+  const handleSaveCapital = async () => {
     const newCapital = parseInt(tempCapital);
     if (!isNaN(newCapital) && newCapital >= 0) {
-      setCapital(newCapital);
+       try {
+        await onUpdateMetrics({ capital: newCapital });
+        setIsEditingCapital(false);
+      } catch (error) {
+        console.error("Failed to update capital:", error);
+        // Optionally show an error message to the user
+      }
+    } else {
+      setIsEditingCapital(false); // Close editor even if invalid
     }
-    setIsEditingCapital(false);
   };
 
   const handleCancelCapital = () => {
@@ -65,8 +100,11 @@ export default function PerformanceMetrics({ metrics }: Props) {
     }
   };
 
+  const totalPips = metrics.totalPips || 0;
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+      {/* Display calculated metrics from props */}
       <div className="bg-white p-6 rounded-lg shadow border-l-4 border-gray-400">
         <h3 className="text-sm font-medium text-gray-500 uppercase">Total Trades</h3>
         <div className="flex items-baseline">
@@ -91,25 +129,22 @@ export default function PerformanceMetrics({ metrics }: Props) {
       <div className="bg-white p-6 rounded-lg shadow border-l-4 border-green-400">
         <h3 className="text-sm font-medium text-gray-500 uppercase">Total P/L</h3>
         <div className="flex items-baseline">
-          <p className={`mt-2 text-3xl font-bold ${
-            metrics.totalProfitLoss >= 0 ? 'text-green-600' : 'text-red-600'
-          }`}>
+          <p className={`mt-2 text-3xl font-bold ${metrics.totalProfitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
             ${metrics.totalProfitLoss.toFixed(2)}
           </p>
         </div>
       </div>
 
       <div className="bg-white p-6 rounded-lg shadow border-l-4 border-yellow-400">
-        <h3 className="text-sm font-medium text-gray-500 uppercase">True TP/SL</h3>
+        <h3 className="text-sm font-medium text-gray-500 uppercase">True TP/SL (Pips)</h3>
         <div className="flex items-baseline">
-          <p className={`mt-2 text-3xl font-bold ${
-            (metrics.totalPips || 0) >= 0 ? 'text-gray-900' : 'text-red-600'
-          }`}>
-            {(metrics.totalPips || 0).toFixed(1)}
+          <p className={`mt-2 text-3xl font-bold ${totalPips >= 0 ? 'text-gray-900' : 'text-red-600'}`}>
+            {totalPips.toFixed(1)}
           </p>
         </div>
       </div>
 
+      {/* Monthly Pip Target - Use prop value, trigger update on save */}
       <div className="bg-white p-6 rounded-lg shadow border-l-4 border-indigo-400">
         <h3 className="text-sm font-medium text-gray-500 uppercase">Monthly Pip Target</h3>
         <div className="flex items-baseline justify-between">
@@ -123,6 +158,7 @@ export default function PerformanceMetrics({ metrics }: Props) {
                 onKeyDown={handlePipTargetKeyDown}
                 autoFocus
                 min="0"
+                disabled={isLoading} // Disable input while loading/updating
               />
               <div className="flex ml-2">
                 <button 
@@ -144,13 +180,14 @@ export default function PerformanceMetrics({ metrics }: Props) {
               </div>
             </div>
           ) : (
-            <p className="mt-2 text-3xl font-bold text-gray-900">{pipTarget}</p>
+            <p className="mt-2 text-3xl font-bold text-gray-900">{monthlyPipTarget}</p>
           )}
           {!isEditingPipTarget && (
             <button 
               onClick={handleEditPipTarget}
               className="text-gray-400 hover:text-indigo-600"
               aria-label="Edit monthly pip target"
+              disabled={isLoading} // Disable button while loading/updating
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                 <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
@@ -159,21 +196,21 @@ export default function PerformanceMetrics({ metrics }: Props) {
           )}
         </div>
         
-        {/* Progress bar */}
         <div className="mt-2">
           <div className="flex justify-between text-sm text-gray-500 mb-1">
             <span>Progress</span>
-            <span className="font-medium">{Math.min(100, ((metrics.totalPips || 0) / pipTarget) * 100).toFixed(0)}%</span>
+            <span className="font-medium">{Math.min(100, (totalPips / monthlyPipTarget) * 100).toFixed(0)}%</span>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2.5">
             <div 
-              className={`h-2.5 rounded-full ${(metrics.totalPips || 0) >= pipTarget ? 'bg-green-500' : 'bg-indigo-500'}`}
-              style={{ width: `${Math.min(100, ((metrics.totalPips || 0) / pipTarget) * 100)}%` }}
+              className={`h-2.5 rounded-full ${totalPips >= monthlyPipTarget ? 'bg-green-500' : 'bg-indigo-500'}`}
+              style={{ width: `${Math.min(100, (totalPips / monthlyPipTarget) * 100)}%` }}
             ></div>
           </div>
         </div>
       </div>
 
+      {/* Capital - Use prop value, trigger update on save */}
       <div className="bg-white p-6 rounded-lg shadow border-l-4 border-teal-400">
         <h3 className="text-sm font-medium text-gray-500 uppercase">Capital</h3>
         <div className="flex items-baseline justify-between">
@@ -187,6 +224,7 @@ export default function PerformanceMetrics({ metrics }: Props) {
                 onKeyDown={handleCapitalKeyDown}
                 autoFocus
                 min="0"
+                disabled={isLoading} // Disable input while loading/updating
               />
               <div className="flex ml-2">
                 <button 
@@ -215,6 +253,7 @@ export default function PerformanceMetrics({ metrics }: Props) {
               onClick={handleEditCapital}
               className="text-gray-400 hover:text-teal-600"
               aria-label="Edit capital"
+              disabled={isLoading} // Disable button while loading/updating
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                 <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
@@ -223,7 +262,6 @@ export default function PerformanceMetrics({ metrics }: Props) {
           )}
         </div>
 
-        {/* Percentage indicator */}
         <div className="mt-2">
           <div className="flex justify-between text-sm text-gray-500 mb-1">
             <span>Return</span>
@@ -237,7 +275,7 @@ export default function PerformanceMetrics({ metrics }: Props) {
             <div 
               className={`h-2.5 rounded-full ${metrics.totalProfitLoss >= 0 ? 'bg-green-500' : 'bg-red-500'}`}
               style={{ 
-                width: `${Math.min(100, Math.max(0, ((Math.abs(metrics.totalProfitLoss) / capital) * 100)))}%`,
+                width: `${capital > 0 ? Math.min(100, Math.max(0, ((Math.abs(metrics.totalProfitLoss) / capital) * 100))) : 0}%`,
               }}
             ></div>
           </div>
@@ -251,16 +289,17 @@ export default function PerformanceMetrics({ metrics }: Props) {
         </div>
       </div>
 
-      <div className="bg-white p-6 rounded-lg shadow border-l-4 border-red-400">
+      {/* Violated Trades - Use prop value */}
+      <div className="bg-white p-6 rounded-lg shadow border-l-4 border-red-400 col-span-1 md:col-span-2"> {/* Adjusted span */}
         <h3 className="text-sm font-medium text-gray-500 uppercase">Violated Trades</h3>
         <div className="flex items-baseline">
           <p className="mt-2 text-3xl font-bold text-gray-900 flex items-center">
-            {(metrics.violationsCount || 0) > 0 && (
+            {violationsCount > 0 && (
               <span className="mr-2 text-yellow-500">
                 <AlertTriangle className="h-5 w-5" />
               </span>
             )}
-            {metrics.violationsCount || 0}
+            {violationsCount}
           </p>
         </div>
       </div>

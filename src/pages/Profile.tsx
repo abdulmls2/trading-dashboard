@@ -142,7 +142,7 @@ export default function Profile() {
 
                   <div>
                     <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
-                      Username
+                      Discord Username
                     </label>
                     <div className="mt-1">
                       <input

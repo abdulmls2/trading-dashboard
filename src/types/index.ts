@@ -39,6 +39,7 @@ export interface PerformanceMetrics {
   winRate: number;
   averageRRR: number;
   totalProfitLoss: number;
+  violationsCount?: number;
 }
 
 export interface CellCustomization {

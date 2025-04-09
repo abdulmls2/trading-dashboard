@@ -13,7 +13,7 @@ export default function PerformanceMetrics({ metrics }: Props) {
   const [capital, setCapital] = useState(34);
   const [isEditingCapital, setIsEditingCapital] = useState(false);
   const [tempCapital, setTempCapital] = useState(capital.toString());
-
+  
   const handleEditPipTarget = () => {
     setTempPipTarget(pipTarget.toString());
     setIsEditingPipTarget(true);
@@ -221,12 +221,46 @@ export default function PerformanceMetrics({ metrics }: Props) {
             </button>
           )}
         </div>
+
+        {/* Percentage indicator */}
+        <div className="mt-2">
+          <div className="flex justify-between text-sm text-gray-500 mb-1">
+            <span>Return</span>
+            {capital > 0 && (
+              <span className={`font-medium ${metrics.totalProfitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {((metrics.totalProfitLoss / capital) * 100).toFixed(1)}%
+              </span>
+            )}
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2.5">
+            <div 
+              className={`h-2.5 rounded-full ${metrics.totalProfitLoss >= 0 ? 'bg-green-500' : 'bg-red-500'}`}
+              style={{ 
+                width: `${Math.min(100, Math.max(0, ((Math.abs(metrics.totalProfitLoss) / capital) * 100)))}%`,
+              }}
+            ></div>
+          </div>
+        </div>
       </div>
 
       <div className="bg-white p-6 rounded-lg shadow">
         <h3 className="text-sm font-medium text-gray-500 uppercase">New Metric 3</h3>
         <div className="flex items-baseline">
           <p className="mt-2 text-3xl font-bold text-gray-900">71</p>
+        </div>
+      </div>
+
+      <div className="bg-white p-6 rounded-lg shadow border-l-4 border-red-400">
+        <h3 className="text-sm font-medium text-gray-500 uppercase">Violated Trades</h3>
+        <div className="flex items-baseline">
+          <p className="mt-2 text-3xl font-bold text-gray-900">
+            {metrics.violationsCount || 0}
+            {(metrics.violationsCount || 0) > 0 && (
+              <span className="ml-2 text-sm text-red-500 font-normal">
+                Rule violations detected
+              </span>
+            )}
+          </p>
         </div>
       </div>
     </div>

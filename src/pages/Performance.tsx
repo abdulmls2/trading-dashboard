@@ -6,7 +6,7 @@ import TradeForm from '../components/TradeForm';
 import TradeChatBox from '../components/TradeChatBox';
 import { PlusCircle, MessageSquare } from 'lucide-react';
 import { Trade, PerformanceMetrics as Metrics } from '../types';
-import { getTrades } from '../lib/api';
+import { getTrades, getTradeViolations } from '../lib/api';
 
 // Default empty metrics
 const emptyMetrics: Metrics & { totalPips: number } = {
@@ -15,6 +15,7 @@ const emptyMetrics: Metrics & { totalPips: number } = {
   averageRRR: 0,
   totalProfitLoss: 0,
   totalPips: 0,
+  violationsCount: 0,
 };
 
 const months = [
@@ -42,8 +43,10 @@ export default function Performance() {
   const [filteredTrades, setFilteredTrades] = useState<Trade[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [violations, setViolations] = useState<any[]>([]);
 
-  // Calculate performance metrics based on filtered trades
+  // Calculate performance metrics based on filtered trades and violations
   const performanceMetrics = useMemo(() => {
     if (filteredTrades.length === 0) return emptyMetrics;
 
@@ -56,28 +59,30 @@ export default function Performance() {
     // Calculate total P/L
     const totalProfitLoss = filteredTrades.reduce((sum, trade) => sum + trade.profitLoss, 0);
     
-    // Calculate sum of trueReward values (no longer calculating average)
+    // Calculate sum of trueReward values
     const totalTrueReward = filteredTrades.reduce((sum, trade) => {
-      // Parse trueReward as a number, default to 0 if not a valid number
       const trueRewardValue = parseFloat(trade.trueReward || '0');
       return sum + (isNaN(trueRewardValue) ? 0 : trueRewardValue);
     }, 0);
     
     // Calculate total pips using true_tp_sl
     const totalPips = filteredTrades.reduce((sum, trade) => {
-      // Parse true_tp_sl as a number, default to 0 if not a valid number
       const trueTpSlValue = parseFloat(trade.true_tp_sl || '0');
       return sum + (isNaN(trueTpSlValue) ? 0 : trueTpSlValue);
     }, 0);
     
+    // Get the current violations count
+    const violationsCount = violations.length;
+    
     return {
       totalTrades,
-      winRate: Math.round(winRate), // Round to whole percentage
-      averageRRR: totalTrueReward, // Now storing the sum rather than the average
+      winRate: Math.round(winRate),
+      averageRRR: totalTrueReward,
       totalProfitLoss,
       totalPips,
+      violationsCount,
     };
-  }, [filteredTrades]);
+  }, [filteredTrades, violations]);
 
   // Function to filter trades by selected month
   const filterTradesByMonth = (month: string) => {
@@ -130,29 +135,34 @@ export default function Performance() {
     setFilteredTrades(filtered);
   };
 
-  // Update the useEffect to set filtered trades initially
+  // Update the useEffect to load trades and violations
   useEffect(() => {
-    async function loadTrades() {
+    async function loadData() {
       try {
         setLoading(true);
-        const data = await getTrades();
+        // Fetch both trades and violations in parallel
+        const [tradeData, violationData] = await Promise.all([
+          getTrades(),
+          getTradeViolations()
+        ]);
         
         // Format the trades properly
-        const formattedTrades = data.map(trade => ({
+        const formattedTrades = tradeData.map(trade => ({
           ...trade,
           time: trade.entryTime, // Add the missing 'time' property required by Trade interface
         }));
         
         setTrades(formattedTrades);
         setFilteredTrades(formattedTrades); // Set initial filtered trades
+        setViolations(violationData); // Store violations
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load trades');
+        setError(err instanceof Error ? err.message : 'Failed to load data');
       } finally {
         setLoading(false);
       }
     }
 
-    loadTrades();
+    loadData();
   }, []);
 
   // Update the month selection handler
@@ -186,17 +196,22 @@ export default function Performance() {
   const handleTradeFormClose = async () => {
     setShowTradeForm(false);
     setSelectedTrade(null);
-    // Refresh trades after form is closed
+    // Refresh trades and violations after form is closed
     try {
-      const data = await getTrades();
+      const [tradeData, violationData] = await Promise.all([
+        getTrades(),
+        getTradeViolations()
+      ]);
       
       // Format the trades properly
-      const formattedTrades = data.map(trade => ({
+      const formattedTrades = tradeData.map(trade => ({
         ...trade,
         time: trade.entryTime, // Add the missing 'time' property required by Trade interface
       }));
       
       setTrades(formattedTrades);
+      setViolations(violationData);
+      
       // Re-apply any month filtering that was active
       if (selectedMonth) {
         filterTrades();
@@ -204,7 +219,7 @@ export default function Performance() {
         setFilteredTrades(formattedTrades);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to refresh trades');
+      setError(err instanceof Error ? err.message : 'Failed to refresh data');
     }
   };
 
@@ -272,7 +287,7 @@ export default function Performance() {
           )}
 
           <div className="space-y-8">
-            <PerformanceMetrics metrics={performanceMetrics} />
+            <PerformanceMetrics metrics={performanceMetrics} refreshKey={refreshKey} />
             
             <div className={`grid ${showChat ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'} gap-8`}>
               <div className={showChat ? '' : 'w-full'}>

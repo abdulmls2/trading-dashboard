@@ -32,9 +32,10 @@ function AppRoutes() {
 
   return (
     <Routes>
+      {/* Previously redirected to Dashboard ("/") after login */}
       <Route
         path="/auth"
-        element={user ? <Navigate to="/" /> : <Auth />}
+        element={user ? <Navigate to="/performance" /> : <Auth />}
       />
       <Route
         path="/"

@@ -45,22 +45,10 @@ export default function Header() {
             </Link>
             <nav className="flex space-x-4">
               <Link
-                to="/"
-                className="text-gray-900 hover:bg-gray-50 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
-              >
-                Dashboard
-              </Link>
-              <Link
-                to="/log-trade"
-                className="text-gray-900 hover:bg-gray-50 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
-              >
-                Log Trade
-              </Link>
-              <Link
                 to="/performance"
                 className="text-gray-900 hover:bg-gray-50 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
               >
-                Performance
+                Journal
               </Link>
               <Link
                 to="/trades-analysis"

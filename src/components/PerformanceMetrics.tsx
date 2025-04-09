@@ -221,53 +221,51 @@ export default function PerformanceMetricsComponent({
       {/* Trades Status Card */}
       <div className="bg-white p-6 rounded-lg shadow border-l-4 border-blue-500">
         <h3 className="text-sm font-medium text-gray-500 uppercase">Trades Status</h3>
-        <div className="space-y-2 mt-2">
-          <div className="flex justify-between items-center">
-            <span className="text-sm text-gray-600">Winning:</span>
-            <span className="text-sm font-medium text-green-600">{metrics.winningTrades || 0}</span>
+        <div className="flex justify-between mt-2">
+          <div className="flex flex-col items-center">
+            <span className="text-sm text-gray-600">Win</span>
+            <span className="text-xl font-medium text-green-600">{metrics.winningTrades || 0}</span>
+            <span className="text-xs text-gray-500">
+              {metrics.totalTrades > 0 ? Math.round(((metrics.winningTrades || 0) / metrics.totalTrades) * 100) : 0}%
+            </span>
           </div>
-          <div className="flex justify-between items-center">
-            <span className="text-sm text-gray-600">Losing:</span>
-            <span className="text-sm font-medium text-red-600">{metrics.losingTrades || 0}</span>
+          <div className="flex flex-col items-center">
+            <span className="text-sm text-gray-600">Loss</span>
+            <span className="text-xl font-medium text-red-600">{metrics.losingTrades || 0}</span>
+            <span className="text-xs text-gray-500">
+              {metrics.totalTrades > 0 ? Math.round(((metrics.losingTrades || 0) / metrics.totalTrades) * 100) : 0}%
+            </span>
           </div>
-          <div className="flex justify-between items-center">
-            <span className="text-sm text-gray-600">Breakeven:</span>
-            <span className="text-sm font-medium text-gray-600">{metrics.breakEvenTrades || 0}</span>
+          <div className="flex flex-col items-center">
+            <span className="text-sm text-gray-600">BE</span>
+            <span className="text-xl font-medium text-gray-600">{metrics.breakEvenTrades || 0}</span>
+            <span className="text-xs text-gray-500">
+              {metrics.totalTrades > 0 ? Math.round(((metrics.breakEvenTrades || 0) / metrics.totalTrades) * 100) : 0}%
+            </span>
           </div>
-          
-          {/* Visual progress bar */}
-          {metrics.totalTrades > 0 && (
-            <div className="mt-3">
-              <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                <div className="flex h-full">
-                  <div 
-                    className="bg-green-500 h-full" 
-                    style={{ 
-                      width: `${((metrics.winningTrades || 0) / metrics.totalTrades) * 100}%`
-                    }} 
-                  />
-                  <div 
-                    className="bg-red-500 h-full" 
-                    style={{ 
-                      width: `${((metrics.losingTrades || 0) / metrics.totalTrades) * 100}%`
-                    }} 
-                  />
-                  <div 
-                    className="bg-gray-400 h-full" 
-                    style={{ 
-                      width: `${((metrics.breakEvenTrades || 0) / metrics.totalTrades) * 100}%`
-                    }} 
-                  />
-                </div>
-              </div>
-              <div className="flex text-xs mt-1 text-gray-500 justify-between">
-                <span>Win: {metrics.totalTrades > 0 ? Math.round(((metrics.winningTrades || 0) / metrics.totalTrades) * 100) : 0}%</span>
-                <span>Loss: {metrics.totalTrades > 0 ? Math.round(((metrics.losingTrades || 0) / metrics.totalTrades) * 100) : 0}%</span>
-                <span>BE: {metrics.totalTrades > 0 ? Math.round(((metrics.breakEvenTrades || 0) / metrics.totalTrades) * 100) : 0}%</span>
+        </div>
+        
+        {/* Compact progress bar */}
+        {metrics.totalTrades > 0 && (
+          <div className="mt-2">
+            <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
+              <div className="flex h-full">
+                <div 
+                  className="bg-green-500 h-full" 
+                  style={{ width: `${((metrics.winningTrades || 0) / metrics.totalTrades) * 100}%` }} 
+                />
+                <div 
+                  className="bg-red-500 h-full" 
+                  style={{ width: `${((metrics.losingTrades || 0) / metrics.totalTrades) * 100}%` }} 
+                />
+                <div 
+                  className="bg-gray-400 h-full" 
+                  style={{ width: `${((metrics.breakEvenTrades || 0) / metrics.totalTrades) * 100}%` }} 
+                />
               </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Capital - Use prop value, trigger update on save */}

@@ -138,7 +138,7 @@ export default function PerformanceMetricsComponent({
       </div>
 
       <div className="bg-white p-6 rounded-lg shadow border-l-4 border-yellow-400">
-        <h3 className="text-sm font-medium text-gray-500 uppercase">True TP/SL (Pips)</h3>
+        <h3 className="text-sm font-medium text-gray-500 uppercase">Pips</h3>
         <div className="flex items-baseline">
           <p className={`mt-2 text-3xl font-bold ${totalPips >= 0 ? 'text-gray-900' : 'text-red-600'}`}>
             {totalPips.toFixed(1)}

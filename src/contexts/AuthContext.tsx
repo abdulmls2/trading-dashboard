@@ -6,7 +6,7 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string, username: string, fullName: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -32,12 +32,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signUp = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({
+  const signUp = async (email: string, password: string, username: string, fullName: string) => {
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
     });
-    if (error) throw error;
+    
+    if (error) {
+      console.error('Supabase signUp error:', error);
+      throw error;
+    }
+    
+    if (data.user) {
+      console.log('User signed up, attempting to create profile for:', data.user.id);
+      console.log('Profile data:', { userId: data.user.id, username, fullName, email });
+      
+      // Create a profile entry
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .upsert({
+          user_id: data.user.id,
+          username,
+          full_name: fullName,
+          email // Also include email in the profile
+        }, {
+          onConflict: 'user_id' // Specify the conflict target column
+        });
+        
+      if (profileError) {
+        console.error('Error creating/updating profile:', profileError);
+        // Decide if you want to throw the error here. 
+        // If you throw, the user might see the sign-up fail.
+        // If you don't throw, sign-up succeeds but profile is incomplete.
+        throw profileError; // Let's keep throwing for now to make errors visible
+      } else {
+        console.log('Profile created/updated successfully for user:', data.user.id);
+      }
+    }
   };
 
   const signIn = async (email: string, password: string) => {

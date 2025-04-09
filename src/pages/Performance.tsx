@@ -9,7 +9,7 @@ import { Trade, PerformanceMetrics as Metrics } from '../types';
 import { getTrades, getTradeViolations, getPerformanceMetrics, updatePerformanceMetrics } from '../lib/api';
 
 // Default empty calculated metrics
-const emptyCalculatedMetrics: Omit<Metrics, 'monthlyPipTarget' | 'capital'> & { totalPips: number; violatedTradesCount: number; maxConsecutiveLosses: number } = {
+const emptyCalculatedMetrics = {
   totalTrades: 0,
   winRate: 0,
   averageRRR: 0,
@@ -18,6 +18,9 @@ const emptyCalculatedMetrics: Omit<Metrics, 'monthlyPipTarget' | 'capital'> & { 
   violationsCount: 0,
   violatedTradesCount: 0,
   maxConsecutiveLosses: 0,
+  winningTrades: 0,
+  losingTrades: 0,
+  breakEvenTrades: 0,
 };
 
 // Default empty DB metrics
@@ -61,6 +64,8 @@ export default function Performance() {
 
     const totalTrades = filteredTrades.length;
     const winningTrades = filteredTrades.filter(trade => trade.profitLoss > 0).length;
+    const losingTrades = filteredTrades.filter(trade => trade.profitLoss < 0).length;
+    const breakEvenTrades = filteredTrades.filter(trade => trade.profitLoss === 0).length;
     const winRate = totalTrades > 0 ? (winningTrades / totalTrades) * 100 : 0;
     const totalProfitLoss = filteredTrades.reduce((sum, trade) => sum + trade.profitLoss, 0);
     const totalTrueReward = filteredTrades.reduce((sum, trade) => {
@@ -110,6 +115,9 @@ export default function Performance() {
       violationsCount,
       violatedTradesCount,
       maxConsecutiveLosses,
+      winningTrades,
+      losingTrades,
+      breakEvenTrades,
     };
   }, [filteredTrades, violations]);
 

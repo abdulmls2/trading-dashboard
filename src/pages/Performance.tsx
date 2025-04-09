@@ -9,7 +9,7 @@ import { Trade, PerformanceMetrics as Metrics } from '../types';
 import { getTrades, getTradeViolations, getPerformanceMetrics, updatePerformanceMetrics } from '../lib/api';
 
 // Default empty calculated metrics
-const emptyCalculatedMetrics: Omit<Metrics, 'monthlyPipTarget' | 'capital'> & { totalPips: number; violatedTradesCount: number } = {
+const emptyCalculatedMetrics: Omit<Metrics, 'monthlyPipTarget' | 'capital'> & { totalPips: number; violatedTradesCount: number; maxConsecutiveLosses: number } = {
   totalTrades: 0,
   winRate: 0,
   averageRRR: 0,
@@ -17,6 +17,7 @@ const emptyCalculatedMetrics: Omit<Metrics, 'monthlyPipTarget' | 'capital'> & { 
   totalPips: 0,
   violationsCount: 0,
   violatedTradesCount: 0,
+  maxConsecutiveLosses: 0,
 };
 
 // Default empty DB metrics
@@ -76,6 +77,30 @@ export default function Performance() {
     const tradeIdsWithViolations = new Set(violations.map(v => v.tradeId));
     const violatedTradesCount = tradeIdsWithViolations.size;
     
+    // Calculate maximum consecutive losses
+    let maxConsecutiveLosses = 0;
+    let currentConsecutiveLosses = 0;
+    
+    // Sort trades by date in ascending order (oldest first)
+    const sortedTrades = [...filteredTrades].sort((a, b) => 
+      new Date(a.date + ' ' + a.entryTime).getTime() - new Date(b.date + ' ' + b.entryTime).getTime()
+    );
+    
+    // Count consecutive losses
+    for (let i = 0; i < sortedTrades.length; i++) {
+      if (sortedTrades[i].profitLoss < 0) {  // Check if it's a loss (profitLoss < 0)
+        currentConsecutiveLosses++;
+      } else {
+        // Found a win, reset the counter
+        currentConsecutiveLosses = 0;
+      }
+      
+      // Update max if current streak is longer
+      if (currentConsecutiveLosses > maxConsecutiveLosses) {
+        maxConsecutiveLosses = currentConsecutiveLosses;
+      }
+    }
+    
     return {
       totalTrades,
       winRate: Math.round(winRate),
@@ -84,6 +109,7 @@ export default function Performance() {
       totalPips,
       violationsCount,
       violatedTradesCount,
+      maxConsecutiveLosses,
     };
   }, [filteredTrades, violations]);
 

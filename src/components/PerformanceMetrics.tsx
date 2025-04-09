@@ -4,7 +4,7 @@ import { AlertTriangle } from 'lucide-react';
 
 // Define the expected props, including calculated metrics, DB fields, and the update handler
 interface Props {
-  metrics: Omit<Metrics, 'monthlyPipTarget' | 'capital'> & { totalPips?: number };
+  metrics: Omit<Metrics, 'monthlyPipTarget' | 'capital'> & { totalPips?: number; maxConsecutiveLosses?: number };
   monthlyPipTarget?: number;
   capital?: number;
   violationsCount?: number;
@@ -284,11 +284,13 @@ export default function PerformanceMetricsComponent({
         </div>
       </div>
 
-      <div className="bg-white p-6 rounded-lg shadow">
-        <h3 className="text-sm font-medium text-gray-500 uppercase">New Metric 3</h3>
+      {/* Losses in a Row */}
+      <div className="bg-white p-6 rounded-lg shadow border-l-4 border-amber-500">
+        <h3 className="text-sm font-medium text-gray-500 uppercase">Max Losses in a Row</h3>
         <div className="flex items-baseline">
-          <p className="mt-2 text-3xl font-bold text-gray-900">71</p>
+          <p className="mt-2 text-3xl font-bold text-gray-900">{metrics.maxConsecutiveLosses}</p>
         </div>
+        <p className="text-xs text-gray-500 mt-1"></p>
       </div>
 
       {/* Violated Trades - Show both metrics */}

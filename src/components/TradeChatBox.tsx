@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Loader2 } from 'lucide-react';
+import { Send, Loader2, Eye, EyeOff } from 'lucide-react';
 import { Trade } from '../types';
 import { getPromptForKeywords, DEFAULT_PROMPT } from '../lib/promptKeywords';
 
@@ -22,6 +22,7 @@ export default function TradeChatBox({ trade, onClose }: Props) {
     id: string;
     text: string;
     sender: 'user' | 'ai';
+    promptIds?: string[];
   }>>([
     {
       id: '1',
@@ -29,11 +30,13 @@ export default function TradeChatBox({ trade, onClose }: Props) {
         ? `I'm analyzing your ${trade.action} trade on ${trade.pair} from ${trade.date}. This trade resulted in a ${trade.profitLoss >= 0 ? 'profit' : 'loss'} of $${Math.abs(trade.profitLoss)}. What would you like to know about this trade?`
         : 'Select a trade from the table to analyze it.',
       sender: 'ai',
+      promptIds: ['DEF_001'],
     },
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [configError, setConfigError] = useState<string | null>(null);
+  const [showPromptIds, setShowPromptIds] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Check if configuration is correct
@@ -262,6 +265,28 @@ export default function TradeChatBox({ trade, onClose }: Props) {
     }
   };
 
+  const extractPromptIds = (promptString: string): string[] => {
+    const regex = /\[PROMPT_ID: ([^\]]+)\]/g;
+    const promptIds: string[] = [];
+    let match;
+    
+    while ((match = regex.exec(promptString)) !== null) {
+      promptIds.push(match[1]);
+    }
+    
+    return promptIds;
+  };
+
+  const extractPromptIdsFromPrompts = (prompts: string[]): string[] => {
+    const allIds: string[] = [];
+    
+    prompts.forEach(prompt => {
+      allIds.push(...extractPromptIds(prompt));
+    });
+    
+    return allIds;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || !trade) return;
@@ -280,16 +305,23 @@ export default function TradeChatBox({ trade, onClose }: Props) {
       // Generate trade context for AI
       const tradeContext = generateTradeContext(trade);
       
+      // Get keyword prompts and extract IDs
+      const keywordPrompts = getPromptForKeywords(input);
+      const promptIds = keywordPrompts.length > 0 
+        ? extractPromptIdsFromPrompts(keywordPrompts) 
+        : extractPromptIds(DEFAULT_PROMPT);
+      
       // Get AI response
       const aiResponse = await fetchAIResponse(input, tradeContext);
       
-      // Add AI response to messages
+      // Add AI response to messages with prompt IDs
       setMessages((prev) => [
         ...prev,
         {
           id: Date.now().toString(),
           text: aiResponse,
           sender: 'ai',
+          promptIds: promptIds
         },
       ]);
     } catch (error) {
@@ -302,6 +334,7 @@ export default function TradeChatBox({ trade, onClose }: Props) {
           id: Date.now().toString(),
           text: "I'm sorry, I couldn't analyze your trade properly. Please try again.",
           sender: 'ai',
+          promptIds: []
         },
       ]);
     } finally {
@@ -309,16 +342,29 @@ export default function TradeChatBox({ trade, onClose }: Props) {
     }
   };
 
+  const togglePromptIds = () => {
+    setShowPromptIds(prev => !prev);
+  };
+
   return (
     <div className="flex flex-col h-[600px] bg-white rounded-lg shadow">
       <div className="flex justify-between items-center px-4 py-2 border-b">
         <h3 className="text-lg font-medium">Trade Analysis Chat</h3>
-        <button
-          onClick={onClose}
-          className="text-gray-500 hover:text-gray-700"
-        >
-          <X className="h-5 w-5" />
-        </button>
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={togglePromptIds}
+            title={showPromptIds ? "Hide Prompt IDs" : "Show Prompt IDs"}
+            className="p-1 rounded-full text-gray-500 hover:bg-gray-100"
+          >
+            {showPromptIds ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+          </button>
+          <button
+            onClick={onClose}
+            className="text-gray-500 hover:text-gray-700"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
       </div>
       
       {/* Display configuration error if any */}
@@ -354,7 +400,14 @@ export default function TradeChatBox({ trade, onClose }: Props) {
                   : 'bg-gray-100 text-gray-900'
               }`}
             >
-              <p className="text-sm whitespace-pre-line">{message.text}</p>
+              <p className="text-sm whitespace-pre-line">
+                {message.text}
+                {showPromptIds && message.sender === 'ai' && message.promptIds && message.promptIds.length > 0 && (
+                  <span className="mt-2 block text-xs text-indigo-600 border-t border-gray-200 pt-1">
+                    Prompt IDs: {message.promptIds.join(', ')}
+                  </span>
+                )}
+              </p>
             </div>
           </div>
         ))}

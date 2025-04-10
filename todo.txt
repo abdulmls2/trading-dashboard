@@ -1,0 +1,39 @@
+Todo:
+
+Trade History Table:
+-sort the trades by earliest date 
+-fix "Showing 1 to 1 of 1 results" -----------------------------------
+-only view your trades not all users  ----------------------------
+
+Performance:
+-select year (seperate button)  ---------------------------
+
+Profile:
+-Welcome username text  --------------
+-Create profile page and be able to change your profile data  -------------
+
+
+Admin Dashboard:
+-view journal in full screen with all features just like normal user views, and let admin edit journal colors and write -----------
+-"last journaled", and be able to sort all users by it  --------------------
+-define which confluences/time/pair/... allowed to which user (custom rules for each user ) ----------------
+-if rule not respected flag it and alert admin  ------------------
+-view all violations section  --------------
+-also show to user trades which he violated with a flag  -------------
+
+
+More features:
+-import/export trades from excel
+-Trade Analysis / Connect with PIP
+-Custom notes
+-Trade Data Analysis (good and bad trades, see which group of confluences work best, how many times it was used ext) -------
+-Calendar to see your traded days
+-Number of confluences in trade form 
+
+To fix:
+-add refresh button on both journals
+
+
+AFTER:
+-add multiple trades with full data and play with it and colors , check if errors
+search how to optimise database, queries, columns (because we wil have thousands of columns saved to the database)

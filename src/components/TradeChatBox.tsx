@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Loader2 } from 'lucide-react';
 import { Trade } from '../types';
+import { getPromptForKeywords } from '../lib/promptKeywords';
 
 // Add environment variable type definition
 declare global {
@@ -170,6 +171,40 @@ export default function TradeChatBox({ trade, onClose }: Props) {
       return "I couldn't connect to the AI service due to a configuration issue. Please contact the administrator to set up the API key.";
     }
 
+    // Check for keywords in the user message
+    const keywordPrompts = getPromptForKeywords(userMessage);
+    
+    // Log when keywords are detected (for debugging)
+    if (keywordPrompts.length > 0) {
+      console.log(`Detected ${keywordPrompts.length} keyword matches in message: "${userMessage}"`);
+    }
+    
+    // Create the system prompt, adding keyword information if found
+    let systemPrompt = `
+    Your name is Pip. You are a friendly trading assistant for Come Learn Forex. Engage in friendly, helpful conversations with traders (avoid using usernames). Occasionally, mention the company, Come Learn Forex (CLF).
+
+    Guidelines for Responses:
+    -Stick to CLF's teachings: Only explain concepts exactly as they are provided in the information below. Do not introduce new terms, redefine concepts differently, or offer outside explanations.
+    -Keep responses concise and clear: Provide simple, direct answers without overwhelming detail.
+    -Use examples: Where applicable, give straightforward examples to help traders understand.
+    -Use appropriate emojis to structure your answers, but don't use emojis randomly; make sure to use them in a natural way.
+    -Encourage understanding: If a trader seems unsure, clarify with an example or a different phrasing (but without changing the core explanation).
+    -Do not give signals, If a trader asks about signals, respond in a frustrated way and be really angry and use emojis while mentioning that you will smoke them and mention that it is Ramadan so you don't want to swear. To give signals, we have to be FCA regulated, if not, we can get massive fines.
+    
+    You can also analyze trades and provide feedback on the trades, by applying the concepts and teachings of Come Learn Forex.
+     
+    Here's information about the trade to analyze:
+    ${tradeContext}`;
+    
+    // Append keyword-specific information if found
+    if (keywordPrompts.length > 0) {
+      systemPrompt += `\n\nThe user mentioned specific trading concepts. Please include the following information in your response:`;
+      
+      keywordPrompts.forEach(prompt => {
+        systemPrompt += `\n\n${prompt}`;
+      });
+    }
+
     try {
       const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
@@ -186,12 +221,7 @@ export default function TradeChatBox({ trade, onClose }: Props) {
           "messages": [
             {
               "role": "system",
-              "content": `You are a trading coach and analyst specializing in forex, stocks, and crypto trading.
-              Your job is to help analyze trades, identify strengths and weaknesses, and provide 
-              educational insights to help the trader improve. Be specific and helpful. 
-              
-              Here's information about the trade to analyze:
-              ${tradeContext}`
+              "content": systemPrompt
             },
             {
               "role": "user",

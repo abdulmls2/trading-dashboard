@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Loader2 } from 'lucide-react';
 import { Trade } from '../types';
-import { getPromptForKeywords } from '../lib/promptKeywords';
+import { getPromptForKeywords, DEFAULT_PROMPT } from '../lib/promptKeywords';
 
 // Add environment variable type definition
 declare global {
@@ -177,6 +177,8 @@ export default function TradeChatBox({ trade, onClose }: Props) {
     // Log when keywords are detected (for debugging)
     if (keywordPrompts.length > 0) {
       console.log(`Detected ${keywordPrompts.length} keyword matches in message: "${userMessage}"`);
+    } else {
+      console.log(`No keyword matches found, using DEFAULT_PROMPT`);
     }
     
     // Create the system prompt, adding keyword information if found
@@ -203,6 +205,9 @@ export default function TradeChatBox({ trade, onClose }: Props) {
       keywordPrompts.forEach(prompt => {
         systemPrompt += `\n\n${prompt}`;
       });
+    } else {
+      // If no keywords were found, add the DEFAULT_PROMPT
+      systemPrompt += `\n\nThe user has not mentioned a specific trading concept. Please include the following general information in your response:\n\n${DEFAULT_PROMPT}`;
     }
 
     try {

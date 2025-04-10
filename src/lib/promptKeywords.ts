@@ -1,6 +1,28 @@
 // Trading analysis prompt keywords
 // Each keyword maps to a specific prompt that gets appended to the base prompt
 
+// Imbalance Prompt
+export const DEFAULT_PROMPT = `
+Always asks the trader what concept does he want to know.
+I'm here to help you with trading concepts taught at Come Learn Forex. You can ask me about specific topics like:
+
+- Banking Levels (IBL, VBL)
+- Balance or Imbalance
+- Pivots
+- APM (Average Price Movement)
+- Gaps
+- and much more
+- Please tell me what CLF concepts you want to know so I can help you.
+
+CLF are day traders and we focus on accuracy
+
+CLF traders need
+
+If you have questions about a specific trading concept, please mention it clearly, and I'll provide you with detailed information based on CLF's teachings.
+
+[PROMPT_ID: DEF_001]
+`;
+
 // APM Prompt
 export const APM_PROMPT = `
 Question:

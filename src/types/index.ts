@@ -79,3 +79,12 @@ export interface TradeViolation {
   acknowledged: boolean;
   createdAt?: string;
 }
+
+export interface TradeCalendarDay {
+  date: Date;
+  trades: Trade[];
+  totalProfitLoss: number;
+  winCount: number;
+  lossCount: number;
+  breakEvenCount: number;
+}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { PlusCircle, BarChart2, MessageSquare } from 'lucide-react';
+import { PlusCircle, BarChart2, Calendar } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function QuickActions() {
@@ -21,12 +21,12 @@ export default function QuickActions() {
         <span className="text-gray-900 font-medium">View Performance</span>
       </Link>
       
-      <Link // WIP 
-        to="/Another-Page"
+      <Link
+        to="/calendar"
         className="flex items-center justify-center p-6 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow"
       >
-        <MessageSquare className="h-6 w-6 text-indigo-600 mr-2" />
-        <span className="text-gray-900 font-medium">Another Page</span>
+        <Calendar className="h-6 w-6 text-indigo-600 mr-2" />
+        <span className="text-gray-900 font-medium">Trading Calendar</span>
       </Link>
     </div>
   );

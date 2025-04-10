@@ -8,6 +8,7 @@ import AdminDashboard from './pages/AdminDashboard';
 import Profile from './pages/Profile';
 import Auth from './pages/Auth';
 import TradesAnalysis from './pages/TradesAnalysis';
+import Calendar from './pages/Calendar';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -66,6 +67,14 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <TradesAnalysis />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/calendar"
+        element={
+          <PrivateRoute>
+            <Calendar />
           </PrivateRoute>
         }
       />

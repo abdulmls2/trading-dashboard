@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Header from '../components/Header';
 import { getTrades } from '../lib/api';
 import { Trade } from '../types';
+import TradeChatBox from '../components/TradeChatBox';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -15,6 +16,7 @@ import {
   ArcElement,
 } from 'chart.js';
 import { Bar, Chart } from 'react-chartjs-2';
+import { MessageSquare, X } from 'lucide-react';
 
 // Register Chart.js components
 ChartJS.register(
@@ -61,6 +63,9 @@ export default function TradesAnalysis() {
   const [includeMarketCondition, setIncludeMarketCondition] = useState(false);
   const [selectedMarketCondition, setSelectedMarketCondition] = useState("All");
   const [availableMarketConditions, setAvailableMarketConditions] = useState<string[]>([]);
+  // Add state for chat visibility
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [selectedAnalysisTrade, setSelectedAnalysisTrade] = useState<Trade | null>(null);
 
   // Load trades
   useEffect(() => {
@@ -735,6 +740,75 @@ export default function TradesAnalysis() {
                   <option key={month} value={month}>{month}</option>
                 ))}
               </select>
+              <button
+                onClick={() => {
+                  // Create a virtual "analysis trade" from analytics data
+                  const totalTrades = filteredTrades.length;
+                  const totalProfitLoss = filteredTrades.reduce((sum, trade) => sum + trade.profitLoss, 0);
+                  const winningTrades = filteredTrades.filter(trade => trade.profitLoss > 0).length;
+                  const losingTrades = filteredTrades.filter(trade => trade.profitLoss < 0).length;
+                  const winRate = totalTrades > 0 ? (winningTrades / totalTrades * 100).toFixed(2) : "0";
+                  
+                  // Get most common market conditions
+                  const marketConditions = filteredTrades.reduce((acc, trade) => {
+                    if (trade.marketCondition) {
+                      acc[trade.marketCondition] = (acc[trade.marketCondition] || 0) + 1;
+                    }
+                    return acc;
+                  }, {} as Record<string, number>);
+                  
+                  // Find most profitable day
+                  const dayProfits = filteredTrades.reduce((acc, trade) => {
+                    if (trade.day) {
+                      acc[trade.day] = (acc[trade.day] || 0) + trade.profitLoss;
+                    }
+                    return acc;
+                  }, {} as Record<string, number>);
+                  
+                  const analysisTrade: Trade = {
+                    id: 'analysis',
+                    date: `${selectedMonth} ${selectedYear}`,
+                    time: '',
+                    pair: 'ANALYSIS',
+                    action: 'Buy' as 'Buy' | 'Sell',
+                    entryTime: '',
+                    exitTime: '',
+                    lots: 0,
+                    pipStopLoss: 0,
+                    pipTakeProfit: 0,
+                    profitLoss: totalProfitLoss,
+                    pivots: '',
+                    bankingLevel: '',
+                    riskRatio: 0,
+                    comments: `Analysis of ${totalTrades} trades from ${selectedMonth} ${selectedYear}. Win rate: ${winRate}%. Winning trades: ${winningTrades}. Losing trades: ${losingTrades}.`,
+                    day: Object.entries(dayProfits).sort((a, b) => b[1] - a[1])[0]?.[0] || '',
+                    direction: '',
+                    orderType: '',
+                    marketCondition: Object.entries(marketConditions).sort((a, b) => b[1] - a[1])[0]?.[0] || '',
+                    ma: '',
+                    fib: '',
+                    gap: '',
+                    mindset: '',
+                    tradeLink: '',
+                    trueReward: '',
+                    true_tp_sl: '',
+                    additional_confluences: JSON.stringify({
+                      winRate: winRate,
+                      marketConditions: marketConditions,
+                      dayProfits: dayProfits,
+                      totalTrades: totalTrades,
+                      winningTrades: winningTrades,
+                      losingTrades: losingTrades
+                    }),
+                  };
+                  setSelectedAnalysisTrade(analysisTrade);
+                  setIsChatOpen(true);
+                }}
+                className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                <MessageSquare className="h-4 w-4 mr-2" />
+                Chat with AI
+              </button>
             </div>
           </div>
 
@@ -1036,6 +1110,25 @@ export default function TradesAnalysis() {
           )}
         </div>
       </main>
+
+      {/* Chat modal */}
+      {isChatOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="relative w-full max-w-3xl">
+            <button
+              onClick={() => setIsChatOpen(false)}
+              className="absolute -top-10 right-0 text-white hover:text-gray-300"
+            >
+              <X className="h-6 w-6" />
+            </button>
+            
+            <TradeChatBox
+              trade={selectedAnalysisTrade}
+              onClose={() => setIsChatOpen(false)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 } 

@@ -1,7 +1,7 @@
 Todo:
 
 Trade History Table:
--sort the trades by earliest date 
+-sort the trades by earliest date   --------------------------------
 -fix "Showing 1 to 1 of 1 results" -----------------------------------
 -only view your trades not all users  ----------------------------
 
@@ -23,14 +23,18 @@ Admin Dashboard:
 
 
 More features:
--import/export trades from excel
--Trade Analysis / Connect with PIP
+-import/export trades from excel  ------------------------------
+-Trade Analysis / Connect with PIP  ------------------------------ 
 -Custom notes
 -Trade Data Analysis (good and bad trades, see which group of confluences work best, how many times it was used ext) -------
--Calendar to see your traded days
+-Calendar to see your traded days  -------------------------------
 -Number of confluences in trade form 
 
+
 To fix:
+-trade analysis layout, better trade selection, be able to select month and multiple trades (maybe within the form a seperate page)
+-make the data of trade analysis more accurate when sending to prompts (sentence maybe ext)
+-admin page , increase width of table
 -add refresh button on both journals
 
 

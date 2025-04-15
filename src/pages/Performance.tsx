@@ -188,25 +188,26 @@ export default function Performance() {
   }, [trades, selectedMonth, selectedYear, fetchMonthlyMetrics]);
 
   // Initial data load for trades and violations
-  useEffect(() => {
-    async function loadInitialData() {
-      try {
-        setLoading(true);
-        const [tradeData, violationData] = await Promise.all([
-          getTrades(),
-          getTradeViolations()
-        ]);
-        
-        const formattedTrades = tradeData.map(trade => ({ ...trade, time: trade.entryTime }));
-        setTrades(formattedTrades);
-        setViolations(violationData);
-        // Initial filter and metrics fetch will be triggered by the filterTrades effect
-      } catch (err) { 
-        setError(err instanceof Error ? err.message : 'Failed to load data');
-      } finally {
-        setLoading(false);
-      }
+  const loadInitialData = async () => {
+    try {
+      setLoading(true);
+      const [tradeData, violationData] = await Promise.all([
+        getTrades(),
+        getTradeViolations()
+      ]);
+      
+      const formattedTrades = tradeData.map(trade => ({ ...trade, time: trade.entryTime }));
+      setTrades(formattedTrades);
+      setViolations(violationData);
+      // Initial filter and metrics fetch will be triggered by the filterTrades effect
+    } catch (err) { 
+      setError(err instanceof Error ? err.message : 'Failed to load data');
+    } finally {
+      setLoading(false);
     }
+  };
+
+  useEffect(() => {
     loadInitialData();
   }, []); // Runs only once on mount
 
@@ -268,26 +269,17 @@ export default function Performance() {
     setSelectedTrade(null);
   };
 
+  const handleDeleteTrades = async (tradeIds: string[]) => {
+    // After trades are deleted, refresh the data
+    loadInitialData();
+  };
+
   const handleTradeFormClose = async () => {
     setShowTradeForm(false);
     setSelectedTrade(null);
-    // Refresh trades and violations after form is closed
-    try {
-      setLoading(true); // Show loading indicator during refresh
-      const [tradeData, violationData] = await Promise.all([
-        getTrades(),
-        getTradeViolations()
-      ]);
-      
-      const formattedTrades = tradeData.map(trade => ({ ...trade, time: trade.entryTime }));
-      setTrades(formattedTrades);
-      setViolations(violationData);
-      // Let the useEffect handle re-filtering and fetching metrics
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to refresh data');
-    } finally {
-      setLoading(false);
-    }
+    
+    // Refresh trades data after form close
+    loadInitialData();
   };
 
   return (
@@ -373,6 +365,7 @@ export default function Performance() {
                   <TradeHistoryTable 
                     trades={filteredTrades}
                     onSelectTrade={handleSelectTrade}
+                    onDeleteTrades={handleDeleteTrades}
                   />
                 )}
               </div>

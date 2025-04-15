@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Trade, CellCustomization as CellCustomizationType, TradeViolation } from '../types';
-import { ZoomIn, ZoomOut, Maximize, Minimize, Filter, ArrowLeft, ArrowRight, ChevronsLeft, ChevronsRight, Palette, X, Type, AlertTriangle, ArrowUpDown } from 'lucide-react';
-import { loadCellCustomizations, saveCellCustomization, deleteCellCustomization, getTradeViolations } from '../lib/api';
+import { ZoomIn, ZoomOut, Maximize, Minimize, Filter, ArrowLeft, ArrowRight, ChevronsLeft, ChevronsRight, Palette, X, Type, AlertTriangle, ArrowUpDown, Trash2, CheckSquare, Square } from 'lucide-react';
+import { loadCellCustomizations, saveCellCustomization, deleteCellCustomization, getTradeViolations, deleteTrade } from '../lib/api';
 
 interface Props {
   trades: Trade[];
@@ -10,6 +10,7 @@ interface Props {
   targetUserId?: string;
   onExitFullscreen?: () => void;
   journalOwnerName?: string;
+  onDeleteTrades?: (tradeIds: string[]) => void;
 }
 
 // Interface for cell customization - local state
@@ -46,6 +47,7 @@ export default function TradeHistoryTable({
   targetUserId,
   onExitFullscreen,
   journalOwnerName,
+  onDeleteTrades
 }: Props) {
   const [page, setPage] = React.useState(1);
   const [scale, setScale] = useState(1);
@@ -65,6 +67,10 @@ export default function TradeHistoryTable({
   const [violations, setViolations] = useState<ViolationData[]>([]);
   const [isLoadingViolations, setIsLoadingViolations] = useState(false);
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [selectedTradeIds, setSelectedTradeIds] = useState<string[]>([]);
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isDeleteMode, setIsDeleteMode] = useState(false);
   
   const tableContainerRef = useRef<HTMLDivElement>(null);
   const tableWrapperRef = useRef<HTMLDivElement>(null);
@@ -210,6 +216,7 @@ export default function TradeHistoryTable({
 
   // All available columns
   const allColumns = [
+    ...(isDeleteMode ? [{ key: 'selection', display: '', fixed: true }] : []),
     { key: 'number', display: 'Number', fixed: true },
     { key: 'date', display: 'Date', fixed: true },
     { key: 'day', display: 'Day' },
@@ -563,6 +570,72 @@ export default function TradeHistoryTable({
     setPage(1); // Reset to page 1 when changing sort order
   };
 
+  // Handle row checkbox click
+  const handleRowCheckboxClick = (e: React.MouseEvent, tradeId: string) => {
+    e.stopPropagation(); // Prevent row selection
+    
+    if (selectedTradeIds.includes(tradeId)) {
+      setSelectedTradeIds(selectedTradeIds.filter(id => id !== tradeId));
+    } else {
+      setSelectedTradeIds([...selectedTradeIds, tradeId]);
+    }
+  };
+
+  // Toggle all trades selection
+  const toggleSelectAllTrades = () => {
+    if (selectedTradeIds.length === paginatedTrades.length) {
+      // If all are selected, deselect all
+      setSelectedTradeIds([]);
+    } else {
+      // Otherwise, select all
+      setSelectedTradeIds(paginatedTrades.map(trade => trade.id));
+    }
+  };
+
+  // Toggle delete mode
+  const toggleDeleteMode = () => {
+    // Clear selections when toggling off
+    if (isDeleteMode) {
+      setSelectedTradeIds([]);
+    }
+    setIsDeleteMode(!isDeleteMode);
+  };
+
+  // Exit delete mode
+  const exitDeleteMode = () => {
+    setIsDeleteMode(false);
+    setSelectedTradeIds([]);
+  };
+
+  // Delete selected trades
+  const handleDeleteTrades = async () => {
+    if (!selectedTradeIds.length) return;
+    
+    setIsDeleting(true);
+    try {
+      // Delete each selected trade
+      const deletePromises = selectedTradeIds.map(id => deleteTrade(id));
+      await Promise.all(deletePromises);
+      
+      // Notify parent component about deletion
+      if (onDeleteTrades) {
+        onDeleteTrades(selectedTradeIds);
+      }
+      
+      // Clear selection and close confirmation
+      setSelectedTradeIds([]);
+      setShowDeleteConfirmation(false);
+      
+      // Exit delete mode after successful deletion
+      setIsDeleteMode(false);
+    } catch (error) {
+      console.error('Failed to delete trades:', error);
+      // Optionally show an error message
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <div 
       className={`shadow rounded-lg flex flex-col transition-all duration-300 ${isFullScreen ? 'fixed inset-0 z-50 bg-white p-4' : ''}`}
@@ -593,7 +666,7 @@ export default function TradeHistoryTable({
               <div className="absolute left-0 top-full mt-2 bg-white border rounded-lg shadow-lg z-10 p-3 w-80 max-h-96 overflow-y-auto">
                 <h3 className="font-medium text-sm text-gray-700 mb-2">Toggle Column Visibility</h3>
                 <div className="grid grid-cols-2 gap-2">
-                  {allColumns.map(column => (
+                  {allColumns.filter(column => column.key !== 'selection').map(column => (
                     <label key={column.key} className={`flex items-center space-x-2 cursor-pointer py-1 ${column.fixed ? 'opacity-50' : ''}`}>
                       <input
                         type="checkbox"
@@ -608,7 +681,7 @@ export default function TradeHistoryTable({
                 </div>
                 <div className="mt-3 border-t pt-2 flex justify-between">
                   <button 
-                    onClick={() => setHiddenColumns(allColumns.filter(col => !col.fixed).map(col => col.key))} 
+                    onClick={() => setHiddenColumns(allColumns.filter(col => !col.fixed && col.key !== 'selection').map(col => col.key))} 
                     className="text-xs text-gray-500 hover:text-gray-700"
                   >
                     Hide All
@@ -639,6 +712,41 @@ export default function TradeHistoryTable({
             <div className="ml-4 px-4 py-2 bg-indigo-50 text-indigo-800 font-medium rounded-md">
               Journal of {journalOwnerName}
             </div>
+          )}
+          
+          {isDeleteMode ? (
+            <>
+              {selectedTradeIds.length > 0 ? (
+                <button
+                  onClick={() => setShowDeleteConfirmation(true)}
+                  className="ml-4 px-4 py-2 bg-red-50 text-red-700 border border-red-300 rounded-md flex items-center transition-colors hover:bg-red-100"
+                  title="Delete selected trades"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete {selectedTradeIds.length} {selectedTradeIds.length === 1 ? 'Trade' : 'Trades'}
+                </button>
+              ) : (
+                <div className="ml-4 px-4 py-2 bg-yellow-50 text-yellow-700 rounded-md">
+                  Select trades to delete
+                </div>
+              )}
+              <button
+                onClick={exitDeleteMode}
+                className="ml-4 px-4 py-2 bg-gray-100 text-gray-700 border border-gray-300 rounded-md flex items-center transition-colors hover:bg-gray-200"
+              >
+                <X className="h-4 w-4 mr-2" />
+                Cancel
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={toggleDeleteMode}
+              className="ml-4 px-4 py-2 bg-gray-100 text-gray-700 border border-gray-300 rounded-md flex items-center transition-colors hover:bg-gray-200"
+              title="Enter delete mode to select trades to delete"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete Trades
+            </button>
           )}
         </div>
         
@@ -742,6 +850,15 @@ export default function TradeHistoryTable({
         </div>
       )}
       
+      {isDeleteMode && (
+        <div className="bg-yellow-50 px-4 py-2 text-sm border-b">
+          <span className="flex items-center">
+            <Trash2 className="h-4 w-4 mr-2" />
+            Delete Mode: Select trades you want to delete
+          </span>
+        </div>
+      )}
+
       <div 
         ref={tableWrapperRef}
         className={`overflow-x-auto ${isFullScreen ? 'flex-grow h-[calc(100vh-180px)]' : 'max-h-[70vh]'}`}
@@ -761,7 +878,22 @@ export default function TradeHistoryTable({
                       column.fixed ? 'sticky left-0 z-20 bg-gray-50' : ''
                     }`}
                   >
-                    {column.display}
+                    {column.key === 'selection' ? (
+                      <div className="flex justify-center">
+                        <button 
+                          onClick={toggleSelectAllTrades}
+                          className="text-gray-400 hover:text-gray-600 focus:outline-none"
+                        >
+                          {selectedTradeIds.length === paginatedTrades.length && paginatedTrades.length > 0 ? (
+                            <CheckSquare className="h-5 w-5" />
+                          ) : (
+                            <Square className="h-5 w-5" />
+                          )}
+                        </button>
+                      </div>
+                    ) : (
+                      column.display
+                    )}
                   </th>
                 )
               )}
@@ -772,12 +904,13 @@ export default function TradeHistoryTable({
               const tradeHasViolations = hasViolations(trade.id);
               const unacknowledgedCount = getUnacknowledgedViolationsCount(trade.id);
               const violationTitle = tradeHasViolations ? getViolationDetails(trade.id) : '';
+              const isSelected = selectedTradeIds.includes(trade.id);
                 
               return (
                 <tr 
                   key={trade.id} 
-                  onClick={() => !isCustomizing && onSelectTrade(trade)}
-                  className={`hover:bg-blue-50 transition-colors divide-x divide-gray-200 group ${isCustomizing ? 'cursor-default' : 'cursor-pointer'}`}
+                  onClick={() => !isCustomizing && !isDeleteMode && onSelectTrade(trade)}
+                  className={`${isSelected ? 'bg-blue-50' : ''} hover:bg-blue-50 transition-colors divide-x divide-gray-200 group ${isCustomizing || isDeleteMode ? 'cursor-default' : 'cursor-pointer'}`}
                   style={tradeHasViolations ? { 
                     borderLeft: '5px solid #f59e0b',
                     boxShadow: 'inset 1px 0 0 #f59e0b'
@@ -785,6 +918,31 @@ export default function TradeHistoryTable({
                 >
                   {allColumns.map(column => {
                     if (hiddenColumns.includes(column.key)) return null;
+                    
+                    if (column.key === 'selection') {
+                      return (
+                        <td 
+                          key={column.key}
+                          className={`px-2 py-4 whitespace-nowrap text-sm text-gray-900 ${
+                            column.fixed ? 'sticky left-0 z-10 bg-white group-hover:bg-blue-50' : ''
+                          } ${isSelected ? 'bg-blue-50' : ''}`}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="flex justify-center">
+                            <button 
+                              onClick={(e) => handleRowCheckboxClick(e, trade.id)}
+                              className="text-gray-400 hover:text-gray-600 focus:outline-none"
+                            >
+                              {isSelected ? (
+                                <CheckSquare className="h-5 w-5 text-blue-500" />
+                              ) : (
+                                <Square className="h-5 w-5" />
+                              )}
+                            </button>
+                          </div>
+                        </td>
+                      );
+                    }
                     
                     const customization = getCellCustomization(trade.id, column.key);
                     const cellStyle = {
@@ -798,9 +956,15 @@ export default function TradeHistoryTable({
                           key={column.key} 
                           className={`px-6 py-4 whitespace-nowrap text-sm text-gray-900 ${
                             column.fixed ? 'sticky left-0 z-10 bg-white group-hover:bg-blue-50' : ''
-                          }`}
+                          } ${isSelected ? 'bg-blue-50' : ''}`}
                           style={cellStyle}
-                          onClick={(e) => handleCellClick(e, trade.id, column.key)}
+                          onClick={(e) => {
+                            if (isDeleteMode) {
+                              handleRowCheckboxClick(e, trade.id);
+                            } else if (isCustomizing) {
+                              handleCellClick(e, trade.id, column.key);
+                            }
+                          }}
                         >
                           <div className="flex items-center">
                             {(page - 1) * itemsPerPage + index + 1}
@@ -831,9 +995,15 @@ export default function TradeHistoryTable({
                           key={column.key} 
                           className={`px-6 py-4 whitespace-nowrap text-sm text-gray-900 ${
                             column.fixed ? 'sticky left-0 z-10 bg-white group-hover:bg-blue-50' : ''
-                          }`}
+                          } ${isSelected ? 'bg-blue-50' : ''}`}
                           style={customization.backgroundColor ? { backgroundColor: customization.backgroundColor } : {}}
-                          onClick={(e) => handleCellClick(e, trade.id, column.key)}
+                          onClick={(e) => {
+                            if (isDeleteMode) {
+                              handleRowCheckboxClick(e, trade.id);
+                            } else if (isCustomizing) {
+                              handleCellClick(e, trade.id, column.key);
+                            }
+                          }}
                         >
                           <span 
                             className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
@@ -853,9 +1023,15 @@ export default function TradeHistoryTable({
                           key={column.key} 
                           className={`px-6 py-4 text-sm text-gray-900 max-w-xs ${
                             column.fixed ? 'sticky left-0 z-10 bg-white group-hover:bg-blue-50' : ''
-                          }`}
+                          } ${isSelected ? 'bg-blue-50' : ''}`}
                           style={cellStyle}
-                          onClick={(e) => handleCellClick(e, trade.id, column.key)}
+                          onClick={(e) => {
+                            if (isDeleteMode) {
+                              handleRowCheckboxClick(e, trade.id);
+                            } else if (isCustomizing) {
+                              handleCellClick(e, trade.id, column.key);
+                            }
+                          }}
                         >
                           <div className={`transition-all duration-300 ${isFullScreen ? '' : 'line-clamp-2 group-hover:line-clamp-none'}`}>
                             {trade[column.key]}
@@ -869,9 +1045,15 @@ export default function TradeHistoryTable({
                         key={column.key} 
                         className={`px-6 py-4 whitespace-nowrap text-sm text-gray-900 ${
                           column.fixed ? 'sticky left-0 z-10 bg-white group-hover:bg-blue-50' : ''
-                        }`}
+                        } ${isSelected ? 'bg-blue-50' : ''}`}
                         style={cellStyle}
-                        onClick={(e) => handleCellClick(e, trade.id, column.key)}
+                        onClick={(e) => {
+                          if (isDeleteMode) {
+                            handleRowCheckboxClick(e, trade.id);
+                          } else if (isCustomizing) {
+                            handleCellClick(e, trade.id, column.key);
+                          }
+                        }}
                       >
                         {trade[column.key as keyof Trade]}
                       </td>
@@ -880,6 +1062,7 @@ export default function TradeHistoryTable({
                 </tr>
               );
             })}
+            
             {paginatedTrades.length === 0 && (
               <tr>
                 <td colSpan={allColumns.length - hiddenColumns.length} className="px-6 py-10 text-center text-gray-500">
@@ -890,6 +1073,34 @@ export default function TradeHistoryTable({
           </tbody>
         </table>
       </div>
+
+      {/* Confirmation modal for delete */}
+      {showDeleteConfirmation && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 max-w-md w-full">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Confirm Delete</h3>
+            <p className="mb-4 text-gray-600">
+              Are you sure you want to delete {selectedTradeIds.length} {selectedTradeIds.length === 1 ? 'trade' : 'trades'}? This action cannot be undone.
+            </p>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setShowDeleteConfirmation(false)}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+                disabled={isDeleting}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteTrades}
+                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors flex items-center"
+                disabled={isDeleting}
+              >
+                {isDeleting ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Color picker */}
       {isFullScreen && isCustomizing && selectedCell && (

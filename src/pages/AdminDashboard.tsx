@@ -48,6 +48,7 @@ interface DbTrade {
   true_tp_sl?: string;
   mindset?: string;
   trade_link?: string;
+  additional_confluences?: string;
 }
 
 export default function AdminDashboard() {
@@ -215,7 +216,8 @@ export default function AdminDashboard() {
         mindset: trade.mindset || '',
         tradeLink: trade.trade_link || '',
         trueReward: trade.true_reward || '',
-        true_tp_sl: trade.true_tp_sl || ''
+        true_tp_sl: trade.true_tp_sl || '',
+        additional_confluences: trade.additional_confluences || ''
       }));
 
       setSelectedUserTrades(formattedTrades);
@@ -286,7 +288,8 @@ export default function AdminDashboard() {
         mindset: trade.mindset || '',
         tradeLink: trade.trade_link || '',
         trueReward: trade.true_reward || '',
-        true_tp_sl: trade.true_tp_sl || ''
+        true_tp_sl: trade.true_tp_sl || '',
+        additional_confluences: trade.additional_confluences || ''
       }));
 
       console.log("Setting formatted trades:", formattedTrades.length);
@@ -299,6 +302,13 @@ export default function AdminDashboard() {
 
   const handleExitFullscreen = () => {
     setShowTradesModal(false);
+  };
+
+  const handleDeleteTrades = async (tradeIds: string[]) => {
+    if (selectedUserId) {
+      // Refresh trades for the current user
+      refreshUserTrades(selectedUserId);
+    }
   };
 
   const handleManageRules = (userId: string, email: string, fullName: string | null) => {
@@ -391,7 +401,8 @@ export default function AdminDashboard() {
             mindset: tradeData.mindset || '',
             tradeLink: tradeData.trade_link || '',
             trueReward: tradeData.true_reward || '',
-            true_tp_sl: tradeData.true_tp_sl || ''
+            true_tp_sl: tradeData.true_tp_sl || '',
+            additional_confluences: tradeData.additional_confluences || ''
           };
           
           setSelectedTrade(formattedTrade);
@@ -654,6 +665,7 @@ export default function AdminDashboard() {
               targetUserId={selectedUserId}
               onExitFullscreen={handleExitFullscreen}
               journalOwnerName={selectedUserFullName}
+              onDeleteTrades={handleDeleteTrades}
             />
           </div>
         </div>

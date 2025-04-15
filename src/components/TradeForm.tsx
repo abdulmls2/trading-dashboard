@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Trade } from '../types';
 import { createTrade, updateTrade, checkTradeAgainstRules, createTradeViolation, getUserTradingRules } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
-import { Clipboard, AlertTriangle } from 'lucide-react';
+import { Clipboard, AlertTriangle, Upload } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
 // Make the Trade interface work with both create and update operations
 interface TradeFormData extends Omit<Trade, 'id'> {
@@ -127,6 +128,15 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
 
   // State to track which trades have violations
   const [tradesWithViolations, setTradesWithViolations] = useState<Set<number>>(new Set());
+  
+  // File upload ref and state
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [excelFile, setExcelFile] = useState<File | null>(null);
+  const [excelFileName, setExcelFileName] = useState<string>('');
+  const [isProcessingFile, setIsProcessingFile] = useState(false);
+  const [availableSheets, setAvailableSheets] = useState<string[]>([]);
+  const [selectedSheet, setSelectedSheet] = useState<string>('');
+  const [hasHeaderRow, setHasHeaderRow] = useState<boolean>(true);
 
   // Update day when date changes, but only if the user hasn't manually changed it
   useEffect(() => {
@@ -416,92 +426,6 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
     }
   };
   
-  // Function to handle import from clipboard
-  const handleImport = () => {
-    if (!importData.trim()) {
-      setImportError('Please paste data first');
-      return;
-    }
-    
-    try {
-      setImportError('');
-      setMultipleTradesPreview([]);
-      setImportPreview(null);
-      setIsMultipleImport(false);
-      setRuleViolations([]);
-      setShowViolationWarning(false);
-      setTradesWithViolations(new Set());
-      setSelectedPreviewIndex(0);
-      
-      // Check if we have multiple lines (multiple trades)
-      const lines = importData.trim().split(/\r?\n/);
-      
-      if (lines.length > 1) {
-        // Process multiple trades
-        setIsMultipleImport(true);
-        const parsedTrades: TradeFormData[] = [];
-        
-        for (const line of lines) {
-          if (!line.trim()) continue; // Skip empty lines
-          
-          const parsedTrade = parseSingleTradeLine(line);
-          if (parsedTrade) {
-            parsedTrades.push(parsedTrade);
-          }
-        }
-        
-        if (parsedTrades.length === 0) {
-          setImportError('Could not parse any valid trades from the data.');
-          return;
-        }
-        
-        setMultipleTradesPreview(parsedTrades);
-        
-        // Check for rule violations
-        if (user) {
-          checkMultipleTradesForViolations(parsedTrades);
-        }
-      } else {
-        // Process single trade
-        const parsedTrade = parseSingleTradeLine(importData);
-        if (!parsedTrade) {
-          setImportError('Failed to parse trade data. Please check the format.');
-          return;
-        }
-        
-        setImportPreview(parsedTrade);
-        
-        // Check for rule violations if user is logged in
-        if (user) {
-          const partialTrade = {
-            pair: parsedTrade.pair,
-            day: parsedTrade.day,
-            lots: parsedTrade.lots,
-            action: parsedTrade.action,
-            direction: parsedTrade.direction
-          };
-          
-          checkTradeAgainstRules(partialTrade, user.id).then(result => {
-            if (!result.isValid) {
-              setRuleViolations(result.violations);
-              // Silently acknowledge violations without showing warnings
-              setAcknowledgedViolations(true);
-              setShowViolationWarning(false);
-            } else {
-              setRuleViolations([]);
-              setShowViolationWarning(false);
-            }
-          }).catch(err => {
-            console.error('Error checking rules for imported trade:', err);
-          });
-        }
-      }
-    } catch (error) {
-      console.error('Import error:', error);
-      setImportError('Failed to parse import data. Please check the format.');
-    }
-  };
-  
   // Helper function to parse a single trade line
   const parseSingleTradeLine = (line: string): TradeFormData | null => {
     try {
@@ -630,6 +554,324 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
       return null;
     }
   };
+
+  // Clipboard paste event handler
+  const handlePaste = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      setImportData(text);
+      setImportError('');
+    } catch (error) {
+      console.error('Clipboard access error:', error);
+      setImportError('Unable to access clipboard. Please paste the data manually.');
+    }
+  };
+
+  // Function to handle import from clipboard
+  const handleImport = () => {
+    if (!importData.trim()) {
+      setImportError('Please paste data first');
+      return;
+    }
+    
+    try {
+      setImportError('');
+      setMultipleTradesPreview([]);
+      setImportPreview(null);
+      setIsMultipleImport(false);
+      setRuleViolations([]);
+      setShowViolationWarning(false);
+      setTradesWithViolations(new Set());
+      setSelectedPreviewIndex(0);
+      
+      // Check if we have multiple lines (multiple trades)
+      const lines = importData.trim().split(/\r?\n/);
+      
+      if (lines.length > 1) {
+        // Process multiple trades
+        setIsMultipleImport(true);
+        const parsedTrades: TradeFormData[] = [];
+        
+        for (const line of lines) {
+          if (!line.trim()) continue; // Skip empty lines
+          
+          const parsedTrade = parseSingleTradeLine(line);
+          if (parsedTrade) {
+            parsedTrades.push(parsedTrade);
+          }
+        }
+        
+        if (parsedTrades.length === 0) {
+          setImportError('Could not parse any valid trades from the data.');
+          return;
+        }
+        
+        setMultipleTradesPreview(parsedTrades);
+        
+        // Check for rule violations
+        if (user) {
+          checkMultipleTradesForViolations(parsedTrades);
+        }
+      } else {
+        // Process single trade
+        const parsedTrade = parseSingleTradeLine(importData);
+        if (!parsedTrade) {
+          setImportError('Failed to parse trade data. Please check the format.');
+          return;
+        }
+        
+        setImportPreview(parsedTrade);
+        
+        // Check for rule violations if user is logged in
+        if (user) {
+          const partialTrade = {
+            pair: parsedTrade.pair,
+            day: parsedTrade.day,
+            lots: parsedTrade.lots,
+            action: parsedTrade.action,
+            direction: parsedTrade.direction
+          };
+          
+          checkTradeAgainstRules(partialTrade, user.id).then(result => {
+            if (!result.isValid) {
+              setRuleViolations(result.violations);
+              // Silently acknowledge violations without showing warnings
+              setAcknowledgedViolations(true);
+              setShowViolationWarning(false);
+            } else {
+              setRuleViolations([]);
+              setShowViolationWarning(false);
+            }
+          }).catch(err => {
+            console.error('Error checking rules for imported trade:', err);
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Import error:', error);
+      setImportError('Failed to parse import data. Please check the format.');
+    }
+  };
+
+  // Helper function to convert Excel date number to YYYY-MM-DD format
+  const convertExcelDateToISO = (excelDate: number): string => {
+    try {
+      // Excel dates are the number of days since December 31, 1899
+      const millisecondsPerDay = 24 * 60 * 60 * 1000;
+      // Add days to the base date (January 0, 1900)
+      const baseDate = new Date(Date.UTC(1900, 0, 0));
+      const utcDate = new Date(baseDate.getTime() + (excelDate * millisecondsPerDay));
+      
+      // Format as YYYY-MM-DD
+      const year = utcDate.getUTCFullYear();
+      const month = String(utcDate.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(utcDate.getUTCDate()).padStart(2, '0');
+      
+      return `${year}-${month}-${day}`;
+    } catch (error) {
+      console.error('Error converting Excel date:', error);
+      return '';
+    }
+  };
+  
+  // Helper function to convert Excel time number to HH:MM format
+  const convertExcelTimeToHHMM = (excelTime: number): string => {
+    try {
+      if (isNaN(excelTime) || excelTime === undefined) return '';
+      
+      // Excel times are stored as fractions of a 24 hour day
+      const totalMinutes = Math.round(excelTime * 24 * 60);
+      const hours = Math.floor(totalMinutes / 60);
+      const minutes = totalMinutes % 60;
+      
+      return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+    } catch (error) {
+      console.error('Error converting Excel time:', error);
+      return '';
+    }
+  };
+
+  // Helper function to handle Excel file upload
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      const file = files[0];
+      // Check if file is an Excel file
+      if (file.type !== 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' && 
+          file.type !== 'application/vnd.ms-excel') {
+        setImportError('Please upload only Excel files (.xlsx or .xls)');
+        return;
+      }
+      
+      setExcelFile(file);
+      setExcelFileName(file.name);
+      setImportError('');
+      
+      // Read the workbook to get sheet names
+      loadSheetNames(file);
+    }
+  };
+  
+  // Function to load sheet names from the Excel file
+  const loadSheetNames = async (file: File) => {
+    try {
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data);
+      
+      if (workbook.SheetNames.length === 0) {
+        setImportError('No sheets found in the Excel file');
+        return;
+      }
+      
+      setAvailableSheets(workbook.SheetNames);
+      setSelectedSheet(workbook.SheetNames[0]); // Select the first sheet by default
+    } catch (error) {
+      console.error('Error reading Excel file sheets:', error);
+      setImportError('Failed to read sheets from the Excel file');
+    }
+  };
+  
+  // Function to parse Excel file
+  const handleProcessExcelFile = async () => {
+    if (!excelFile) {
+      setImportError('Please select an Excel file first');
+      return;
+    }
+    
+    if (!selectedSheet) {
+      setImportError('Please select a sheet from the Excel file');
+      return;
+    }
+    
+    setIsProcessingFile(true);
+    setImportError('');
+    
+    try {
+      const data = await excelFile.arrayBuffer();
+      const workbook = XLSX.read(data);
+      
+      // Check if the selected sheet exists
+      if (!workbook.SheetNames.includes(selectedSheet)) {
+        setImportError(`Sheet "${selectedSheet}" not found in the workbook`);
+        setIsProcessingFile(false);
+        return;
+      }
+      
+      const worksheet = workbook.Sheets[selectedSheet];
+      const jsonData = XLSX.utils.sheet_to_json<any>(worksheet, { header: 1 });
+      
+      if (jsonData.length === 0) {
+        setImportError('No data found in the selected sheet');
+        setIsProcessingFile(false);
+        return;
+      }
+      
+      // Log the first row for debugging
+      if (jsonData.length > 0 && Array.isArray(jsonData[0])) {
+        console.log('First row:', jsonData[0]);
+        if (jsonData.length > 1) console.log('Second row:', jsonData[1]);
+        if (jsonData.length > 2) console.log('Third row:', jsonData[2]);
+      }
+      
+      // ALWAYS start from the 3rd row (index 2)
+      const startRow = 2; 
+      
+      // Skip the first two rows and process the data rows
+      const rows = jsonData.slice(startRow);
+      
+      if (rows.length === 0) {
+        setImportError('No data rows found in the selected sheet after skipping header rows');
+        setIsProcessingFile(false);
+        return;
+      }
+      
+      // Convert Excel rows to trade data
+      const parsedTrades: TradeFormData[] = [];
+      let skippedRows = 0;
+      
+      for (const row of rows) {
+        if (!row || !Array.isArray(row) || row.length < 10) {
+          skippedRows++;
+          continue; // Skip rows with insufficient data
+        }
+        
+        // IMPORTANT: Skip the first column (index 0) which contains "trades"
+        // Start mapping from the second column (index 1) which contains "date"
+        const adjustedRow = row.slice(1);
+        
+        // Process the cells and handle Excel date/time formats
+        const processedRow = adjustedRow.map((cell, index) => {
+          // Convert cell to string if it exists
+          if (cell === undefined || cell === null) return '';
+          
+          // Special handling for date (first column)
+          if (index === 0 && typeof cell === 'number') {
+            return convertExcelDateToISO(cell);
+          }
+          
+          // Special handling for entryTime (third column)
+          if (index === 2 && typeof cell === 'number') {
+            return convertExcelTimeToHHMM(cell);
+          }
+          
+          return cell.toString().trim();
+        });
+        
+        // Only take columns up to "comments" (limit to 24 columns max)
+        // This ensures we don't include any extraneous columns after the expected fields
+        const limitedRow = processedRow.slice(0, 24);
+        
+        // Create a string that mimics the format expected by parseSingleTradeLine
+        const tradeLine = limitedRow.join('\t');
+        const parsedTrade = parseSingleTradeLine(tradeLine);
+        
+        if (parsedTrade) {
+          parsedTrades.push(parsedTrade);
+        } else {
+          skippedRows++;
+        }
+      }
+      
+      if (parsedTrades.length === 0) {
+        setImportError(`Could not parse any valid trades from the Excel file. ${skippedRows} rows were skipped due to invalid data.`);
+        setIsProcessingFile(false);
+        return;
+      }
+      
+      // Set the multiple trades preview
+      setMultipleTradesPreview(parsedTrades);
+      setIsMultipleImport(true);
+      setSelectedPreviewIndex(0);
+      
+      // Show success message with skipped rows info if any
+      if (skippedRows > 0) {
+        setImportError(`Successfully parsed ${parsedTrades.length} trades. ${skippedRows} rows were skipped.`);
+      }
+      
+      // Check for rule violations if user is logged in
+      if (user) {
+        await checkMultipleTradesForViolations(parsedTrades);
+      }
+      
+      // Clear the file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      
+    } catch (error) {
+      console.error('Error processing Excel file:', error);
+      setImportError('Failed to process the Excel file. Please check the format.');
+    } finally {
+      setIsProcessingFile(false);
+    }
+  };
+  
+  // Function to trigger file input click
+  const handleFileButtonClick = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
   
   // Function to apply the imported data
   const applyImport = () => {
@@ -685,18 +927,6 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
     setMultipleTradesPreview([]);
     setImportError('');
     setIsMultipleImport(false);
-  };
-  
-  // Clipboard paste event handler
-  const handlePaste = async () => {
-    try {
-      const text = await navigator.clipboard.readText();
-      setImportData(text);
-      setImportError('');
-    } catch (error) {
-      console.error('Clipboard access error:', error);
-      setImportError('Unable to access clipboard. Please paste the data manually.');
-    }
   };
 
   // Function to import and submit all trades at once
@@ -1208,45 +1438,120 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
                 <code>Date | Day | Time | Pair | Action | Direction | Lots | SL | TP | RR | OrderType | MarketCondition | MA | FIB | Pivot | Gap | BankingLevel | Additional_Confluences | Mindset | P/L | TrueTpSl | TrueReward | TradeLink | Comments</code>
               </div>
               
-              <div className="flex items-center mb-2">
-                <button
-                  type="button"
-                  onClick={handlePaste}
-                  className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 mr-2"
-                >
-                  <Clipboard className="h-4 w-4 mr-2" />
-                  Paste from Clipboard
-                </button>
-                <button
-                  type="button"
-                  onClick={clearImport}
-                  className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                >
-                  Clear
-                </button>
+              {/* First method: Clipboard paste */}
+              <div className="mb-6">
+                <h4 className="text-md font-medium text-gray-800 mb-2">Method 1: Copy & Paste</h4>
+                <div className="flex items-center mb-2">
+                  <button
+                    type="button"
+                    onClick={handlePaste}
+                    className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 mr-2"
+                  >
+                    <Clipboard className="h-4 w-4 mr-2" />
+                    Paste from Clipboard
+                  </button>
+                  <button
+                    type="button"
+                    onClick={clearImport}
+                    className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                  >
+                    Clear
+                  </button>
+                </div>
+                
+                <textarea
+                  value={importData}
+                  onChange={(e) => setImportData(e.target.value)}
+                  rows={4}
+                  placeholder="Paste your data here..."
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                />
+                
+                <div className="mt-4 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={handleImport}
+                    className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                  >
+                    Preview Pasted Data
+                  </button>
+                </div>
               </div>
               
-              <textarea
-                value={importData}
-                onChange={(e) => setImportData(e.target.value)}
-                rows={4}
-                placeholder="Paste your data here..."
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-              />
+              {/* Second method: Excel file upload */}
+              <div className="border-t border-gray-200 pt-6">
+                <h4 className="text-md font-medium text-gray-800 mb-2">Method 2: Excel File Upload</h4>
+                <p className="text-sm text-gray-500 mb-4">
+                  Upload an Excel file (.xlsx or .xls) with your trades data. The first row should contain headers matching the order shown above.
+                </p>
+                
+                <div className="flex items-center mb-4">
+                  <input
+                    type="file"
+                    accept=".xlsx,.xls"
+                    onChange={handleFileChange}
+                    className="hidden"
+                    ref={fileInputRef}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleFileButtonClick}
+                    className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 mr-3"
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    Select Excel File
+                  </button>
+                  
+                  {excelFileName && (
+                    <span className="text-sm text-gray-600">{excelFileName}</span>
+                  )}
+                </div>
+                
+                {/* Sheet selection dropdown */}
+                {availableSheets.length > 0 && (
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Select Sheet
+                    </label>
+                    <div className="relative mt-1">
+                      <select
+                        value={selectedSheet}
+                        onChange={(e) => setSelectedSheet(e.target.value)}
+                        className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                      >
+                        {availableSheets.map((sheet) => (
+                          <option key={sheet} value={sheet}>
+                            {sheet}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <p className="mt-1 text-xs text-gray-500">
+                      Selected sheet: {selectedSheet} ({availableSheets.indexOf(selectedSheet) + 1} of {availableSheets.length})
+                    </p>
+                    
+                    <p className="mt-1 text-xs text-gray-500">
+                      Note: The system will automatically skip the first 2 rows (headers), ignore the first column ("trades"), 
+                      and ignore any columns after "comments". Date and time values will be automatically formatted correctly.
+                    </p>
+                  </div>
+                )}
+                
+                <div className="mt-4 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={handleProcessExcelFile}
+                    disabled={!excelFile || isProcessingFile || !selectedSheet}
+                    className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-400 disabled:cursor-not-allowed"
+                  >
+                    {isProcessingFile ? 'Processing...' : 'Process Excel File'}
+                  </button>
+                </div>
+              </div>
               
               {importError && (
-                <p className="mt-2 text-sm text-red-600">{importError}</p>
+                <p className="mt-4 text-sm text-red-600">{importError}</p>
               )}
-              
-              <div className="mt-4 flex justify-end">
-                <button
-                  type="button"
-                  onClick={handleImport}
-                  className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                >
-                  Preview Import
-                </button>
-              </div>
             </div>
             
             {/* Preview for single trade */}
@@ -1325,7 +1630,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
                     </div>
                     <div>
                       <p className="text-sm font-medium text-gray-500">Additional Confluences:</p>
-                      <p className="text-sm text-gray-900 truncate">{importPreview.additional_confluences}</p>
+                      <p className="text-xs text-gray-900 truncate">{importPreview.additional_confluences}</p>
                     </div>
                     <div>
                       <p className="text-sm font-medium text-gray-500">Mindset:</p>
@@ -1347,11 +1652,11 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
                     </div>
                     <div>
                       <p className="text-sm font-medium text-gray-500">Trade Link:</p>
-                      <p className="text-sm text-gray-900 truncate">{importPreview.tradeLink}</p>
+                      <p className="text-xs text-gray-900 truncate">{importPreview.tradeLink}</p>
                     </div>
                     <div className="col-span-2">
                       <p className="text-sm font-medium text-gray-500">Comments:</p>
-                      <p className="text-sm text-gray-900">{importPreview.comments}</p>
+                      <p className="text-xs text-gray-900">{importPreview.comments}</p>
                     </div>
                   </div>
                   

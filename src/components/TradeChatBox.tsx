@@ -140,26 +140,40 @@ export default function TradeChatBox({ trade, onClose }: Props) {
     // Regular trade context for individual trades
     return `
       Trade details:
-      - Pair: ${trade.pair}
+      
+      Basic Info:
       - Date: ${trade.date}
+      - Day: ${trade.day}
+      - Pair: ${trade.pair}
       - Action: ${trade.action}
       - Entry time: ${trade.entryTime}
-      - Exit time: ${trade.exitTime}
+      - Exit time: ${trade.exitTime || 'N/A'}
+      
+      Technical Details:
+      - Direction: ${trade.direction}
       - Lots: ${trade.lots}
       - Stop loss: ${trade.pipStopLoss} pips
       - Take profit: ${trade.pipTakeProfit} pips
-      - Profit/Loss: ${trade.profitLoss}
       - Risk ratio: ${trade.riskRatio}
-      - Day: ${trade.day}
-      - Direction: ${trade.direction}
-      - Order type: ${trade.orderType}
-      - Market condition: ${trade.marketCondition}
-      - Moving average: ${trade.ma || 'None'}
-      - Fibonacci: ${trade.fib || 'None'}
+      - Order type: ${trade.orderType || 'N/A'}
+      - Market condition: ${trade.marketCondition || 'N/A'}
+      
+      Confluences:
       - Pivots: ${trade.pivots || 'None'}
       - Banking level: ${trade.bankingLevel || 'None'}
+      - Moving average: ${trade.ma || 'None'}
+      - Fibonacci: ${trade.fib || 'None'}
       - Gap: ${trade.gap || 'None'}
+      - Additional Confluences: ${trade.additional_confluences || 'None'}
+      
+      Result:
+      - Profit/Loss: ${trade.profitLoss}
+      - True Reward: ${trade.trueReward || 'N/A'}
+      - True TP/SL: ${trade.true_tp_sl || 'N/A'}
+      
+      Notes & Links:
       - Mindset: ${trade.mindset || 'Unknown'}
+      - Trade Link: ${trade.tradeLink || 'None'}
       - Comments: ${trade.comments || 'None'}
     `;
   };
@@ -199,7 +213,13 @@ export default function TradeChatBox({ trade, onClose }: Props) {
     You can also analyze trades and provide feedback on the trades, by applying the concepts and teachings of Come Learn Forex.
      
     Here's information about the trade to analyze:
-    ${tradeContext}`;
+    ${tradeContext}
+    
+    Important Note on Confluences: 
+    - Any item listed under the 'Confluences' heading above should be considered a confluence factor if it has ANY value, including 'True', 'False', numbers, or text.
+    - Only items with 'None' or 'N/A' should be excluded from the confluence count.
+    - The Banking Level field is a confluence regardless of whether it's 'True' or 'False' - it indicates whether a banking level was considered in the trade.
+    - Additional Confluences can contain any text value and should be counted as a confluence if present.`;
     
     // Append keyword-specific information if found
     if (keywordPrompts.length > 0) {
@@ -213,6 +233,21 @@ export default function TradeChatBox({ trade, onClose }: Props) {
       systemPrompt += `\n\nThe user has not mentioned a specific trading concept. Please include the following general information in your response:\n\n${DEFAULT_PROMPT}`;
     }
 
+    // Prepare the payload
+    const payload = {
+      "model": "openai/gpt-4o-mini",
+      "messages": [
+        {
+          "role": "system",
+          "content": systemPrompt
+        },
+        {
+          "role": "user",
+          "content": userMessage
+        }
+      ]
+    };
+    
     try {
       const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
@@ -224,19 +259,7 @@ export default function TradeChatBox({ trade, onClose }: Props) {
           "Content-Type": "application/json",
           "Origin": window.location.origin
         },
-        body: JSON.stringify({
-          "model": "openai/gpt-4o-mini",
-          "messages": [
-            {
-              "role": "system",
-              "content": systemPrompt
-            },
-            {
-              "role": "user",
-              "content": userMessage
-            }
-          ]
-        })
+        body: JSON.stringify(payload)
       });
 
       if (!response.ok) {

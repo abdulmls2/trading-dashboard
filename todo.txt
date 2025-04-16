@@ -28,10 +28,11 @@ Admin Dashboard:
 -Calendar to see your traded days  -------------------------------
 -add sl tp and rr auto ( 15,75,5) -------------------------------
 -Trade link clickable -------------------------------
+-trade analysis layout -------------------------------
 
 ----------------------------------------------------------------------------------------------------------------------------------
 To fix:
--trade analysis layout, better trade selection, be able to select month and multiple trades (maybe within the form a seperate page)
+-better trade selection, be able to select month and multiple trades (maybe within the form a seperate page)
 -make the data of trade analysis more accurate when sending to prompts (sentence maybe ext)
 -some trades comment field become large vertically , make it large horizontally
 

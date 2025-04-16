@@ -1,4 +1,4 @@
-Todo:
+Done:
 
 Trade History Table:
 -sort the trades by earliest date   --------------------------------
@@ -21,21 +21,28 @@ Admin Dashboard:
 -view all violations section  --------------
 -also show to user trades which he violated with a flag  -------------
 
-
-More features:
 -import/export trades from excel  ------------------------------
 -Trade Analysis / Connect with PIP  ------------------------------ 
--Custom notes
 -Trade Data Analysis (good and bad trades, see which group of confluences work best, how many times it was used ext) -------
 -Calendar to see your traded days  -------------------------------
--Number of confluences in trade form 
 
-
+----------------------------------------------------------------------------------------------------------------------------------
 To fix:
 -trade analysis layout, better trade selection, be able to select month and multiple trades (maybe within the form a seperate page)
 -make the data of trade analysis more accurate when sending to prompts (sentence maybe ext)
 -admin page , increase width of table
+-fix the manual import trades ( empty fields and coma for numbers ( $1,254) ) 
 -add refresh button on both journals
+
+
+New features:
+-add sl tp and rr auto ( 15,75,5)
+-Summary of trades analysis:
+-Trade link less choppy
+-Change currency 
+-Summary of trades analysis 
+-Custom notes
+-Compounding page
 
 
 AFTER:

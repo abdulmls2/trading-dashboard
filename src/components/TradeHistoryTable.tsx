@@ -40,6 +40,24 @@ interface ViolationData {
   acknowledged: boolean;
 }
 
+// Format date from YYYY-MM-DD to DD-MM-YYYY
+const formatDate = (dateString: string) => {
+  if (!dateString) return '';
+  
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return dateString; // Return original if invalid
+    
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const year = date.getFullYear();
+    
+    return `${day}-${month}-${year}`;
+  } catch (error) {
+    return dateString; // Return original if any error occurs
+  }
+};
+
 export default function TradeHistoryTable({
   trades,
   onSelectTrade,
@@ -1036,6 +1054,28 @@ export default function TradeHistoryTable({
                           <div className={`transition-all duration-300 ${isFullScreen ? '' : 'line-clamp-2 group-hover:line-clamp-none'}`}>
                             {trade[column.key]}
                           </div>
+                        </td>
+                      );
+                    }
+                    
+                    // Special handling for date column
+                    if (column.key === 'date') {
+                      return (
+                        <td 
+                          key={column.key} 
+                          className={`px-6 py-4 whitespace-nowrap text-sm text-gray-900 ${
+                            column.fixed ? 'sticky left-0 z-10 bg-white group-hover:bg-blue-50' : ''
+                          } ${isSelected ? 'bg-blue-50' : ''}`}
+                          style={cellStyle}
+                          onClick={(e) => {
+                            if (isDeleteMode) {
+                              handleRowCheckboxClick(e, trade.id);
+                            } else if (isCustomizing) {
+                              handleCellClick(e, trade.id, column.key);
+                            }
+                          }}
+                        >
+                          {formatDate(trade.date as string)}
                         </td>
                       );
                     }

@@ -732,6 +732,26 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
     }
   };
   
+  // Helper function to convert Excel number to day of week
+  const convertExcelNumberToDay = (excelDate: number): string => {
+    try {
+      // Convert Excel date to JS date using our existing function
+      const dateStr = convertExcelDateToISO(excelDate);
+      const date = new Date(dateStr);
+      
+      // Get day of week
+      const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      const dayOfWeek = days[date.getDay()];
+      
+      console.log(`Converting Excel date: ${excelDate} to day: ${dayOfWeek}`);
+      
+      return dayOfWeek;
+    } catch (error) {
+      console.error('Error converting Excel number to day:', error);
+      return '';
+    }
+  };
+  
   // Function to parse Excel file
   const handleProcessExcelFile = async () => {
     if (!excelFile) {
@@ -808,6 +828,11 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
           // Special handling for date (first column)
           if (index === 0 && typeof cell === 'number') {
             return convertExcelDateToISO(cell);
+          }
+          
+          // Special handling for day of week (second column)
+          if (index === 1 && typeof cell === 'number') {
+            return convertExcelNumberToDay(cell);
           }
           
           // Special handling for entryTime (third column)

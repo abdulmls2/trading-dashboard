@@ -29,24 +29,23 @@ Admin Dashboard:
 -add sl tp and rr auto ( 15,75,5) -------------------------------
 -Trade link clickable -------------------------------
 -trade analysis layout -------------------------------
+-comment field become large vertically , make it large horizontally  -------------------------------
 
 ----------------------------------------------------------------------------------------------------------------------------------
 To fix:
 -make the data of trade analysis more accurate when sending to prompts (sentence maybe ext)
--some trades comment field become large vertically , make it large horizontally
-
-
+-group of confluences analysisc chart also show negative win rate
 
 New features:
+-User own rules
 -Change currency 
 -Summary of trades analysis 
--Custom notes
--Compounding page
 
 
 AFTER:
+-Custom notes
+-Compounding page
 -better trade selection, be able to select month and multiple trades (maybe within the form a seperate page)
--add multiple trades with full data and play with it and colors , check if errors
 -fix the manual import trades ( empty fields and coma for numbers ( $1,254) ) 
 -add refresh button on both journals
 -search how to optimise database, queries, columns (because we wil have thousands of columns saved to the database)

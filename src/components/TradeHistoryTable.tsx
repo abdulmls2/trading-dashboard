@@ -1228,6 +1228,40 @@ export default function TradeHistoryTable({
                       );
                     }
                     
+                    // Special handling for trade link column
+                    if (column.key === 'tradeLink') {
+                      return (
+                        <td 
+                          key={column.key} 
+                          className={`px-6 py-4 whitespace-nowrap text-sm text-gray-900 ${
+                            column.fixed ? 'sticky left-0 z-10 bg-white group-hover:bg-blue-50' : ''
+                          } ${isSelected ? 'bg-blue-50' : ''}`}
+                          style={cellStyle}
+                          onClick={(e) => {
+                            if (isDeleteMode) {
+                              handleRowCheckboxClick(e, trade.id);
+                            } else if (isCustomizing) {
+                              handleCellClick(e, trade.id, column.key);
+                            }
+                          }}
+                        >
+                          {trade.tradeLink ? (
+                            <a
+                              href={trade.tradeLink}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:text-blue-800 hover:underline"
+                              onClick={(e) => {
+                                e.stopPropagation(); // Prevent row selection when clicking the link
+                              }}
+                            >
+                              {trade.tradeLink}
+                            </a>
+                          ) : null}
+                        </td>
+                      );
+                    }
+                    
                     return (
                       <td 
                         key={column.key} 

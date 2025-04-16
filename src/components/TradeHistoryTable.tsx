@@ -12,6 +12,7 @@ interface Props {
   onExitFullscreen?: () => void;
   journalOwnerName?: string;
   onDeleteTrades?: (tradeIds: string[]) => void;
+  showChat?: boolean;
 }
 
 // Interface for cell customization - local state
@@ -151,7 +152,8 @@ export default function TradeHistoryTable({
   targetUserId,
   onExitFullscreen,
   journalOwnerName,
-  onDeleteTrades
+  onDeleteTrades,
+  showChat
 }: Props) {
   const [page, setPage] = React.useState(1);
   const [scale, setScale] = useState(1);
@@ -808,116 +810,120 @@ export default function TradeHistoryTable({
             />
           </div>
           
-          <div className="relative">
-            <button 
-              onClick={() => setShowColumnSelector(!showColumnSelector)} 
-              className="flex items-center space-x-1 px-3 py-2 bg-white border rounded-lg text-sm text-gray-700 hover:bg-gray-50"
-            >
-              <Filter className="h-4 w-4" />
-              <span>Columns</span>
-            </button>
-            
-            {showColumnSelector && (
-              <div className="absolute left-0 top-full mt-2 bg-white border rounded-lg shadow-lg z-10 p-3 w-80 max-h-96 overflow-y-auto">
-                <h3 className="font-medium text-sm text-gray-700 mb-2">Toggle Column Visibility</h3>
-                <div className="grid grid-cols-2 gap-2">
-                  {allColumns.filter(column => column.key !== 'selection').map(column => (
-                    <label key={column.key} className={`flex items-center space-x-2 cursor-pointer py-1 ${column.fixed ? 'opacity-50' : ''}`}>
-                      <input
-                        type="checkbox"
-                        checked={!hiddenColumns.includes(column.key)}
-                        onChange={() => column.fixed ? null : toggleColumnVisibility(column.key)}
-                        disabled={column.fixed}
-                        className="rounded text-blue-500 focus:ring-blue-500"
-                      />
-                      <span className="text-sm">{column.display}</span>
-                    </label>
-                  ))}
-                </div>
-                <div className="mt-3 border-t pt-2 flex justify-between">
-                  <button 
-                    onClick={() => setHiddenColumns(allColumns.filter(col => !col.fixed && col.key !== 'selection').map(col => col.key))} 
-                    className="text-xs text-gray-500 hover:text-gray-700"
-                  >
-                    Hide All
-                  </button>
-                  <button 
-                    onClick={() => setHiddenColumns([])} 
-                    className="text-xs text-blue-500 hover:text-blue-700"
-                  >
-                    Show All
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-          
-          <button
-            onClick={toggleSortOrder}
-            className={`flex items-center space-x-1 px-3 py-2 bg-white border rounded-lg text-sm hover:bg-gray-50 ${
-              sortOrder === 'desc' ? 'text-blue-600 border-blue-300' : 'text-gray-700'
-            }`}
-            title={`Sort by date added (${sortOrder === 'asc' ? 'oldest first' : 'newest first'})`}
-          >
-            <ArrowUpDown className="h-4 w-4 mr-1" />
-            <span>Date Added {sortOrder === 'asc' ? '(Oldest)' : '(Newest)'}</span>
-          </button>
-          
-          {journalOwnerName && (
-            <div className="ml-4 px-4 py-2 bg-indigo-50 text-indigo-800 font-medium rounded-md">
-              Journal of {journalOwnerName}
-            </div>
-          )}
-          
-          {isDeleteMode ? (
+          {!showChat && (
             <>
-              {selectedTradeIds.length > 0 ? (
-                <button
-                  onClick={() => setShowDeleteConfirmation(true)}
-                  className="ml-4 px-4 py-2 bg-red-50 text-red-700 border border-red-300 rounded-md flex items-center transition-colors hover:bg-red-100"
-                  title="Delete selected trades"
+              <div className="relative">
+                <button 
+                  onClick={() => setShowColumnSelector(!showColumnSelector)} 
+                  className="flex items-center space-x-1 px-3 py-2 bg-white border rounded-lg text-sm text-gray-700 hover:bg-gray-50"
                 >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Delete {selectedTradeIds.length} {selectedTradeIds.length === 1 ? 'Trade' : 'Trades'}
+                  <Filter className="h-4 w-4" />
+                  <span>Columns</span>
                 </button>
-              ) : (
-                <div className="ml-4 px-4 py-2 bg-yellow-50 text-yellow-700 rounded-md">
-                  Select trades to delete
-                </div>
-              )}
-              <button
-                onClick={exitDeleteMode}
-                className="ml-4 px-4 py-2 bg-gray-100 text-gray-700 border border-gray-300 rounded-md flex items-center transition-colors hover:bg-gray-200"
-              >
-                <X className="h-4 w-4 mr-2" />
-                Cancel
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                onClick={toggleDeleteMode}
-                className="ml-4 px-4 py-2 bg-gray-100 text-gray-700 border border-gray-300 rounded-md flex items-center transition-colors hover:bg-gray-200"
-                title="Enter delete mode to select trades to delete"
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete Trades
-              </button>
+                
+                {showColumnSelector && (
+                  <div className="absolute left-0 top-full mt-2 bg-white border rounded-lg shadow-lg z-10 p-3 w-80 max-h-96 overflow-y-auto">
+                    <h3 className="font-medium text-sm text-gray-700 mb-2">Toggle Column Visibility</h3>
+                    <div className="grid grid-cols-2 gap-2">
+                      {allColumns.filter(column => column.key !== 'selection').map(column => (
+                        <label key={column.key} className={`flex items-center space-x-2 cursor-pointer py-1 ${column.fixed ? 'opacity-50' : ''}`}>
+                          <input
+                            type="checkbox"
+                            checked={!hiddenColumns.includes(column.key)}
+                            onChange={() => column.fixed ? null : toggleColumnVisibility(column.key)}
+                            disabled={column.fixed}
+                            className="rounded text-blue-500 focus:ring-blue-500"
+                          />
+                          <span className="text-sm">{column.display}</span>
+                        </label>
+                      ))}
+                    </div>
+                    <div className="mt-3 border-t pt-2 flex justify-between">
+                      <button 
+                        onClick={() => setHiddenColumns(allColumns.filter(col => !col.fixed && col.key !== 'selection').map(col => col.key))} 
+                        className="text-xs text-gray-500 hover:text-gray-700"
+                      >
+                        Hide All
+                      </button>
+                      <button 
+                        onClick={() => setHiddenColumns([])} 
+                        className="text-xs text-blue-500 hover:text-blue-700"
+                      >
+                        Show All
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
               
               <button
-                onClick={handleExport}
-                className="ml-4 px-4 py-2 bg-green-50 text-green-700 border border-green-300 rounded-md flex items-center transition-colors hover:bg-green-100"
-                title="Export trades to Excel"
+                onClick={toggleSortOrder}
+                className={`flex items-center space-x-1 px-3 py-2 bg-white border rounded-lg text-sm hover:bg-gray-50 ${
+                  sortOrder === 'desc' ? 'text-blue-600 border-blue-300' : 'text-gray-700'
+                }`}
+                title={`Sort by date added (${sortOrder === 'asc' ? 'oldest first' : 'newest first'})`}
               >
-                <Download className="h-4 w-4 mr-2" />
-                Export to Excel
+                <ArrowUpDown className="h-4 w-4 mr-1" />
+                <span>Date Added {sortOrder === 'asc' ? '(Oldest)' : '(Newest)'}</span>
               </button>
+              
+              {journalOwnerName && (
+                <div className="ml-4 px-4 py-2 bg-indigo-50 text-indigo-800 font-medium rounded-md">
+                  Journal of {journalOwnerName}
+                </div>
+              )}
+              
+              {isDeleteMode ? (
+                <>
+                  {selectedTradeIds.length > 0 ? (
+                    <button
+                      onClick={() => setShowDeleteConfirmation(true)}
+                      className="ml-4 px-4 py-2 bg-red-50 text-red-700 border border-red-300 rounded-md flex items-center transition-colors hover:bg-red-100"
+                      title="Delete selected trades"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete {selectedTradeIds.length} {selectedTradeIds.length === 1 ? 'Trade' : 'Trades'}
+                    </button>
+                  ) : (
+                    <div className="ml-4 px-4 py-2 bg-yellow-50 text-yellow-700 rounded-md">
+                      Select trades to delete
+                    </div>
+                  )}
+                  <button
+                    onClick={exitDeleteMode}
+                    className="ml-4 px-4 py-2 bg-gray-100 text-gray-700 border border-gray-300 rounded-md flex items-center transition-colors hover:bg-gray-200"
+                  >
+                    <X className="h-4 w-4 mr-2" />
+                    Cancel
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={toggleDeleteMode}
+                    className="ml-4 px-4 py-2 bg-gray-100 text-gray-700 border border-gray-300 rounded-md flex items-center transition-colors hover:bg-gray-200"
+                    title="Enter delete mode to select trades to delete"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete Trades
+                  </button>
+                  
+                  <button
+                    onClick={handleExport}
+                    className="ml-4 px-4 py-2 bg-green-50 text-green-700 border border-green-300 rounded-md flex items-center transition-colors hover:bg-green-100"
+                    title="Export trades to Excel"
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Export to Excel
+                  </button>
+                </>
+              )}
             </>
           )}
         </div>
         
         <div className="flex items-center space-x-2">
-          {isFullScreen && (
+          {isFullScreen && !showChat && (
             <div className="flex items-center mr-3">
               <p className="text-sm text-gray-700 mr-4">
                 Page {page} of {totalPages}
@@ -956,7 +962,7 @@ export default function TradeHistoryTable({
               )}
             </div>
           )}
-          {tableWrapperRef.current && tableWrapperRef.current.scrollWidth > tableWrapperRef.current.clientWidth && (
+          {!showChat && tableWrapperRef.current && tableWrapperRef.current.scrollWidth > tableWrapperRef.current.clientWidth && (
             <div className="flex items-center mr-2">
               <button onClick={scrollLeft} className="p-1.5 text-gray-500 hover:bg-gray-100 rounded" aria-label="Scroll Left">
                 <ArrowLeft className="h-4 w-4" />

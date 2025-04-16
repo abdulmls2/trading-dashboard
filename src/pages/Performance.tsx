@@ -366,6 +366,7 @@ export default function Performance() {
                     trades={filteredTrades}
                     onSelectTrade={handleSelectTrade}
                     onDeleteTrades={handleDeleteTrades}
+                    showChat={showChat}
                   />
                 )}
               </div>

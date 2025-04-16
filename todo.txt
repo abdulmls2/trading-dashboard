@@ -27,6 +27,7 @@ Admin Dashboard:
 -Trade Data Analysis (good and bad trades, see which group of confluences work best, how many times it was used ext) -------
 -Calendar to see your traded days  -------------------------------
 -add sl tp and rr auto ( 15,75,5) -------------------------------
+-Trade link clickable -------------------------------
 
 ----------------------------------------------------------------------------------------------------------------------------------
 To fix:
@@ -37,7 +38,6 @@ To fix:
 
 
 New features:
--Trade link less choppy
 -Change currency 
 -Summary of trades analysis 
 -Custom notes

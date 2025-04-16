@@ -656,16 +656,17 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
   // Helper function to convert Excel date number to YYYY-MM-DD format
   const convertExcelDateToISO = (excelDate: number): string => {
     try {
-      // Excel dates are the number of days since December 31, 1899
-      const millisecondsPerDay = 24 * 60 * 60 * 1000;
-      // Add days to the base date (January 0, 1900)
-      const baseDate = new Date(Date.UTC(1900, 0, 0));
-      const utcDate = new Date(baseDate.getTime() + (excelDate * millisecondsPerDay));
+      // For Excel dates, 1 = January 1, 1900
+      // Subtract 1 to account for Excel's day-off issue
+      const date = new Date(Math.round((excelDate - 25569) * 86400 * 1000));
       
-      // Format as YYYY-MM-DD
-      const year = utcDate.getUTCFullYear();
-      const month = String(utcDate.getUTCMonth() + 1).padStart(2, '0');
-      const day = String(utcDate.getUTCDate()).padStart(2, '0');
+      // Format as YYYY-MM-DD  
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      
+      // For debugging
+      console.log(`Converting Excel date: ${excelDate} -> ${year}-${month}-${day}`);
       
       return `${year}-${month}-${day}`;
     } catch (error) {

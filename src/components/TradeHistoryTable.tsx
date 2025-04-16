@@ -1211,7 +1211,7 @@ export default function TradeHistoryTable({
                             }
                           }}
                         >
-                          <div className={`transition-all duration-300 max-h-[120px] overflow-y-auto ${isFullScreen ? '' : 'line-clamp-4 group-hover:line-clamp-none'}`}>
+                          <div className={`transition-all duration-300 ${isFullScreen ? '' : 'line-clamp-1 group-hover:line-clamp-none'}`}>
                             {trade[column.key]}
                           </div>
                         </td>

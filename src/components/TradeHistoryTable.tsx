@@ -1190,10 +1190,16 @@ export default function TradeHistoryTable({
                     }
                     
                     if (column.key === 'comments') {
+                      const customization = getCellCustomization(trade.id, column.key);
+                      const cellStyle = {
+                        ...(customization.backgroundColor ? { backgroundColor: customization.backgroundColor } : {}),
+                        ...(customization.textColor ? { color: customization.textColor } : {}),
+                      };
+                      
                       return (
                         <td 
                           key={column.key} 
-                          className={`px-6 py-4 text-sm text-gray-900 max-w-xs ${
+                          className={`px-6 py-4 text-sm text-gray-900 min-w-[300px] max-w-[600px] ${
                             column.fixed ? 'sticky left-0 z-10 bg-white group-hover:bg-blue-50' : ''
                           } ${isSelected ? 'bg-blue-50' : ''}`}
                           style={cellStyle}
@@ -1205,7 +1211,7 @@ export default function TradeHistoryTable({
                             }
                           }}
                         >
-                          <div className={`transition-all duration-300 ${isFullScreen ? '' : 'line-clamp-2 group-hover:line-clamp-none'}`}>
+                          <div className={`transition-all duration-300 max-h-[120px] overflow-y-auto ${isFullScreen ? '' : 'line-clamp-4 group-hover:line-clamp-none'}`}>
                             {trade[column.key]}
                           </div>
                         </td>

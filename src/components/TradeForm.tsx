@@ -250,8 +250,8 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
         tradeId = result.id;
       }
 
-      // If there are acknowledged violations, record them
-      if (acknowledgedViolations && ruleViolations.length > 0 && user) {
+      // If there are any rule violations, record them
+      if (ruleViolations.length > 0 && user) {
         // Only create violations if this is a new trade or if editing and the violations changed
         if (!existingTrade) {
           // For new trades, create all violations
@@ -1044,6 +1044,42 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md text-sm">
           {error}
+        </div>
+      )}
+
+      {showViolationWarning && (
+        <div className="mb-4 bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-md">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <AlertTriangle className="h-5 w-5 text-yellow-400" />
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-yellow-800">Trading rule violations detected</h3>
+              <div className="mt-2 text-sm">
+                <ul className="list-disc pl-5 space-y-1">
+                  {ruleViolations.map((violation, index) => (
+                    <li key={index}>
+                      <strong>{violation.ruleType === 'pair' ? 'Currency Pair' : 
+                              violation.ruleType === 'day' ? 'Trading Day' : 
+                              violation.ruleType === 'lot' ? 'Lot Size' : 
+                              violation.ruleType === 'action_direction' ? 'Against Trend' : 
+                              violation.ruleType}:</strong> {' '}
+                      {violation.violatedValue} is not allowed. Allowed values: {violation.allowedValues.join(', ')}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="mt-2">
+                <button
+                  type="button"
+                  onClick={handleAcknowledgeViolations}
+                  className="text-sm font-medium text-yellow-800 hover:text-yellow-900 bg-yellow-100 px-3 py-1 rounded-md"
+                >
+                  Acknowledge and Continue
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

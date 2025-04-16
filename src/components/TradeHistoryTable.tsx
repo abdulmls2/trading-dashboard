@@ -73,6 +73,13 @@ const formatTime = (timeString: string) => {
 
 // Helper function to prepare data for Excel export
 const prepareExportData = (trades: Trade[]) => {
+  // Sort trades by date (oldest to newest)
+  const sortedTrades = [...trades].sort((a, b) => {
+    const dateA = new Date(a.date).getTime();
+    const dateB = new Date(b.date).getTime();
+    return dateA - dateB;
+  });
+
   // Create headers with all relevant fields
   const headers = [
     ['Trade Details', '', '', '', '', '', 'Entry/Exit Details', '', '', 'Risk Management', '', '', '', 'Analysis', '', '', '', '', '', '', 'Additional Information', '', '', '', ''],
@@ -106,7 +113,7 @@ const prepareExportData = (trades: Trade[]) => {
   ];
 
   // Format trade data with all fields
-  const data = trades.map(trade => [
+  const data = sortedTrades.map(trade => [
     formatDate(trade.date),
     trade.day,
     trade.pair,

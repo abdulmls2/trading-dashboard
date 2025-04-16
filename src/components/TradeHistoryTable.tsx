@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Trade, CellCustomization as CellCustomizationType, TradeViolation } from '../types';
-import { ZoomIn, ZoomOut, Maximize, Minimize, Filter, ArrowLeft, ArrowRight, ChevronsLeft, ChevronsRight, Palette, X, Type, AlertTriangle, ArrowUpDown, Trash2, CheckSquare, Square } from 'lucide-react';
+import { ZoomIn, ZoomOut, Maximize, Minimize, Filter, ArrowLeft, ArrowRight, ChevronsLeft, ChevronsRight, Palette, X, Type, AlertTriangle, ArrowUpDown, Trash2, CheckSquare, Square, Download } from 'lucide-react';
 import { loadCellCustomizations, saveCellCustomization, deleteCellCustomization, getTradeViolations, deleteTrade } from '../lib/api';
+import * as XLSX from 'xlsx';
 
 interface Props {
   trades: Trade[];
@@ -56,6 +57,84 @@ const formatDate = (dateString: string) => {
   } catch (error) {
     return dateString; // Return original if any error occurs
   }
+};
+
+// Helper function to format time for Excel
+const formatTime = (timeString: string) => {
+  if (!timeString) return '';
+  
+  try {
+    const [hours, minutes] = timeString.split(':');
+    return `${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}`;
+  } catch (error) {
+    return timeString;
+  }
+};
+
+// Helper function to prepare data for Excel export
+const prepareExportData = (trades: Trade[]) => {
+  // Create headers with all relevant fields
+  const headers = [
+    ['Trade Details', '', '', '', '', '', 'Entry/Exit Details', '', '', 'Risk Management', '', '', '', 'Analysis', '', '', '', '', '', '', 'Additional Information', '', '', '', ''],
+    [
+      'Date',
+      'Day',
+      'Pair',
+      'Action',
+      'Direction',
+      'Order Type',
+      'Entry Time',
+      'Exit Time',
+      'Lots',
+      'SL (pips)',
+      'TP (pips)',
+      'Risk Ratio',
+      'Profit/Loss',
+      'Market Condition',
+      'Pivots',
+      'Banking Level',
+      'MA',
+      'FIB',
+      'Gap',
+      'Additional Confluences',
+      'True Reward',
+      'True TP/SL',
+      'Mindset',
+      'Trade Link',
+      'Comments'
+    ]
+  ];
+
+  // Format trade data with all fields
+  const data = trades.map(trade => [
+    formatDate(trade.date),
+    trade.day,
+    trade.pair,
+    trade.action,
+    trade.direction,
+    trade.orderType,
+    formatTime(trade.entryTime),
+    formatTime(trade.exitTime),
+    trade.lots,
+    trade.pipStopLoss,
+    trade.pipTakeProfit,
+    trade.riskRatio,
+    trade.profitLoss,
+    trade.marketCondition,
+    trade.pivots,
+    trade.bankingLevel,
+    trade.ma,
+    trade.fib,
+    trade.gap,
+    trade.additional_confluences,
+    trade.trueReward,
+    trade.true_tp_sl,
+    trade.mindset,
+    trade.tradeLink,
+    trade.comments
+  ]);
+
+  return [...headers, ...data];
 };
 
 export default function TradeHistoryTable({
@@ -654,6 +733,57 @@ export default function TradeHistoryTable({
     }
   };
 
+  // Handle export function
+  const handleExport = () => {
+    const exportData = prepareExportData(trades);
+    const ws = XLSX.utils.aoa_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Trades');
+
+    // Set column widths
+    const columnWidths = [
+      { wch: 8 },  // Number
+      { wch: 12 }, // Date
+      { wch: 10 }, // Day
+      { wch: 10 }, // Pair
+      { wch: 8 },  // Action
+      { wch: 10 }, // Direction
+      { wch: 10 }, // Entry Time
+      { wch: 10 }, // Exit Time
+      { wch: 8 },  // Lots
+      { wch: 10 }, // SL
+      { wch: 10 }, // TP
+      { wch: 10 }, // Risk Ratio
+      { wch: 12 }  // P/L
+    ];
+    ws['!cols'] = columnWidths;
+
+    // Merge cells for the main headers
+    ws['!merges'] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 5 } },  // Trade Details
+      { s: { r: 0, c: 6 }, e: { r: 0, c: 8 } },  // Entry/Exit Details
+      { s: { r: 0, c: 9 }, e: { r: 0, c: 12 } }  // Risk Management
+    ];
+
+    // Apply styles to headers
+    const headerStyle = {
+      font: { bold: true },
+      alignment: { horizontal: 'center' }
+    };
+    
+    // Apply styles to the first two rows
+    for (let i = 0; i <= 12; i++) {
+      const cellRef1 = XLSX.utils.encode_cell({ r: 0, c: i });
+      const cellRef2 = XLSX.utils.encode_cell({ r: 1, c: i });
+      if (!ws[cellRef1]) ws[cellRef1] = { v: '', s: headerStyle };
+      if (!ws[cellRef2]) ws[cellRef2] = { v: '', s: headerStyle };
+      ws[cellRef1].s = headerStyle;
+      ws[cellRef2].s = headerStyle;
+    }
+
+    XLSX.writeFile(wb, 'trades_export.xlsx');
+  };
+
   return (
     <div 
       className={`shadow rounded-lg flex flex-col transition-all duration-300 ${isFullScreen ? 'fixed inset-0 z-50 bg-white p-4' : ''}`}
@@ -757,14 +887,25 @@ export default function TradeHistoryTable({
               </button>
             </>
           ) : (
-            <button
-              onClick={toggleDeleteMode}
-              className="ml-4 px-4 py-2 bg-gray-100 text-gray-700 border border-gray-300 rounded-md flex items-center transition-colors hover:bg-gray-200"
-              title="Enter delete mode to select trades to delete"
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Delete Trades
-            </button>
+            <>
+              <button
+                onClick={toggleDeleteMode}
+                className="ml-4 px-4 py-2 bg-gray-100 text-gray-700 border border-gray-300 rounded-md flex items-center transition-colors hover:bg-gray-200"
+                title="Enter delete mode to select trades to delete"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete Trades
+              </button>
+              
+              <button
+                onClick={handleExport}
+                className="ml-4 px-4 py-2 bg-green-50 text-green-700 border border-green-300 rounded-md flex items-center transition-colors hover:bg-green-100"
+                title="Export trades to Excel"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Export to Excel
+              </button>
+            </>
           )}
         </div>
         

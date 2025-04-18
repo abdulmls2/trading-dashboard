@@ -15,9 +15,10 @@ declare global {
 interface Props {
   trade: Trade | null;
   onClose: () => void;
+  disableAutoScroll?: boolean;
 }
 
-export default function TradeChatBox({ trade, onClose }: Props) {
+export default function TradeChatBox({ trade, onClose, disableAutoScroll = false }: Props) {
   const [messages, setMessages] = useState<Array<{
     id: string;
     text: string;
@@ -57,8 +58,10 @@ export default function TradeChatBox({ trade, onClose }: Props) {
   };
 
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    if (!disableAutoScroll) {
+      scrollToBottom();
+    }
+  }, [messages, disableAutoScroll]);
 
   useEffect(() => {
     if (trade) {

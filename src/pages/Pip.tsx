@@ -350,12 +350,7 @@ export default function Pip() {
               </button>
             )}
           </div>
-          <TradeChatBox key={resetKey} trade={selectedTrade} onClose={() => {}} />
-          {!selectedTrade && !showTradeSearch && (
-            <p className="mt-4 text-sm text-gray-500">
-              Use the "Select a Trade" button above to discuss a specific trade from your history.
-            </p>
-          )}
+          <TradeChatBox key={resetKey} trade={selectedTrade} onClose={() => {}} disableAutoScroll={true} />
         </div>
       </div>
     </main>

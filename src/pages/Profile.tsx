@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import Header from '../components/Header';
 
 interface ProfileData {
   full_name: string;
@@ -103,7 +102,6 @@ export default function Profile() {
 
   return (
     <div>
-      <Header />
       <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
           <div className="bg-white shadow-md rounded-lg border border-gray-200">

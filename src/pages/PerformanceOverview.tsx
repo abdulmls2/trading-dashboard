@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 // import Header from '../components/Header'; // Ensure this line is removed or commented out
 import PerformanceMetricsComponent from '../components/PerformanceMetrics';
-import TradeHistoryTable from '../components/TradeHistoryTable';
+// import TradeHistoryTable from '../components/TradeHistoryTable'; // Removed import
 import TradeForm from '../components/TradeForm';
 import TradeChatBox from '../components/TradeChatBox';
-import { PlusCircle, MessageSquare } from 'lucide-react';
+import { PlusCircle, MessageSquare, LineChart, BarChart, PieChart } from 'lucide-react';
 import { Trade, PerformanceMetrics as Metrics } from '../types';
 import { getTrades, getTradeViolations, getPerformanceMetrics, updatePerformanceMetrics } from '../lib/api';
 
@@ -44,7 +44,7 @@ const getAvailableYears = () => {
   return years;
 };
 
-export default function Performance() {
+export default function PerformanceOverview() { // Renamed component
   const [showTradeForm, setShowTradeForm] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const [selectedTrade, setSelectedTrade] = useState<Trade | null>(null);
@@ -256,12 +256,8 @@ export default function Performance() {
   };
 
   const handleSelectTrade = (trade: Trade) => {
-    if (showChat) {
-      setSelectedTrade(trade);
-    } else {
-      setSelectedTrade(trade);
-      setShowTradeForm(true);
-    }
+    setSelectedTrade(trade);
+    setShowChat(true);
   };
 
   const handleCloseChat = () => {
@@ -310,21 +306,12 @@ export default function Performance() {
               ))}
             </select>
             <button
-              onClick={() => setShowChat(!showChat)}
-              className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              // onClick={() => setShowChat(!showChat)} // Disabled onClick
+              onClick={() => {}} // Set onClick to do nothing
+              className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 cursor-not-allowed opacity-60" // Added disabled styles
             >
               <MessageSquare className="h-5 w-5 mr-2" />
               {showChat ? 'Close PIP' : 'Chat with PIP'}
-            </button>
-            <button
-              onClick={() => {
-                setSelectedTrade(null);
-                setShowTradeForm(true);
-              }}
-              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            >
-              <PlusCircle className="h-5 w-5 mr-2" />
-              Add Trade
             </button>
           </div>
         </div>
@@ -346,38 +333,110 @@ export default function Performance() {
             isLoading={loadingMetrics} // Pass loading state
           />
           
-          <div className={`grid ${showChat ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'} gap-8`}>
-            <div className={showChat ? '' : 'w-full'}>
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-medium text-gray-900">Trade History</h2>
-                {showChat && (
-                  <p className="text-sm text-gray-500">Click a trade to analyze it</p>
-                )}
-              </div>
-              {loading ? (
-                <div className="bg-white rounded-lg shadow p-6 text-center text-gray-500">
-                  Loading trades...
+          <div>
+            <h2 className="text-lg font-medium text-gray-900 mb-4">Performance Charts</h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Line Chart Placeholder */}
+              <div 
+                className="bg-white p-6 rounded-lg shadow relative overflow-hidden group cursor-help"
+                title="Coming soon"
+              >
+                <div className="absolute inset-0 bg-white bg-opacity-70 backdrop-blur-md opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity duration-200 z-10">
+                  <p className="text-lg font-medium text-gray-800">Coming soon</p>
                 </div>
-              ) : (
-                <TradeHistoryTable 
-                  trades={filteredTrades}
-                  onSelectTrade={handleSelectTrade}
-                  onDeleteTrades={handleDeleteTrades}
-                  showChat={showChat}
-                />
-              )}
-            </div>
-
-            {showChat && (
-              <div>
-                <h2 className="text-lg font-medium text-gray-900 mb-4">Trade Analysis</h2>
-                <TradeChatBox 
-                  trade={selectedTrade}
-                  onClose={handleCloseChat}
-                />
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Monthly Performance</h3>
+                <div className="flex items-center justify-center h-60 relative">
+                  <LineChart className="w-10 h-10 text-indigo-500 absolute" />
+                  <div className="w-full h-full opacity-50">
+                    <div className="h-40 w-full flex items-end">
+                      <div className="h-20 w-1/12 bg-blue-500 mx-1"></div>
+                      <div className="h-28 w-1/12 bg-blue-500 mx-1"></div>
+                      <div className="h-16 w-1/12 bg-blue-500 mx-1"></div>
+                      <div className="h-32 w-1/12 bg-blue-500 mx-1"></div>
+                      <div className="h-24 w-1/12 bg-blue-500 mx-1"></div>
+                      <div className="h-36 w-1/12 bg-blue-500 mx-1"></div>
+                      <div className="h-20 w-1/12 bg-blue-500 mx-1"></div>
+                      <div className="h-28 w-1/12 bg-blue-500 mx-1"></div>
+                      <div className="h-12 w-1/12 bg-blue-500 mx-1"></div>
+                      <div className="h-24 w-1/12 bg-blue-500 mx-1"></div>
+                    </div>
+                  </div>
+                </div>
               </div>
-            )}
+              
+              {/* Pie Chart Placeholder */}
+              <div 
+                className="bg-white p-6 rounded-lg shadow relative overflow-hidden group cursor-help"
+                title="Coming soon"
+              >
+                <div className="absolute inset-0 bg-white bg-opacity-70 backdrop-blur-md opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity duration-200 z-10">
+                  <p className="text-lg font-medium text-gray-800">Coming soon</p>
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Win/Loss Distribution</h3>
+                <div className="flex items-center justify-center h-60 relative">
+                  <PieChart className="w-10 h-10 text-indigo-500 absolute" />
+                  <div className="w-40 h-40 rounded-full bg-gradient-to-r from-green-500 to-blue-500 opacity-50"></div>
+                </div>
+              </div>
+              
+              {/* Bar Chart Placeholder */}
+              <div 
+                className="bg-white p-6 rounded-lg shadow relative overflow-hidden group cursor-help"
+                title="Coming soon"
+              >
+                <div className="absolute inset-0 bg-white bg-opacity-70 backdrop-blur-md opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity duration-200 z-10">
+                  <p className="text-lg font-medium text-gray-800">Coming soon</p>
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Trade Volume by Pair</h3>
+                <div className="flex items-center justify-center h-60 relative">
+                  <BarChart className="w-10 h-10 text-indigo-500 absolute" />
+                  <div className="w-full h-full opacity-50">
+                    <div className="h-40 w-full flex items-end justify-around">
+                      <div className="h-32 w-12 bg-indigo-500"></div>
+                      <div className="h-20 w-12 bg-indigo-500"></div>
+                      <div className="h-36 w-12 bg-indigo-500"></div>
+                      <div className="h-16 w-12 bg-indigo-500"></div>
+                      <div className="h-24 w-12 bg-indigo-500"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Heat Map Placeholder */}
+              <div 
+                className="bg-white p-6 rounded-lg shadow relative overflow-hidden group cursor-help"
+                title="Coming soon"
+              >
+                <div className="absolute inset-0 bg-white bg-opacity-70 backdrop-blur-md opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity duration-200 z-10">
+                  <p className="text-lg font-medium text-gray-800">Coming soon</p>
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Trade Time Map</h3>
+                <div className="flex items-center justify-center h-60 relative">
+                  <div className="w-full h-full grid grid-cols-7 grid-rows-5 gap-2 opacity-50">
+                    {Array.from({ length: 35 }).map((_, i) => (
+                      <div 
+                        key={i} 
+                        className={`rounded bg-indigo-${Math.floor(Math.random() * 5) * 100 + 300}`}
+                        style={{ opacity: Math.random() * 0.7 + 0.3 }}
+                      ></div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
+
+          {/* Chat box section */}
+          {showChat && (
+            <div className="mt-8">
+              <h2 className="text-lg font-medium text-gray-900 mb-4">Trade Analysis</h2>
+              <TradeChatBox 
+                trade={selectedTrade}
+                onClose={handleCloseChat}
+              />
+            </div>
+          )}
         </div>
 
         {showTradeForm && (
@@ -412,4 +471,4 @@ export default function Performance() {
       </div>
     </main>
   );
-}
+} 

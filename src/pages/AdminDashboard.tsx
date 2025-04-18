@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Header from '../components/Header';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import TradeHistoryTable from '../components/TradeHistoryTable';
@@ -150,27 +149,21 @@ export default function AdminDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <Header />
-        <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-          <div className="flex justify-center items-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600" />
-          </div>
-        </main>
-      </div>
+      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <div className="flex justify-center items-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600" />
+        </div>
+      </main>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <Header />
-        <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-          <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md">
-            {error}
-          </div>
-        </main>
-      </div>
+      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md">
+          {error}
+        </div>
+      </main>
     );
   }
 
@@ -419,149 +412,146 @@ export default function AdminDashboard() {
   // Render the user management table if not showing trades
   if (!showTradesModal) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <Header />
-        <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-          <div className="px-4 sm:px-0">
-            <div className="flex justify-between items-center mb-6">
-              <h1 className="text-2xl font-semibold text-gray-900">
-                User Management
-              </h1>
-              <div className="flex space-x-2">
-                <button
-                  onClick={() => setActiveTab('users')}
-                  className={`px-4 py-2 rounded-md ${
-                    activeTab === 'users'
-                      ? 'bg-indigo-600 text-white'
-                      : 'bg-white text-gray-600 border border-gray-300'
-                  }`}
-                >
-                  Users
-                </button>
-                <button
-                  onClick={() => setActiveTab('violations')}
-                  className={`px-4 py-2 rounded-md ${
-                    activeTab === 'violations'
-                      ? 'bg-indigo-600 text-white'
-                      : 'bg-white text-gray-600 border border-gray-300'
-                  }`}
-                >
-                  All Violations
-                </button>
-              </div>
+      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <div className="px-4 sm:px-0">
+          <div className="flex justify-between items-center mb-6">
+            <h1 className="text-2xl font-semibold text-gray-900">
+              User Management
+            </h1>
+            <div className="flex space-x-2">
+              <button
+                onClick={() => setActiveTab('users')}
+                className={`px-4 py-2 rounded-md ${
+                  activeTab === 'users'
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-white text-gray-600 border border-gray-300'
+                }`}
+              >
+                Users
+              </button>
+              <button
+                onClick={() => setActiveTab('violations')}
+                className={`px-4 py-2 rounded-md ${
+                  activeTab === 'violations'
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-white text-gray-600 border border-gray-300'
+                }`}
+              >
+                All Violations
+              </button>
             </div>
+          </div>
 
-            {activeTab === 'users' ? (
-              <div className="bg-white shadow overflow-hidden sm:rounded-lg">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Email
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Full Name
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Username
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Joined
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        <div className="flex items-center">
-                          <span>Last Journaled</span>
-                          <button 
-                            onClick={sortByLastJournaled}
-                            className="ml-1 focus:outline-none"
-                            aria-label="Sort by last journaled date"
+          {activeTab === 'users' ? (
+            <div className="bg-white shadow overflow-hidden sm:rounded-lg">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Email
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Full Name
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Username
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Joined
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <div className="flex items-center">
+                        <span>Last Journaled</span>
+                        <button 
+                          onClick={sortByLastJournaled}
+                          className="ml-1 focus:outline-none"
+                          aria-label="Sort by last journaled date"
+                        >
+                          <svg 
+                            className="h-4 w-4 text-gray-500 hover:text-gray-700" 
+                            fill="none" 
+                            viewBox="0 0 24 24" 
+                            stroke="currentColor"
                           >
-                            <svg 
-                              className="h-4 w-4 text-gray-500 hover:text-gray-700" 
-                              fill="none" 
-                              viewBox="0 0 24 24" 
-                              stroke="currentColor"
-                            >
-                              {sortDirection === 'asc' ? (
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                              ) : (
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                              )}
-                            </svg>
+                            {sortDirection === 'asc' ? (
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                            ) : (
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            )}
+                          </svg>
+                        </button>
+                      </div>
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {profiles.map((profile) => (
+                    <tr key={profile.id}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {profile.email}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {profile.full_name || '-'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {profile.username || '-'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {new Date(profile.created_at).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {profile.last_trade_date 
+                          ? new Date(profile.last_trade_date).toLocaleDateString() 
+                          : 'Never'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <div className="flex space-x-4">
+                          <button
+                            onClick={() => handleViewTrades(profile.user_id, profile.email, profile.full_name)}
+                            className="text-indigo-600 hover:text-indigo-900 font-medium"
+                          >
+                            View Journal
+                          </button>
+                          <button
+                            onClick={() => handleManageRules(profile.user_id, profile.email, profile.full_name)}
+                            className="text-green-600 hover:text-green-900 font-medium"
+                          >
+                            Manage Rules
+                          </button>
+                          <button
+                            onClick={() => handleViewViolations(profile.user_id, profile.email, profile.full_name)}
+                            className="text-orange-600 hover:text-orange-900 font-medium"
+                          >
+                            Violations
                           </button>
                         </div>
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Actions
-                      </th>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {profiles.map((profile) => (
-                      <tr key={profile.id}>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {profile.email}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {profile.full_name || '-'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {profile.username || '-'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {new Date(profile.created_at).toLocaleDateString()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {profile.last_trade_date 
-                            ? new Date(profile.last_trade_date).toLocaleDateString() 
-                            : 'Never'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          <div className="flex space-x-4">
-                            <button
-                              onClick={() => handleViewTrades(profile.user_id, profile.email, profile.full_name)}
-                              className="text-indigo-600 hover:text-indigo-900 font-medium"
-                            >
-                              View Journal
-                            </button>
-                            <button
-                              onClick={() => handleManageRules(profile.user_id, profile.email, profile.full_name)}
-                              className="text-green-600 hover:text-green-900 font-medium"
-                            >
-                              Manage Rules
-                            </button>
-                            <button
-                              onClick={() => handleViewViolations(profile.user_id, profile.email, profile.full_name)}
-                              className="text-orange-600 hover:text-orange-900 font-medium"
-                            >
-                              Violations
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                    {profiles.length === 0 && (
-                      <tr>
-                        <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500">
-                          No users found
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div className="bg-white shadow overflow-hidden sm:rounded-lg p-4">
-                <h2 className="text-xl font-medium text-gray-900 mb-4">All Trading Rule Violations</h2>
-                <TradeViolationsTable 
-                  onSelectTrade={handleSelectViolationTrade} 
-                  className="mt-4"
-                  showAll={true}
-                />
-              </div>
-            )}
-          </div>
-        </main>
+                  ))}
+                  {profiles.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500">
+                        No users found
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="bg-white shadow overflow-hidden sm:rounded-lg p-4">
+              <h2 className="text-xl font-medium text-gray-900 mb-4">All Trading Rule Violations</h2>
+              <TradeViolationsTable 
+                onSelectTrade={handleSelectViolationTrade} 
+                className="mt-4"
+                showAll={true}
+              />
+            </div>
+          )}
+        </div>
 
         {/* User Trading Rules Modal */}
         {showRulesModal && (
@@ -645,18 +635,15 @@ export default function AdminDashboard() {
             </div>
           </div>
         )}
-      </div>
+      </main>
     );
   }
 
   // Render the trade history in fullscreen mode
   return (
-    <div className="min-h-screen flex flex-col">
-      <Header />
-      
+    <>
       <div className="mt-16 flex-grow px-4 pb-4">
         <div className="TradeHistoryTableWrapper h-full">
-          {/* Set a large min-height to ensure the table fills the available space */}
           <div style={{ minHeight: 'calc(100vh - 80px)' }}>
             <TradeHistoryTable 
               trades={selectedUserTrades} 
@@ -711,6 +698,6 @@ export default function AdminDashboard() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

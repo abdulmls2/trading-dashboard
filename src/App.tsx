@@ -9,6 +9,9 @@ import Profile from './pages/Profile';
 import Auth from './pages/Auth';
 import TradesAnalysis from './pages/TradesAnalysis';
 import Calendar from './pages/Calendar';
+import Journal from './pages/Journal';
+import Layout from './components/Layout';
+import PerformanceOverview from './pages/PerformanceOverview';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -25,7 +28,7 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/auth" />;
   }
 
-  return <>{children}</>;
+  return <Layout>{children}</Layout>;
 }
 
 function AppRoutes() {
@@ -33,7 +36,6 @@ function AppRoutes() {
 
   return (
     <Routes>
-      {/* Previously redirected to Dashboard ("/") after login */}
       <Route
         path="/auth"
         element={user ? <Navigate to="/performance" /> : <Auth />}
@@ -42,7 +44,7 @@ function AppRoutes() {
         path="/"
         element={
           <PrivateRoute>
-            <Dashboard />
+            <Navigate to="/performance" replace />
           </PrivateRoute>
         }
       />
@@ -58,7 +60,7 @@ function AppRoutes() {
         path="/performance"
         element={
           <PrivateRoute>
-            <Performance />
+            <PerformanceOverview />
           </PrivateRoute>
         }
       />
@@ -75,6 +77,14 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <Calendar />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/journal"
+        element={
+          <PrivateRoute>
+            <Journal />
           </PrivateRoute>
         }
       />

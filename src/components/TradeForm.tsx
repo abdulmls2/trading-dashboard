@@ -317,17 +317,19 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
     setShowViolationWarning(false);
   };
 
-  const inputClassName = `mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 ${readOnly ? 'bg-gray-50 opacity-90 cursor-not-allowed' : 'bg-white'}`;
-  const selectClassName = inputClassName;
+  // Updated input and select classNames with better styling
+  const inputClassName = `mt-1 block w-full rounded-md ${readOnly ? 'bg-gray-50 opacity-90 cursor-not-allowed border-gray-200' : 'bg-white border-gray-300'} shadow-sm focus:border-indigo-500 focus:ring-indigo-500 transition duration-150 ease-in-out text-sm`;
+  const selectClassName = `mt-1 block w-full rounded-md ${readOnly ? 'bg-gray-50 opacity-90 cursor-not-allowed border-gray-200' : 'bg-white border-gray-300'} shadow-sm focus:border-indigo-500 focus:ring-indigo-500 transition duration-150 ease-in-out text-sm`;
 
+  // Updated TabButton style with more modern look
   const TabButton = ({ tab, label }: { tab: TabType; label: string }) => (
     <button
       type="button"
       onClick={() => setActiveTab(tab)}
-      className={`px-4 py-2 font-medium text-sm rounded-t-md ${
+      className={`px-4 py-2 font-medium text-sm rounded-t-md transition duration-150 ease-in-out ${
         activeTab === tab
-          ? 'bg-white border-t border-l border-r border-gray-300 text-indigo-600'
-          : 'bg-gray-100 text-gray-700 hover:text-gray-900'
+          ? 'bg-white border-t border-l border-r border-gray-300 text-indigo-600 font-semibold shadow-sm'
+          : 'bg-gray-100 text-gray-600 hover:text-gray-800 hover:bg-gray-50'
       }`}
     >
       {label}
@@ -1049,7 +1051,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-6 bg-white rounded-lg shadow-sm border border-gray-100 p-6">
       {readOnly && (
         <div className="mb-4 rounded-md bg-blue-50 p-4">
           <div className="flex">
@@ -1074,7 +1076,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
       )}
 
       {showViolationWarning && (
-        <div className="mb-4 bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-md">
+        <div className="mb-4 bg-yellow-50 border-l-4 border-yellow-400 text-yellow-800 p-4 rounded-md shadow-sm">
           <div className="flex">
             <div className="flex-shrink-0">
               <AlertTriangle className="h-5 w-5 text-yellow-400" />
@@ -1099,7 +1101,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
                 <button
                   type="button"
                   onClick={handleAcknowledgeViolations}
-                  className="text-sm font-medium text-yellow-800 hover:text-yellow-900 bg-yellow-100 px-3 py-1 rounded-md"
+                  className="text-sm font-medium text-yellow-800 hover:text-yellow-900 bg-yellow-100 hover:bg-yellow-200 px-3 py-1 rounded-md transition-colors duration-150"
                 >
                   Acknowledge and Continue
                 </button>
@@ -1109,7 +1111,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
         </div>
       )}
 
-      <div className="flex space-x-2 border-b border-gray-300">
+      <div className="flex space-x-1 border-b border-gray-300">
         <TabButton tab="basic" label="Basic Info" />
         <TabButton tab="technical" label="Technical Details" />
         <TabButton tab="analysis" label="Confluences" />
@@ -1118,11 +1120,11 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
         {!readOnly && <TabButton tab="import" label="Import" />}
       </div>
 
-      <div className="mt-4">
+      <div className="mt-6">
         {activeTab === 'basic' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700">Date</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
               <input
                 type="date"
                 value={formData.date}
@@ -1133,7 +1135,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">Day</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Day</label>
               <select
                 value={formData.day}
                 onChange={(e) => setFormData({ ...formData, day: e.target.value })}
@@ -1149,7 +1151,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">Pair</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Pair</label>
               <select
                 value={formData.pair}
                 onChange={(e) => setFormData({ ...formData, pair: e.target.value })}
@@ -1165,11 +1167,11 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">Action</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Action</label>
               <select
                 value={formData.action}
                 onChange={(e) => setFormData({ ...formData, action: e.target.value as 'Buy' | 'Sell' })}
-                className={selectClassName}
+                className={`${selectClassName} ${formData.action === 'Buy' ? 'text-green-600' : 'text-red-600'} font-medium`}
                 disabled={readOnly}
               >
                 <option value="Buy">Buy</option>
@@ -1178,7 +1180,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">Entry Time</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Entry Time</label>
               <input
                 type="time"
                 value={formData.entryTime}
@@ -1189,7 +1191,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">Exit Time</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Exit Time</label>
               <input
                 type="time"
                 value={formData.exitTime}
@@ -1204,7 +1206,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
         {activeTab === 'technical' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700">Direction</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Direction</label>
               <select
                 value={formData.direction}
                 onChange={(e) => setFormData({ ...formData, direction: e.target.value })}
@@ -1221,7 +1223,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">Lots</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Lots</label>
               <input
                 type="number"
                 step="0.01"
@@ -1234,7 +1236,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">Stop Loss (pips)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Stop Loss (pips)</label>
               <input
                 type="number"
                 value={formData.pipStopLoss}
@@ -1245,7 +1247,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">Take Profit (pips)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Take Profit (pips)</label>
               <input
                 type="number"
                 value={formData.pipTakeProfit}
@@ -1256,7 +1258,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">Risk Ratio</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Risk Ratio</label>
               <input
                 type="number"
                 step="0.1"
@@ -1268,7 +1270,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">Order Type</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Order Type</label>
               <select
                 value={formData.orderType}
                 onChange={(e) => setFormData({ ...formData, orderType: e.target.value })}
@@ -1289,7 +1291,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
         {activeTab === 'analysis' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700">Pivots</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Pivots</label>
               <select
                 value={formData.pivots}
                 onChange={(e) => setFormData({ ...formData, pivots: e.target.value })}
@@ -1308,7 +1310,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">Banking Level</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Banking Level</label>
               <input
                 type="text"
                 value={formData.bankingLevel}
@@ -1320,7 +1322,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">Market Condition</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Market Condition</label>
               <select
                 value={formData.marketCondition}
                 onChange={(e) => setFormData({ ...formData, marketCondition: e.target.value })}
@@ -1337,7 +1339,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">MA</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">MA</label>
               <select
                 value={formData.ma}
                 onChange={(e) => setFormData({ ...formData, ma: e.target.value })}
@@ -1354,7 +1356,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">FIB</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">FIB</label>
               <select
                 value={formData.fib}
                 onChange={(e) => setFormData({ ...formData, fib: e.target.value })}
@@ -1371,7 +1373,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">Gap</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Gap</label>
               <select
                 value={formData.gap}
                 onChange={(e) => setFormData({ ...formData, gap: e.target.value })}
@@ -1388,7 +1390,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
             </div>
 
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700">Additional Confluences</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Additional Confluences</label>
               <textarea
                 value={formData.additional_confluences}
                 onChange={(e) => setFormData({ ...formData, additional_confluences: e.target.value })}
@@ -1404,7 +1406,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
         {activeTab === 'result' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700">True Reward</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">True Reward</label>
               <input
                 type="text"
                 value={formData.trueReward}
@@ -1415,7 +1417,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">True TP/SL</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">True TP/SL</label>
               <input
                 type="text"
                 value={formData.true_tp_sl}
@@ -1426,7 +1428,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">Profit/Loss</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Profit/Loss</label>
               <input
                 type="text"
                 value={profitLossInput}
@@ -1443,7 +1445,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
                     }
                   }
                 }}
-                className={inputClassName}
+                className={`${inputClassName} ${profitLossInput && parseFloat(profitLossInput) >= 0 ? 'text-green-600' : profitLossInput && parseFloat(profitLossInput) < 0 ? 'text-red-600' : ''} font-medium`}
                 disabled={readOnly}
               />
             </div>
@@ -1453,7 +1455,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
         {activeTab === 'notes' && (
           <div className="space-y-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700">Mindset</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Mindset</label>
               <input
                 type="text"
                 value={formData.mindset}
@@ -1464,7 +1466,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">Trade Link</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Trade Link</label>
               <input
                 type="text"
                 value={formData.tradeLink}
@@ -1476,7 +1478,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">Comments</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Comments</label>
               <textarea
                 value={formData.comments}
                 onChange={(e) => setFormData({ ...formData, comments: e.target.value })}
@@ -1956,7 +1958,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
               <button
                 type="button"
                 onClick={handleReset}
-                className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-150"
               >
                 Reset
               </button>
@@ -1965,7 +1967,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
               type={readOnly ? "button" : "submit"}
               onClick={readOnly ? onClose : undefined}
               disabled={loading}
-              className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-400 disabled:cursor-not-allowed"
+              className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-400 disabled:cursor-not-allowed transition-colors duration-150"
             >
               {readOnly ? 'Close' : loading ? 'Saving...' : existingTrade ? 'Update Trade' : 'Submit Trade'}
             </button>

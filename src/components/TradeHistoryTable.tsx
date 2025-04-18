@@ -1466,13 +1466,16 @@ export default function TradeHistoryTable({
       </div>
 
       {isLoading && (
-        <div className="absolute inset-0 bg-white bg-opacity-75 z-50 flex items-center justify-center">
-          <div className="animate-pulse text-blue-500">Loading customizations...</div>
+        <div className="fixed bottom-4 right-4 bg-white shadow-md border rounded-md px-3 py-2 z-40 text-sm text-gray-700">
+          <div className="flex items-center">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500 mr-2"></div>
+            Loading customizations
+          </div>
         </div>
       )}
       
       {isSaving && (
-        <div className="absolute bottom-4 right-4 bg-blue-500 text-white px-3 py-1 rounded-md text-sm z-50">
+        <div className="fixed bottom-4 right-4 bg-blue-500 text-white px-3 py-1 rounded-md text-sm z-50">
           Saving...
         </div>
       )}

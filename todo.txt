@@ -33,10 +33,13 @@ Admin Dashboard:
 
 ----------------------------------------------------------------------------------------------------------------------------------
 To fix:
--make the data of trade analysis more accurate when sending to prompts (sentence maybe ext)
+-make the data of trade analysis more accurate when sending to prompts (send sentences to data maybe ext)
 -group of confluences analysisc chart also show negative win rate
+-fix the buttons size , make it same (history table)
+-fix github, terminal errors (audit fix, vulnerabilties ext, packages update)
 
 New features:
+-Forgot Password field
 -User own rules
 -Change currency 
 -Summary of trades analysis 

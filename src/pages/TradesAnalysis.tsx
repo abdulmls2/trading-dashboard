@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import Header from '../components/Header';
 import { getTrades } from '../lib/api';
 import { Trade } from '../types';
 import TradeChatBox from '../components/TradeChatBox';
@@ -711,221 +710,128 @@ export default function TradesAnalysis() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header />
-      
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div className="px-4 sm:px-0">
-          <div className="flex justify-between items-center mb-6">
-            <h1 className="text-2xl font-semibold text-gray-900">Trades Analysis</h1>
-            
-            <div className="flex items-center space-x-4">
-              <select
-                value={selectedYear}
-                onChange={handleYearChange}
-                className="border border-gray-300 rounded-md shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500 p-2"
-              >
-                <option value="All Years">All Years</option>
-                {getAvailableYears().map((year) => (
-                  <option key={year} value={year}>{year}</option>
-                ))}
-              </select>
-              <select
-                value={selectedMonth}
-                onChange={handleMonthChange}
-                className="border border-gray-300 rounded-md shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500 p-2"
-              >
-                <option value="All Trades">All Trades</option>
-                {months.map((month) => (
-                  <option key={month} value={month}>{month}</option>
-                ))}
-              </select>
-              <button
-                onClick={() => {
-                  // Create a virtual "analysis trade" from analytics data
-                  const totalTrades = filteredTrades.length;
-                  const totalProfitLoss = filteredTrades.reduce((sum, trade) => sum + trade.profitLoss, 0);
-                  const winningTrades = filteredTrades.filter(trade => trade.profitLoss > 0).length;
-                  const losingTrades = filteredTrades.filter(trade => trade.profitLoss < 0).length;
-                  const winRate = totalTrades > 0 ? (winningTrades / totalTrades * 100).toFixed(2) : "0";
-                  
-                  // Get most common market conditions
-                  const marketConditions = filteredTrades.reduce((acc, trade) => {
-                    if (trade.marketCondition) {
-                      acc[trade.marketCondition] = (acc[trade.marketCondition] || 0) + 1;
-                    }
-                    return acc;
-                  }, {} as Record<string, number>);
-                  
-                  // Find most profitable day
-                  const dayProfits = filteredTrades.reduce((acc, trade) => {
-                    if (trade.day) {
-                      acc[trade.day] = (acc[trade.day] || 0) + trade.profitLoss;
-                    }
-                    return acc;
-                  }, {} as Record<string, number>);
-                  
-                  const analysisTrade: Trade = {
-                    id: 'analysis',
-                    date: `${selectedMonth} ${selectedYear}`,
-                    time: '',
-                    pair: 'ANALYSIS',
-                    action: 'Buy' as 'Buy' | 'Sell',
-                    entryTime: '',
-                    exitTime: '',
-                    lots: 0,
-                    pipStopLoss: 0,
-                    pipTakeProfit: 0,
-                    profitLoss: totalProfitLoss,
-                    pivots: '',
-                    bankingLevel: '',
-                    riskRatio: 0,
-                    comments: `Analysis of ${totalTrades} trades from ${selectedMonth} ${selectedYear}. Win rate: ${winRate}%. Winning trades: ${winningTrades}. Losing trades: ${losingTrades}.`,
-                    day: Object.entries(dayProfits).sort((a, b) => b[1] - a[1])[0]?.[0] || '',
-                    direction: '',
-                    orderType: '',
-                    marketCondition: Object.entries(marketConditions).sort((a, b) => b[1] - a[1])[0]?.[0] || '',
-                    ma: '',
-                    fib: '',
-                    gap: '',
-                    mindset: '',
-                    tradeLink: '',
-                    trueReward: '',
-                    true_tp_sl: '',
-                    additional_confluences: JSON.stringify({
-                      winRate: winRate,
-                      marketConditions: marketConditions,
-                      dayProfits: dayProfits,
-                      totalTrades: totalTrades,
-                      winningTrades: winningTrades,
-                      losingTrades: losingTrades
-                    }),
-                  };
-                  setSelectedAnalysisTrade(analysisTrade);
-                  setIsChatOpen(true);
-                }}
-                className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-              >
-                <MessageSquare className="h-4 w-4 mr-2" />
-                Chat with AI
-              </button>
-            </div>
+    <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+      <div className="px-4 sm:px-0">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-semibold text-gray-900">Trades Analysis</h1>
+          
+          <div className="flex items-center space-x-4">
+            <select
+              value={selectedYear}
+              onChange={handleYearChange}
+              className="border border-gray-300 rounded-md shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500 p-2"
+            >
+              <option value="All Years">All Years</option>
+              {getAvailableYears().map((year) => (
+                <option key={year} value={year}>{year}</option>
+              ))}
+            </select>
+            <select
+              value={selectedMonth}
+              onChange={handleMonthChange}
+              className="border border-gray-300 rounded-md shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500 p-2"
+            >
+              <option value="All Trades">All Trades</option>
+              {months.map((month) => (
+                <option key={month} value={month}>{month}</option>
+              ))}
+            </select>
+            <button
+              onClick={() => {
+                // Create a virtual "analysis trade" from analytics data
+                const totalTrades = filteredTrades.length;
+                const totalProfitLoss = filteredTrades.reduce((sum, trade) => sum + trade.profitLoss, 0);
+                const winningTrades = filteredTrades.filter(trade => trade.profitLoss > 0).length;
+                const losingTrades = filteredTrades.filter(trade => trade.profitLoss < 0).length;
+                const winRate = totalTrades > 0 ? (winningTrades / totalTrades * 100).toFixed(2) : "0";
+                
+                // Get most common market conditions
+                const marketConditions = filteredTrades.reduce((acc, trade) => {
+                  if (trade.marketCondition) {
+                    acc[trade.marketCondition] = (acc[trade.marketCondition] || 0) + 1;
+                  }
+                  return acc;
+                }, {} as Record<string, number>);
+                
+                // Find most profitable day
+                const dayProfits = filteredTrades.reduce((acc, trade) => {
+                  if (trade.day) {
+                    acc[trade.day] = (acc[trade.day] || 0) + trade.profitLoss;
+                  }
+                  return acc;
+                }, {} as Record<string, number>);
+                
+                const analysisTrade: Trade = {
+                  id: 'analysis',
+                  date: `${selectedMonth} ${selectedYear}`,
+                  time: '',
+                  pair: 'ANALYSIS',
+                  action: 'Buy' as 'Buy' | 'Sell',
+                  entryTime: '',
+                  exitTime: '',
+                  lots: 0,
+                  pipStopLoss: 0,
+                  pipTakeProfit: 0,
+                  profitLoss: totalProfitLoss,
+                  pivots: '',
+                  bankingLevel: '',
+                  riskRatio: 0,
+                  comments: `Analysis of ${totalTrades} trades from ${selectedMonth} ${selectedYear}. Win rate: ${winRate}%. Winning trades: ${winningTrades}. Losing trades: ${losingTrades}.`,
+                  day: Object.entries(dayProfits).sort((a, b) => b[1] - a[1])[0]?.[0] || '',
+                  direction: '',
+                  orderType: '',
+                  marketCondition: Object.entries(marketConditions).sort((a, b) => b[1] - a[1])[0]?.[0] || '',
+                  ma: '',
+                  fib: '',
+                  gap: '',
+                  mindset: '',
+                  tradeLink: '',
+                  trueReward: '',
+                  true_tp_sl: '',
+                  additional_confluences: JSON.stringify({
+                    winRate: winRate,
+                    marketConditions: marketConditions,
+                    dayProfits: dayProfits,
+                    totalTrades: totalTrades,
+                    winningTrades: winningTrades,
+                    losingTrades: losingTrades
+                  }),
+                };
+                setSelectedAnalysisTrade(analysisTrade);
+                setIsChatOpen(true);
+              }}
+              className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            >
+              <MessageSquare className="h-4 w-4 mr-2" />
+              Chat with AI
+            </button>
           </div>
+        </div>
 
-          {loading ? (
-            <div className="flex justify-center my-8">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600" />
-            </div>
-          ) : error ? (
-            <p className="text-red-500 text-center my-8">{error}</p>
-          ) : (
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Market Condition Analysis */}
-                <div className="bg-white rounded-lg shadow p-6">
-                  <h2 className="text-lg font-medium text-gray-900 mb-4">Market Condition Analysis</h2>
-                  {marketConditionAnalysis && marketConditionAnalysis.length > 0 ? (
-                    <>
-                      <div className="mb-6 h-64">
-                        {marketConditionChartData && (
-                          <Bar data={marketConditionChartData} options={barChartOptions} />
-                        )}
-                      </div>
-                      <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200">
-                          <thead className="bg-gray-50">
-                            <tr>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Market Condition</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Wins</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Losses</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Win Rate</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">P/L</th>
-                            </tr>
-                          </thead>
-                          <tbody className="bg-white divide-y divide-gray-200">
-                            {marketConditionAnalysis.map((item, index) => (
-                              <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{item.condition}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.total}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600">{item.wins}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600">{item.losses}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.winRate}%</td>
-                                <td className={`px-6 py-4 whitespace-nowrap text-sm ${item.profitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                  {item.profitLoss.toFixed(2)}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </>
-                  ) : (
-                    <p className="text-gray-500">No market condition data available.</p>
-                  )}
-                </div>
-
-                {/* Day of Week Analysis */}
-                <div className="bg-white rounded-lg shadow p-6">
-                  <h2 className="text-lg font-medium text-gray-900 mb-4">Day of Week Analysis</h2>
-                  {dayOfWeekAnalysis && dayOfWeekAnalysis.length > 0 ? (
-                    <>
-                      <div className="mb-6 h-64">
-                        {dayOfWeekChartData && (
-                          <Bar data={dayOfWeekChartData} options={barChartOptions} />
-                        )}
-                      </div>
-                      <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200">
-                          <thead className="bg-gray-50">
-                            <tr>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Day</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Wins</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Losses</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Win Rate</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">P/L</th>
-                            </tr>
-                          </thead>
-                          <tbody className="bg-white divide-y divide-gray-200">
-                            {dayOfWeekAnalysis.map((item, index) => (
-                              <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{item.day}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.total}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600">{item.wins}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600">{item.losses}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.winRate}%</td>
-                                <td className={`px-6 py-4 whitespace-nowrap text-sm ${item.profitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                  {item.profitLoss.toFixed(2)}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </>
-                  ) : (
-                    <p className="text-gray-500">No day of week data available.</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Trend Analysis - Full width in its own row */}
+        {loading ? (
+          <div className="flex justify-center my-8">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600" />
+          </div>
+        ) : error ? (
+          <p className="text-red-500 text-center my-8">{error}</p>
+        ) : (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Market Condition Analysis */}
               <div className="bg-white rounded-lg shadow p-6">
-                <h2 className="text-lg font-medium text-gray-900 mb-4">Trend Analysis</h2>
-                {trendAnalysis && trendAnalysis.length > 0 ? (
+                <h2 className="text-lg font-medium text-gray-900 mb-4">Market Condition Analysis</h2>
+                {marketConditionAnalysis && marketConditionAnalysis.length > 0 ? (
                   <>
                     <div className="mb-6 h-64">
-                      {trendChartData && (
-                        <Bar data={trendChartData} options={barChartOptions} />
+                      {marketConditionChartData && (
+                        <Bar data={marketConditionChartData} options={barChartOptions} />
                       )}
                     </div>
                     <div className="overflow-x-auto">
                       <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
                           <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trend</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Market Condition</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Wins</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Losses</th>
@@ -934,10 +840,9 @@ export default function TradesAnalysis() {
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                          {trendAnalysis.map((item, index) => (
+                          {marketConditionAnalysis.map((item, index) => (
                             <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{item.label}</td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.description}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{item.condition}</td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.total}</td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600">{item.wins}</td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600">{item.losses}</td>
@@ -952,42 +857,230 @@ export default function TradesAnalysis() {
                     </div>
                   </>
                 ) : (
-                  <p className="text-gray-500">No trend data available.</p>
+                  <p className="text-gray-500">No market condition data available.</p>
                 )}
               </div>
 
-              {/* Number of Confluences Analysis - Full width in its own row */}
+              {/* Day of Week Analysis */}
               <div className="bg-white rounded-lg shadow p-6">
-                <h2 className="text-lg font-medium text-gray-900 mb-4">Number of Confluences Analysis</h2>
-                <p className="text-sm text-gray-500 mb-4">
-                  This analysis tracks the performance based on the number of confluences present (pivots, banking level, MA, fib).
-                </p>
-                {confluenceAnalysis && confluenceAnalysis.length > 0 ? (
+                <h2 className="text-lg font-medium text-gray-900 mb-4">Day of Week Analysis</h2>
+                {dayOfWeekAnalysis && dayOfWeekAnalysis.length > 0 ? (
                   <>
                     <div className="mb-6 h-64">
-                      {confluenceChartData && (
-                        <Bar data={confluenceChartData} options={confluenceChartOptions} />
+                      {dayOfWeekChartData && (
+                        <Bar data={dayOfWeekChartData} options={barChartOptions} />
                       )}
                     </div>
                     <div className="overflow-x-auto">
                       <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
                           <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Confluences</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Day</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Wins</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Losses</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Win Rate</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total P/L</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Avg P/L</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">P/L</th>
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                          {confluenceAnalysis.map((item, index) => (
+                          {dayOfWeekAnalysis.map((item, index) => (
                             <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                {item.confluenceCount} {item.confluenceCount === 1 ? 'Confluence' : 'Confluences'}
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{item.day}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.total}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600">{item.wins}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600">{item.losses}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.winRate}%</td>
+                              <td className={`px-6 py-4 whitespace-nowrap text-sm ${item.profitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                {item.profitLoss.toFixed(2)}
                               </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-gray-500">No day of week data available.</p>
+                )}
+              </div>
+            </div>
+
+            {/* Trend Analysis - Full width in its own row */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-lg font-medium text-gray-900 mb-4">Trend Analysis</h2>
+              {trendAnalysis && trendAnalysis.length > 0 ? (
+                <>
+                  <div className="mb-6 h-64">
+                    {trendChartData && (
+                      <Bar data={trendChartData} options={barChartOptions} />
+                    )}
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trend</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Wins</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Losses</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Win Rate</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">P/L</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {trendAnalysis.map((item, index) => (
+                          <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{item.label}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.description}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.total}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600">{item.wins}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600">{item.losses}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.winRate}%</td>
+                            <td className={`px-6 py-4 whitespace-nowrap text-sm ${item.profitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {item.profitLoss.toFixed(2)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              ) : (
+                <p className="text-gray-500">No trend data available.</p>
+              )}
+            </div>
+
+            {/* Number of Confluences Analysis - Full width in its own row */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-lg font-medium text-gray-900 mb-4">Number of Confluences Analysis</h2>
+              <p className="text-sm text-gray-500 mb-4">
+                This analysis tracks the performance based on the number of confluences present (pivots, banking level, MA, fib).
+              </p>
+              {confluenceAnalysis && confluenceAnalysis.length > 0 ? (
+                <>
+                  <div className="mb-6 h-64">
+                    {confluenceChartData && (
+                      <Bar data={confluenceChartData} options={confluenceChartOptions} />
+                    )}
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Confluences</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Wins</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Losses</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Win Rate</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total P/L</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Avg P/L</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {confluenceAnalysis.map((item, index) => (
+                          <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                              {item.confluenceCount} {item.confluenceCount === 1 ? 'Confluence' : 'Confluences'}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.total}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600">{item.wins}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600">{item.losses}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.winRate}%</td>
+                            <td className={`px-6 py-4 whitespace-nowrap text-sm ${item.profitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {item.profitLoss.toFixed(2)}
+                            </td>
+                            <td className={`px-6 py-4 whitespace-nowrap text-sm ${item.avgProfitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {item.avgProfitLoss.toFixed(2)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              ) : (
+                <p className="text-gray-500">No confluence data available.</p>
+              )}
+            </div>
+
+            {/* Group of Confluence Analysis - Full width in its own row */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-4">
+                <h2 className="text-lg font-medium text-gray-900">Group of Confluence Analysis</h2>
+                
+                <div className="flex flex-col sm:flex-row gap-4 mt-2 lg:mt-0">
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="includeMarketCondition"
+                      checked={includeMarketCondition}
+                      onChange={handleMarketConditionToggle}
+                      className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                    />
+                    <label htmlFor="includeMarketCondition" className="ml-2 block text-sm text-gray-900">
+                      Include Market Condition
+                    </label>
+                  </div>
+                  
+                  <select
+                    value={selectedMarketCondition}
+                    onChange={handleMarketConditionChange}
+                    className="border border-gray-300 rounded-md shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500 p-2"
+                    disabled={!includeMarketCondition}
+                  >
+                    {availableMarketConditions.map((condition) => (
+                      <option key={condition} value={condition}>{condition}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              
+              <p className="text-sm text-gray-500 mb-4">
+                This analysis shows which specific combinations of confluences (Pivots, Banking Level, MA, Fib) perform best.
+              </p>
+              {confluenceGroupAnalysis && confluenceGroupAnalysis.length > 0 ? (
+                <>
+                  <div className="mb-6 h-96">
+                    {confluenceGroupChartData && (
+                      <Bar data={confluenceGroupChartData} options={confluenceGroupChartOptions} />
+                    )}
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Combination</th>
+                          {includeMarketCondition && (
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Market Condition</th>
+                          )}
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Wins</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Losses</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Win Rate</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total P/L</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Avg P/L</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {confluenceGroupAnalysis.map((item, index) => {
+                          const displayText = formatCombination(item.combination);
+                          // Extract the market condition from the parentheses at the end if present
+                          const parts = displayText.split(' (');
+                          const baseText = parts[0];
+                          const marketCondition = item.marketCondition || "Unknown";
+                          
+                          return (
+                            <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                              <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                                {baseText}
+                              </td>
+                              {includeMarketCondition && (
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                  {marketCondition}
+                                </td>
+                              )}
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.total}</td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600">{item.wins}</td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600">{item.losses}</td>
@@ -999,117 +1092,19 @@ export default function TradesAnalysis() {
                                 {item.avgProfitLoss.toFixed(2)}
                               </td>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </>
-                ) : (
-                  <p className="text-gray-500">No confluence data available.</p>
-                )}
-              </div>
-
-              {/* Group of Confluence Analysis - Full width in its own row */}
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-4">
-                  <h2 className="text-lg font-medium text-gray-900">Group of Confluence Analysis</h2>
-                  
-                  <div className="flex flex-col sm:flex-row gap-4 mt-2 lg:mt-0">
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id="includeMarketCondition"
-                        checked={includeMarketCondition}
-                        onChange={handleMarketConditionToggle}
-                        className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-                      />
-                      <label htmlFor="includeMarketCondition" className="ml-2 block text-sm text-gray-900">
-                        Include Market Condition
-                      </label>
-                    </div>
-                    
-                    <select
-                      value={selectedMarketCondition}
-                      onChange={handleMarketConditionChange}
-                      className="border border-gray-300 rounded-md shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500 p-2"
-                      disabled={!includeMarketCondition}
-                    >
-                      {availableMarketConditions.map((condition) => (
-                        <option key={condition} value={condition}>{condition}</option>
-                      ))}
-                    </select>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
-                </div>
-                
-                <p className="text-sm text-gray-500 mb-4">
-                  This analysis shows which specific combinations of confluences (Pivots, Banking Level, MA, Fib) perform best.
-                </p>
-                {confluenceGroupAnalysis && confluenceGroupAnalysis.length > 0 ? (
-                  <>
-                    <div className="mb-6 h-96">
-                      {confluenceGroupChartData && (
-                        <Bar data={confluenceGroupChartData} options={confluenceGroupChartOptions} />
-                      )}
-                    </div>
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                          <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Combination</th>
-                            {includeMarketCondition && (
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Market Condition</th>
-                            )}
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Wins</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Losses</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Win Rate</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total P/L</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Avg P/L</th>
-                          </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                          {confluenceGroupAnalysis.map((item, index) => {
-                            const displayText = formatCombination(item.combination);
-                            // Extract the market condition from the parentheses at the end if present
-                            const parts = displayText.split(' (');
-                            const baseText = parts[0];
-                            const marketCondition = item.marketCondition || "Unknown";
-                            
-                            return (
-                              <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                                <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                                  {baseText}
-                                </td>
-                                {includeMarketCondition && (
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                    {marketCondition}
-                                  </td>
-                                )}
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.total}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600">{item.wins}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600">{item.losses}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.winRate}%</td>
-                                <td className={`px-6 py-4 whitespace-nowrap text-sm ${item.profitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                  {item.profitLoss.toFixed(2)}
-                                </td>
-                                <td className={`px-6 py-4 whitespace-nowrap text-sm ${item.avgProfitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                  {item.avgProfitLoss.toFixed(2)}
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  </>
-                ) : (
-                  <p className="text-gray-500">No confluence group data available.</p>
-                )}
-              </div>
+                </>
+              ) : (
+                <p className="text-gray-500">No confluence group data available.</p>
+              )}
             </div>
-          )}
-        </div>
-      </main>
+          </div>
+        )}
+      </div>
 
       {/* Chat modal */}
       {isChatOpen && (
@@ -1129,6 +1124,6 @@ export default function TradesAnalysis() {
           </div>
         </div>
       )}
-    </div>
+    </main>
   );
 } 

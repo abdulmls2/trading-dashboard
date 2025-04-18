@@ -3,8 +3,7 @@ import TradeHistoryTable from '../components/TradeHistoryTable';
 import { Trade } from '../types';
 import { getTrades, deleteTrade } from '../lib/api';
 import TradeForm from '../components/TradeForm';
-import TradeChatBox from '../components/TradeChatBox';
-import { PlusCircle, MessageSquare } from 'lucide-react';
+import { PlusCircle } from 'lucide-react';
 
 // Copied from PerformanceOverview
 const months = [
@@ -31,8 +30,6 @@ export default function Journal() {
   const [selectedTrade, setSelectedTrade] = useState<Trade | null>(null);
   const [selectedMonth, setSelectedMonth] = useState(months[new Date().getMonth()]);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
-  const [showChat, setShowChat] = useState(false);
-  const [selectedTradeForChat, setSelectedTradeForChat] = useState<Trade | null>(null);
 
   // Function to load ALL trades
   const loadTrades = useCallback(async () => {
@@ -86,9 +83,6 @@ export default function Journal() {
     try {
       await Promise.all(tradeIds.map(id => deleteTrade(id)));
       await loadTrades(); // Refresh main list
-      if (selectedTradeForChat && tradeIds.includes(selectedTradeForChat.id)) {
-        setSelectedTradeForChat(null); // Clear chat if the selected trade was deleted
-      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete trades');
       console.error('Failed to delete trades:', err);
@@ -98,12 +92,8 @@ export default function Journal() {
 
   // Updated handler for selecting a trade
   const handleSelectTrade = (trade: Trade) => {
-    if (showChat) {
-      setSelectedTradeForChat(trade); // Set trade for chat analysis
-    } else {
-      setSelectedTrade(trade); // Set trade for form editing
-      setShowTradeForm(true);
-    }
+    setSelectedTrade(trade); // Set trade for form editing
+    setShowTradeForm(true);
   };
 
   // Handler for closing the trade form modal
@@ -111,12 +101,6 @@ export default function Journal() {
     setShowTradeForm(false);
     setSelectedTrade(null);
     await loadTrades(); // Refresh main list
-  };
-
-  // Handler for closing the chat
-  const handleCloseChat = () => {
-    setShowChat(false);
-    setSelectedTradeForChat(null);
   };
 
   // Handlers for dropdown changes
@@ -137,7 +121,6 @@ export default function Journal() {
               value={selectedYear}
               onChange={handleYearChange}
               className="border border-gray-300 rounded-md shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500 p-2"
-              disabled={showChat}
             >
               <option value="All Years">All Years</option>
               {getAvailableYears().map((year) => (
@@ -148,20 +131,12 @@ export default function Journal() {
               value={selectedMonth}
               onChange={handleMonthChange}
               className="border border-gray-300 rounded-md shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500 p-2"
-              disabled={showChat}
             >
               <option value="All Trades">All Trades</option>
               {months.map((month) => (
                 <option key={month} value={month}>{month}</option>
               ))}
             </select>
-            <button
-              onClick={() => setShowChat(!showChat)}
-              className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            >
-              <MessageSquare className="h-5 w-5 mr-2" />
-              {showChat ? 'Close PIP' : 'Chat with PIP'}
-            </button>
             <button
               onClick={() => {
                 setSelectedTrade(null);
@@ -182,36 +157,22 @@ export default function Journal() {
         </div>
       )}
 
-      <div className={`flex-grow flex ${showChat ? 'gap-8' : ''}`}>
-        <div className={`flex flex-col ${showChat ? 'w-1/2' : 'w-full'}`}>
+      <div className={`flex-grow flex`}>
+        <div className={`flex flex-col w-full`}>
           {loading ? (
             <div className="flex-grow flex items-center justify-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600" />
             </div>
           ) : (
             <div className="flex-grow">
-              {showChat && (
-                 <p className="text-sm text-gray-500 mb-2">Click a trade in the table to analyze with PIP.</p>
-              )}
               <TradeHistoryTable
                 trades={filteredTrades}
                 onSelectTrade={handleSelectTrade}
                 onDeleteTrades={handleDeleteTrades}
-                showChat={showChat}
               />
             </div>
           )}
         </div>
-
-        {showChat && (
-          <div className="w-1/2 flex flex-col">
-            <h2 className="text-lg font-medium text-gray-900 mb-4">Trade Analysis with PIP</h2>
-            <TradeChatBox 
-              trade={selectedTradeForChat}
-              onClose={handleCloseChat}
-            />
-          </div>
-        )}
       </div>
 
       {showTradeForm && (

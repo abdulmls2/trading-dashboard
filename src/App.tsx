@@ -12,6 +12,7 @@ import Calendar from './pages/Calendar';
 import Journal from './pages/Journal';
 import Layout from './components/Layout';
 import PerformanceOverview from './pages/PerformanceOverview';
+import Pip from './pages/Pip';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -101,6 +102,14 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <Profile />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/pip"
+        element={
+          <PrivateRoute>
+            <Pip />
           </PrivateRoute>
         }
       />

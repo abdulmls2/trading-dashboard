@@ -28,7 +28,7 @@ export default function TradeChatBox({ trade, onClose }: Props) {
       id: '1',
       text: trade 
         ? `I'm analyzing your ${trade.action} trade on ${trade.pair} from ${trade.date}. This trade resulted in a ${trade.profitLoss >= 0 ? 'profit' : 'loss'} of $${Math.abs(trade.profitLoss)}. What would you like to know about this trade?`
-        : 'Select a trade from the table to analyze it.',
+        : 'Hi, I\'m PIP, your trading assistant. What would you like to talk about today?',
       sender: 'ai',
       promptIds: ['DEF_001'],
     },
@@ -312,7 +312,7 @@ export default function TradeChatBox({ trade, onClose }: Props) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || !trade) return;
+    if (!input.trim()) return;
 
     // Add user message
     setMessages((prev) => [
@@ -325,8 +325,10 @@ export default function TradeChatBox({ trade, onClose }: Props) {
     setIsLoading(true);
     
     try {
-      // Generate trade context for AI
-      const tradeContext = generateTradeContext(trade);
+      // Set context based on whether a trade is selected
+      const context = trade 
+        ? generateTradeContext(trade) 
+        : "No specific trade is being analyzed. The user is asking a general question about trading.";
       
       // Get keyword prompts and extract IDs
       const keywordPrompts = getPromptForKeywords(input);
@@ -335,7 +337,7 @@ export default function TradeChatBox({ trade, onClose }: Props) {
         : extractPromptIds(DEFAULT_PROMPT);
       
       // Get AI response
-      const aiResponse = await fetchAIResponse(input, tradeContext);
+      const aiResponse = await fetchAIResponse(input, context);
       
       // Add AI response to messages with prompt IDs
       setMessages((prev) => [
@@ -355,7 +357,7 @@ export default function TradeChatBox({ trade, onClose }: Props) {
         ...prev,
         {
           id: Date.now().toString(),
-          text: "I'm sorry, I couldn't analyze your trade properly. Please try again.",
+          text: "I'm sorry, I couldn't process your request properly. Please try again.",
           sender: 'ai',
           promptIds: []
         },
@@ -372,7 +374,7 @@ export default function TradeChatBox({ trade, onClose }: Props) {
   return (
     <div className="flex flex-col h-[600px] bg-white rounded-lg shadow">
       <div className="flex justify-between items-center px-4 py-2 border-b">
-        <h3 className="text-lg font-medium">Trade Analysis Chat</h3>
+        <h3 className="text-lg font-medium">{trade ? "Trade Analysis Chat" : "Chat with PIP"}</h3>
         <div className="flex items-center space-x-2">
           <button
             onClick={togglePromptIds}
@@ -438,7 +440,7 @@ export default function TradeChatBox({ trade, onClose }: Props) {
           <div className="flex justify-start">
             <div className="bg-gray-100 rounded-lg px-4 py-2 flex items-center space-x-2">
               <Loader2 className="h-4 w-4 animate-spin text-indigo-600" />
-              <p className="text-sm text-gray-600">Analyzing trade...</p>
+              <p className="text-sm text-gray-600">{trade ? "Analyzing trade..." : "Thinking..."}</p>
             </div>
           </div>
         )}
@@ -451,13 +453,13 @@ export default function TradeChatBox({ trade, onClose }: Props) {
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={trade ? "Ask about this trade..." : "Select a trade to start analysis"}
-            disabled={!trade || isLoading || !!configError}
+            placeholder={trade ? "Ask about this trade..." : "Ask me anything about trading..."}
+            disabled={isLoading || !!configError}
             className="flex-1 rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
           />
           <button
             type="submit"
-            disabled={!trade || isLoading || !input.trim() || !!configError}
+            disabled={isLoading || !input.trim() || !!configError}
             className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-gray-400 disabled:cursor-not-allowed"
           >
             {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}

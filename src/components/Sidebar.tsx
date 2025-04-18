@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Menu, X, ChevronLeft, ChevronRight, LogOut, Settings, User, BarChart2, Calendar, PlusCircle, Shield, Home, BookOpen } from 'lucide-react';
+import { Menu, X, ChevronLeft, ChevronRight, LogOut, Settings, User, BarChart2, Calendar, PlusCircle, Shield, Home, BookOpen, MessageSquare } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -44,6 +44,7 @@ export default function Sidebar() {
     { path: '/performance', icon: BookOpen, label: 'Performance Overview' },
     { path: '/trades-analysis', icon: BarChart2, label: 'Trades Analysis' },
     { path: '/calendar', icon: Calendar, label: 'Calendar' },
+    { path: '/pip', icon: MessageSquare, label: 'Chat with PIP' },
   ];
 
   const adminItem = { path: '/admin', icon: Shield, label: 'Admin Dashboard' };

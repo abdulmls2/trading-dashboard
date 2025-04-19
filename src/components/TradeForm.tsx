@@ -1417,7 +1417,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">True TP/SL</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">True Pips</label>
               <input
                 type="text"
                 value={formData.true_tp_sl}

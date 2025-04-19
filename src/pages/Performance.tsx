@@ -65,7 +65,8 @@ export default function Performance() {
     const winningTrades = filteredTrades.filter(trade => trade.profitLoss > 0).length;
     const losingTrades = filteredTrades.filter(trade => trade.profitLoss < 0).length;
     const breakEvenTrades = filteredTrades.filter(trade => trade.profitLoss === 0).length;
-    const winRate = totalTrades > 0 ? (winningTrades / totalTrades) * 100 : 0;
+    const nonBreakEvenTrades = totalTrades - breakEvenTrades;
+    const winRate = nonBreakEvenTrades > 0 ? (winningTrades / nonBreakEvenTrades) * 100 : 0;
     const totalProfitLoss = filteredTrades.reduce((sum, trade) => sum + trade.profitLoss, 0);
     const totalTrueReward = filteredTrades.reduce((sum, trade) => {
       const trueRewardValue = parseFloat(trade.trueReward || '0');

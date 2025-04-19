@@ -326,7 +326,7 @@ export default function PerformanceMetricsComponent({
             <div>
               <h3 className="text-xs font-medium text-gray-500 uppercase mb-1">True Reward</h3>
               <p className="text-2xl font-bold text-gray-900">{metrics.averageRRR.toFixed(2)}</p>
-              <p className="text-sm text-gray-500 mt-1">Average R:R ratio</p>
+              <p className="text-sm text-gray-500 mt-1">Total R:R ratio</p>
             </div>
             <div className="h-10 w-10 bg-blue-50 rounded-md flex items-center justify-center">
               <Award className="h-5 w-5 text-blue-600" />

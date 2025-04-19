@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-// import Header from '../components/Header'; // Ensure this line is removed or commented out
 import PerformanceMetricsComponent from '../components/PerformanceMetrics';
 import TradeHistoryTable from '../components/TradeHistoryTable';
 import TradeForm from '../components/TradeForm';
 import TradeChatBox from '../components/TradeChatBox';
-import { PlusCircle, MessageSquare } from 'lucide-react';
+import { PlusCircle, MessageSquare, ChevronDown, Filter, Calendar, Clock } from 'lucide-react';
 import { Trade, PerformanceMetrics as Metrics } from '../types';
 import { getTrades, getTradeViolations, getPerformanceMetrics, updatePerformanceMetrics } from '../lib/api';
 
@@ -283,59 +282,91 @@ export default function Performance() {
   };
 
   return (
-    <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-      <div className="px-4 sm:px-0">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-semibold text-gray-900">Performance Overview</h1>
-          
-          <div className="flex items-center space-x-4">
-            <select
-              value={selectedYear}
-              onChange={handleYearChange}
-              className="border border-gray-300 rounded-md shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500 p-2"
-            >
-              <option value="All Years">All Years</option>
-              {getAvailableYears().map((year) => (
-                <option key={year} value={year}>{year}</option>
-              ))}
-            </select>
-            <select
-              value={selectedMonth}
-              onChange={handleMonthChange}
-              className="border border-gray-300 rounded-md shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500 p-2"
-            >
-              <option value="All Trades">All Trades</option>
-              {months.map((month) => (
-                <option key={month} value={month}>{month}</option>
-              ))}
-            </select>
-            <button
-              onClick={() => setShowChat(!showChat)}
-              className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            >
-              <MessageSquare className="h-5 w-5 mr-2" />
-              {showChat ? 'Close PIP' : 'Chat with PIP'}
-            </button>
-            <button
-              onClick={() => {
-                setSelectedTrade(null);
-                setShowTradeForm(true);
-              }}
-              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            >
-              <PlusCircle className="h-5 w-5 mr-2" />
-              Add Trade
-            </button>
+    <main className="w-full px-6 py-6 bg-gray-50">
+      <div className="max-w-7xl mx-auto">
+        {/* Page Header with modern styling */}
+        <div className="mb-8">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+              <p className="text-sm text-gray-500 mt-1">
+                {selectedMonth !== "All Trades" ? selectedMonth : ""} {selectedYear !== "All Years" ? selectedYear : "All time"} trading performance
+              </p>
+            </div>
+            
+            <div className="flex flex-wrap items-center gap-3 mt-4 md:mt-0">
+              {/* Time period filter */}
+              <div className="flex items-center space-x-2">
+                <div className="relative rounded-md shadow-sm">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Calendar className="h-4 w-4 text-gray-400" aria-hidden="true" />
+                  </div>
+                  <select
+                    value={selectedYear}
+                    onChange={handleYearChange}
+                    className="pl-10 block w-full rounded-md border-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm bg-white py-2 pr-10"
+                  >
+                    <option value="All Years">All Years</option>
+                    {getAvailableYears().map((year) => (
+                      <option key={year} value={year}>{year}</option>
+                    ))}
+                  </select>
+                  <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                    <ChevronDown className="h-4 w-4 text-gray-400" aria-hidden="true" />
+                  </div>
+                </div>
+                
+                <div className="relative rounded-md shadow-sm">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Clock className="h-4 w-4 text-gray-400" aria-hidden="true" />
+                  </div>
+                  <select
+                    value={selectedMonth}
+                    onChange={handleMonthChange}
+                    className="pl-10 block w-full rounded-md border-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm bg-white py-2 pr-10"
+                  >
+                    <option value="All Trades">All Months</option>
+                    {months.map((month) => (
+                      <option key={month} value={month}>{month}</option>
+                    ))}
+                  </select>
+                  <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                    <ChevronDown className="h-4 w-4 text-gray-400" aria-hidden="true" />
+                  </div>
+                </div>
+              </div>
+              
+              {/* Actions */}
+              <button
+                onClick={() => setShowChat(!showChat)}
+                className="inline-flex items-center px-4 py-2 border border-gray-200 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                <MessageSquare className="h-4 w-4 mr-2 text-gray-500" />
+                {showChat ? 'Close PIP' : 'Chat with PIP'}
+              </button>
+              
+              <button
+                onClick={() => {
+                  setSelectedTrade(null);
+                  setShowTradeForm(true);
+                }}
+                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                <PlusCircle className="h-4 w-4 mr-2" />
+                Add Trade
+              </button>
+            </div>
           </div>
+
+          {error && (
+            <div className="mb-6 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md">
+              {error}
+            </div>
+          )}
         </div>
 
-        {error && (
-          <div className="mb-6 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md">
-            {error}
-          </div>
-        )}
-
-        <div className="space-y-8">
+        {/* Performance Metrics */}
+        <div className="mb-8">
           <PerformanceMetricsComponent 
             metrics={calculatedPerformanceMetrics} 
             monthlyPipTarget={monthlyDbMetrics?.monthlyPipTarget ?? defaultDbMetrics.monthlyPipTarget}
@@ -343,20 +374,36 @@ export default function Performance() {
             violationsCount={calculatedPerformanceMetrics.violationsCount}
             violatedTradesCount={calculatedPerformanceMetrics.violatedTradesCount}
             onUpdateMetrics={handleUpdateMonthlyMetrics}
-            isLoading={loadingMetrics} // Pass loading state
+            isLoading={loadingMetrics}
           />
-          
-          <div className={`grid ${showChat ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'} gap-8`}>
-            <div className={showChat ? '' : 'w-full'}>
-              <div className="flex justify-between items-center mb-4">
+        </div>
+        
+        {/* Trade History Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Trade History Table */}
+          <div className={`${showChat ? 'lg:col-span-2' : 'lg:col-span-3'} bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden`}>
+            <div className="px-6 py-4 border-b border-gray-100">
+              <div className="flex justify-between items-center">
                 <h2 className="text-lg font-medium text-gray-900">Trade History</h2>
-                {showChat && (
-                  <p className="text-sm text-gray-500">Click a trade to analyze it</p>
-                )}
+                <div className="flex items-center">
+                  {showChat && (
+                    <p className="text-sm text-gray-500 mr-4">Click a trade to analyze it</p>
+                  )}
+                  <button className="p-1.5 rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-700">
+                    <Filter className="h-4 w-4" />
+                    <span className="sr-only">Filter trades</span>
+                  </button>
+                </div>
               </div>
+            </div>
+            
+            <div className="overflow-x-auto">
               {loading ? (
-                <div className="bg-white rounded-lg shadow p-6 text-center text-gray-500">
-                  Loading trades...
+                <div className="p-6 text-center text-gray-500">
+                  <div className="animate-pulse flex justify-center">
+                    <div className="h-6 w-6 bg-gray-200 rounded-full"></div>
+                  </div>
+                  <p className="mt-2">Loading trades...</p>
                 </div>
               ) : (
                 <TradeHistoryTable 
@@ -367,25 +414,31 @@ export default function Performance() {
                 />
               )}
             </div>
+          </div>
 
-            {showChat && (
-              <div>
-                <h2 className="text-lg font-medium text-gray-900 mb-4">Trade Analysis</h2>
+          {/* Trade Analysis Chat */}
+          {showChat && (
+            <div className="lg:col-span-1 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+              <div className="px-6 py-4 border-b border-gray-100">
+                <h2 className="text-lg font-medium text-gray-900">Trade Analysis</h2>
+              </div>
+              <div className="p-0">
                 <TradeChatBox 
                   trade={selectedTrade}
                   onClose={handleCloseChat}
                 />
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
+        {/* Trade Form Modal */}
         {showTradeForm && (
-          <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
               <div className="p-6">
                 <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-xl font-semibold text-gray-900">
+                  <h2 className="text-xl font-bold text-gray-900">
                     {selectedTrade ? 'Update Trade' : 'Log New Trade'}
                   </h2>
                   <button

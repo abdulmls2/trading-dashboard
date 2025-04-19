@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Menu, X, ChevronLeft, ChevronRight, LogOut, Settings, User, BarChart2, Calendar, PlusCircle, Shield, Home, BookOpen, MessageSquare } from 'lucide-react';
+import { Menu, X, ChevronLeft, ChevronRight, LogOut, Settings, User, BarChart2, Calendar, PlusCircle, Shield, Home, BookOpen, MessageSquare, Rocket } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -39,9 +39,9 @@ export default function Sidebar() {
   const isActive = (path: string) => location.pathname === path;
 
   const navItems = [
-    { path: '/journal', icon: Home, label: 'Journal' },
+    { path: '/performance', icon: Rocket, label: 'Performance Overview' },
+    { path: '/journal', icon: BookOpen, label: 'Journal' },
     { path: '/log-trade', icon: PlusCircle, label: 'Log Trade' },
-    { path: '/performance', icon: BookOpen, label: 'Performance Overview' },
     { path: '/trades-analysis', icon: BarChart2, label: 'Trades Analysis' },
     { path: '/calendar', icon: Calendar, label: 'Calendar' },
     { path: '/pip', icon: MessageSquare, label: 'Chat with PIP' },

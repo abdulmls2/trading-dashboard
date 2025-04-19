@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import TradeHistoryTable from '../components/TradeHistoryTable';
@@ -7,6 +7,8 @@ import { Trade as TradeType } from '../types';
 import TradeForm from '../components/TradeForm';
 import UserTradingRulesForm from '../components/UserTradingRulesForm';
 import TradeViolationsTable from '../components/TradeViolationsTable';
+import UserPerformanceView from './UserPerformanceView';
+import { BarChart2 } from 'lucide-react';
 
 interface UserProfile {
   id: string;
@@ -53,6 +55,8 @@ interface DbTrade {
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const params = useParams<{ userId?: string }>();
+  const location = useLocation();
   const [profiles, setProfiles] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -68,6 +72,7 @@ export default function AdminDashboard() {
   const [showViolationsModal, setShowViolationsModal] = useState(false);
   const [activeTab, setActiveTab] = useState<'users' | 'violations'>('users');
   const [editMode, setEditMode] = useState(false);
+  const [showUserPerformanceView, setShowUserPerformanceView] = useState(false);
 
   useEffect(() => {
     async function checkAdminAndLoadUsers() {
@@ -123,6 +128,23 @@ export default function AdminDashboard() {
 
     checkAdminAndLoadUsers();
   }, [user, navigate]);
+
+  // Effect to check for userId parameter and setup performance view when component mounts
+  useEffect(() => {
+    // If we're on the user performance route with a userId parameter
+    if (params.userId) {
+      // Find the user in profiles
+      const userProfile = profiles.find(profile => profile.user_id === params.userId);
+      
+      if (userProfile) {
+        // Set up the performance view state
+        setSelectedUserId(params.userId);
+        setSelectedUserEmail(userProfile.email);
+        setSelectedUserFullName(userProfile.full_name || userProfile.email);
+        setShowUserPerformanceView(true);
+      }
+    }
+  }, [params.userId, profiles]);
 
   // Sort profiles by last journaled date
   const sortByLastJournaled = () => {
@@ -409,8 +431,22 @@ export default function AdminDashboard() {
     }
   };
 
-  // Render the user management table if not showing trades
-  if (!showTradesModal) {
+  // Handler to show the performance view for a selected user
+  const handleViewPerformance = (userId: string, email: string, fullName: string | null) => {
+    setSelectedUserId(userId);
+    setSelectedUserEmail(email);
+    setSelectedUserFullName(fullName || email);
+    // Use navigate instead of state to create a bookmarkable URL
+    navigate(`/admin/user-performance/${userId}`);
+  };
+
+  // Handler to exit the performance view and return to the user list
+  const handleExitPerformanceView = () => {
+    navigate("/admin"); // Navigate back to the main admin page
+  };
+
+  // Render the user management table if not showing trades or performance
+  if (!showTradesModal && !params.userId) {
     return (
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 sm:px-0">
@@ -443,7 +479,7 @@ export default function AdminDashboard() {
           </div>
 
           {activeTab === 'users' ? (
-            <div className="bg-white shadow overflow-hidden sm:rounded-lg">
+            <div className="bg-white shadow overflow-hidden sm:rounded-lg overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
@@ -526,6 +562,14 @@ export default function AdminDashboard() {
                             className="text-orange-600 hover:text-orange-900 font-medium"
                           >
                             Violations
+                          </button>
+                          <button
+                            onClick={() => handleViewPerformance(profile.user_id, profile.email, profile.full_name)}
+                            className="text-purple-600 hover:text-purple-900 font-medium flex items-center"
+                            title="View Performance"
+                          >
+                            <BarChart2 className="h-4 w-4 mr-1" />
+                            Performance
                           </button>
                         </div>
                       </td>
@@ -636,6 +680,18 @@ export default function AdminDashboard() {
           </div>
         )}
       </main>
+    );
+  }
+
+  // Render UserPerformanceView if we have a userId in params
+  if (params.userId && selectedUserId) {
+    return (
+      <UserPerformanceView
+        userId={selectedUserId}
+        userName={selectedUserFullName}
+        onExit={handleExitPerformanceView}
+        isAdminView={true} // Indicate this is the admin view
+      />
     );
   }
 

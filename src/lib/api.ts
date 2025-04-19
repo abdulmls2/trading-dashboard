@@ -92,10 +92,12 @@ export async function deleteTrade(id: string) {
   if (error) throw error;
 }
 
-export async function getTrades() {
+export async function getTrades(targetUserId?: string) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('User not authenticated');
   
+  const userIdToFetch = targetUserId || user.id;
+
   // Even for admins, we'll filter by their user_id 
   // to ensure they only see their own trades in the trade history table
   const { data, error } = await supabase
@@ -130,7 +132,7 @@ export async function getTrades() {
       additional_confluences,
       created_at
     `)
-    .eq('user_id', user.id) // Always filter by current user's ID, regardless of role
+    .eq('user_id', userIdToFetch)
     .order('date', { ascending: false });
 
   if (error) throw error;
@@ -168,14 +170,24 @@ export async function getTrades() {
   }));
 }
 
-export async function getPerformanceMetrics(month: string) {
-  const { data, error } = await supabase
+export async function getPerformanceMetrics(month: string, targetUserId?: string) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('User not authenticated');
+
+  const userIdToFetch = targetUserId || user.id;
+
+  const query = supabase
     .from('performance_metrics')
     .select('*')
     .eq('month', month)
-    .single();
+    .eq('user_id', userIdToFetch);
 
-  if (error && error.code !== 'PGRST116') throw error; // PGRST116 is "no rows returned"
+  const { data, error } = await query.maybeSingle();
+
+  if (error && error.code !== 'PGRST116') {
+    console.error("Error fetching performance metrics:", error);
+    throw error;
+  }
   
   if (!data) return null;
 
@@ -194,11 +206,14 @@ export async function getPerformanceMetrics(month: string) {
   };
 }
 
-export async function updatePerformanceMetrics(metrics: Partial<Omit<PerformanceMetrics, 'id'>> & { month: string }) {
+export async function updatePerformanceMetrics(metrics: Partial<Omit<PerformanceMetrics, 'id'>> & { month: string }, targetUserId?: string) {
   const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('User not authenticated');
+
+  const userIdToUpsert = targetUserId || user.id;
 
   const upsertData: Record<string, any> = {
-    user_id: user?.id,
+    user_id: userIdToUpsert,
     month: metrics.month
   };
 
@@ -232,13 +247,19 @@ export async function updatePerformanceMetrics(metrics: Partial<Omit<Performance
   };
 }
 
-export async function calculateMonthlyMetrics(month: string) {
+export async function calculateMonthlyMetrics(month: string, targetUserId?: string) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('User not authenticated');
+
+  const userIdToFetch = targetUserId || user.id;
+
   const startDate = new Date(month);
   const endDate = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0);
 
   const { data: trades, error } = await supabase
     .from('trades')
     .select('*')
+    .eq('user_id', userIdToFetch)
     .gte('date', startDate.toISOString().split('T')[0])
     .lte('date', endDate.toISOString().split('T')[0]);
 

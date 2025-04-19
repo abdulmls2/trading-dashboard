@@ -98,6 +98,14 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/admin/user-performance/:userId"
+        element={
+          <PrivateRoute>
+            <AdminDashboard />
+          </PrivateRoute>
+        }
+      />
+      <Route
         path="/profile"
         element={
           <PrivateRoute>

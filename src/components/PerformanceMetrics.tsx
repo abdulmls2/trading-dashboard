@@ -17,6 +17,7 @@ interface Props {
   violatedTradesCount?: number;
   onUpdateMetrics: (updates: Partial<Pick<Metrics, 'monthlyPipTarget' | 'capital'>>) => Promise<void>;
   isLoading?: boolean; // Optional loading state
+  readOnly?: boolean; // Add readOnly prop
 }
 
 export default function PerformanceMetricsComponent({ 
@@ -26,7 +27,8 @@ export default function PerformanceMetricsComponent({
   violationsCount = 0,
   violatedTradesCount = 0,
   onUpdateMetrics,
-  isLoading // Destructure isLoading 
+  isLoading, // Destructure isLoading 
+  readOnly = false // Destructure readOnly, default to false
 }: Props) {
   // Local state only for the editing UI, not the values themselves
   const [isEditingPipTarget, setIsEditingPipTarget] = useState(false);
@@ -190,7 +192,7 @@ export default function PerformanceMetricsComponent({
           ) : (
             <p className="mt-2 text-3xl font-bold text-gray-900">{monthlyPipTarget}</p>
           )}
-          {!isEditingPipTarget && (
+          {!isEditingPipTarget && !readOnly && (
             <button 
               onClick={handleEditPipTarget}
               className="text-gray-400 hover:text-indigo-600"
@@ -256,7 +258,7 @@ export default function PerformanceMetricsComponent({
           ) : (
             <p className="mt-2 text-3xl font-bold text-gray-900">${capital}</p>
           )}
-          {!isEditingCapital && (
+          {!isEditingCapital && !readOnly && (
             <button 
               onClick={handleEditCapital}
               className="text-gray-400 hover:text-teal-600"

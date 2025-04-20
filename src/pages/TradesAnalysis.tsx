@@ -845,28 +845,28 @@ export default function TradesAnalysis() {
                       )}
                     </div>
                     <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-gray-200">
+                      <table className="min-w-full divide-y divide-gray-200 text-sm">
                         <thead className="bg-gray-50">
                           <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Market Condition</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Wins</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Losses</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Breakeven</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Win Rate</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">P/L</th>
+                            <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Condition</th>
+                            <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                            <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Wins</th>
+                            <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Losses</th>
+                            <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">BE</th>
+                            <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Win%</th>
+                            <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">P/L</th>
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
                           {marketConditionAnalysis.map((item, index) => (
                             <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{item.condition}</td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.total}</td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600">{item.wins}</td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600">{item.losses}</td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.breakeven}</td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.winRate}%</td>
-                              <td className={`px-6 py-4 whitespace-nowrap text-sm ${item.profitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              <td className="px-3 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{item.condition}</td>
+                              <td className="px-3 py-3 whitespace-nowrap text-center text-sm text-gray-500">{item.total}</td>
+                              <td className="px-3 py-3 whitespace-nowrap text-center text-sm text-green-600">{item.wins}</td>
+                              <td className="px-3 py-3 whitespace-nowrap text-center text-sm text-red-600">{item.losses}</td>
+                              <td className="px-3 py-3 whitespace-nowrap text-center text-sm text-gray-500">{item.breakeven}</td>
+                              <td className="px-3 py-3 whitespace-nowrap text-center text-sm text-gray-500">{item.winRate}%</td>
+                              <td className={`px-3 py-3 whitespace-nowrap text-center text-sm ${item.profitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                                 {item.profitLoss.toFixed(2)}
                               </td>
                             </tr>
@@ -891,28 +891,28 @@ export default function TradesAnalysis() {
                       )}
                     </div>
                     <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-gray-200">
+                      <table className="min-w-full divide-y divide-gray-200 text-sm">
                         <thead className="bg-gray-50">
                           <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Day</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Wins</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Losses</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Breakeven</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Win Rate</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">P/L</th>
+                            <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Day</th>
+                            <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                            <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Wins</th>
+                            <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Losses</th>
+                            <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">BE</th>
+                            <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Win%</th>
+                            <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">P/L</th>
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
                           {dayOfWeekAnalysis.map((item, index) => (
                             <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{item.day}</td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.total}</td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600">{item.wins}</td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600">{item.losses}</td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.breakeven}</td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.winRate}%</td>
-                              <td className={`px-6 py-4 whitespace-nowrap text-sm ${item.profitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              <td className="px-3 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{item.day}</td>
+                              <td className="px-3 py-3 whitespace-nowrap text-center text-sm text-gray-500">{item.total}</td>
+                              <td className="px-3 py-3 whitespace-nowrap text-center text-sm text-green-600">{item.wins}</td>
+                              <td className="px-3 py-3 whitespace-nowrap text-center text-sm text-red-600">{item.losses}</td>
+                              <td className="px-3 py-3 whitespace-nowrap text-center text-sm text-gray-500">{item.breakeven}</td>
+                              <td className="px-3 py-3 whitespace-nowrap text-center text-sm text-gray-500">{item.winRate}%</td>
+                              <td className={`px-3 py-3 whitespace-nowrap text-center text-sm ${item.profitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                                 {item.profitLoss.toFixed(2)}
                               </td>
                             </tr>

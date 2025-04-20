@@ -13,6 +13,9 @@ interface TradeFormData extends Omit<Trade, 'id'> {
 const currencyPairs = [
   'GBP/USD',
   'EUR/USD',
+  'GBP/JPY',
+  'GBP/AUD',
+  'XAU/USD',
   'USD/JPY',
   'USD/CHF',
   'AUD/USD',
@@ -446,6 +449,9 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
       // Handle shortened pair names (like 'GU' for 'GBP/USD')
       if (pairValue === 'GU') normalizedPair = 'GBP/USD';
       if (pairValue === 'EU') normalizedPair = 'EUR/USD';
+      if (pairValue === 'GJ') normalizedPair = 'GBP/JPY';
+      if (pairValue === 'GA') normalizedPair = 'GBP/AUD';
+      if (pairValue === 'XU') normalizedPair = 'XAU/USD';
       if (pairValue === 'UJ') normalizedPair = 'USD/JPY';
       if (pairValue === 'UC') normalizedPair = 'USD/CHF';
       if (pairValue === 'AU') normalizedPair = 'AUD/USD';

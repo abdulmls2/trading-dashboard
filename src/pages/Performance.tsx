@@ -43,6 +43,17 @@ const getAvailableYears = () => {
   return years;
 };
 
+// Helper function to get saved currency from localStorage
+const getSavedCurrency = () => {
+  try {
+    const saved = localStorage.getItem('userCurrency');
+    return saved || '$'; // Default to $ if not found
+  } catch (error) {
+    console.error("Error accessing localStorage:", error);
+    return '$'; // Fallback to $ on error
+  }
+};
+
 export default function Performance() {
   const [showTradeForm, setShowTradeForm] = useState(false);
   const [showChat, setShowChat] = useState(false);
@@ -56,6 +67,7 @@ export default function Performance() {
   const [violations, setViolations] = useState<any[]>([]);
   const [monthlyDbMetrics, setMonthlyDbMetrics] = useState<Metrics | null>(null); // State for DB-fetched metrics
   const [loadingMetrics, setLoadingMetrics] = useState(false); // Separate loading state for metrics
+  const [selectedCurrency, setSelectedCurrency] = useState(getSavedCurrency());
 
   // Calculate performance metrics based on filtered trades and violations
   const calculatedPerformanceMetrics = useMemo(() => {
@@ -209,7 +221,15 @@ export default function Performance() {
 
   useEffect(() => {
     loadInitialData();
-  }, []); // Runs only once on mount
+    // Update currency if it changes in another tab/window
+    const handleStorageChange = () => {
+      setSelectedCurrency(getSavedCurrency());
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
 
   // Effect to run filtering and metric fetching when selections change
   useEffect(() => {
@@ -412,6 +432,7 @@ export default function Performance() {
                   onSelectTrade={handleSelectTrade}
                   onDeleteTrades={handleDeleteTrades}
                   showChat={showChat}
+                  selectedCurrency={selectedCurrency}
                 />
               )}
             </div>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { PerformanceMetrics as Metrics } from '../types';
 import { AlertTriangle, TrendingUp, TrendingDown, Percent, DollarSign, BarChart2, Award, Target, Droplet, AlertOctagon } from 'lucide-react';
 
@@ -20,6 +20,30 @@ interface Props {
   readOnly?: boolean;
 }
 
+// Currency options
+const CURRENCY_OPTIONS = [
+  { symbol: '$', code: 'USD' },
+  { symbol: '€', code: 'EUR' },
+  { symbol: '£', code: 'GBP' },
+  { symbol: '¥', code: 'JPY' },
+  { symbol: '₹', code: 'INR' },
+  { symbol: '₣', code: 'CHF' },
+  { symbol: '₩', code: 'KRW' },
+  { symbol: 'A$', code: 'AUD' },
+  { symbol: 'C$', code: 'CAD' },
+];
+
+// Get saved currency from localStorage or use default
+const getSavedCurrency = () => {
+  try {
+    const saved = localStorage.getItem('userCurrency');
+    return saved || '$'; // Default to $ if not found
+  } catch (error) {
+    console.error("Error accessing localStorage:", error);
+    return '$'; // Fallback to $ on error
+  }
+};
+
 export default function PerformanceMetricsComponent({ 
   metrics, 
   monthlyPipTarget = 10,
@@ -35,6 +59,9 @@ export default function PerformanceMetricsComponent({
   
   const [isEditingCapital, setIsEditingCapital] = useState(false);
   const [tempCapital, setTempCapital] = useState(capital.toString());
+  
+  const [isSelectingCurrency, setIsSelectingCurrency] = useState(false);
+  const [selectedCurrency, setSelectedCurrency] = useState(getSavedCurrency());
 
   // Update temp state if the prop changes
   React.useEffect(() => {
@@ -44,6 +71,15 @@ export default function PerformanceMetricsComponent({
   React.useEffect(() => {
     setTempCapital(capital.toString());
   }, [capital]);
+  
+  // Save currency to localStorage whenever it changes
+  React.useEffect(() => {
+    try {
+      localStorage.setItem('userCurrency', selectedCurrency);
+    } catch (error) {
+      console.error("Error saving to localStorage:", error);
+    }
+  }, [selectedCurrency]);
   
   const handleEditPipTarget = () => {
     setTempPipTarget(monthlyPipTarget.toString());
@@ -107,6 +143,15 @@ export default function PerformanceMetricsComponent({
     }
   };
 
+  const handleToggleCurrencySelector = () => {
+    setIsSelectingCurrency(!isSelectingCurrency);
+  };
+
+  const handleSelectCurrency = (currency: string) => {
+    setSelectedCurrency(currency);
+    setIsSelectingCurrency(false);
+  };
+
   const totalPips = metrics.totalPips || 0;
   const winRatePercentage = metrics.winRate || 0;
   const pipProgress = Math.min(100, (totalPips / monthlyPipTarget) * 100);
@@ -121,7 +166,30 @@ export default function PerformanceMetricsComponent({
           <div className="flex justify-between items-start">
             <div>
               <h3 className="text-xs font-medium text-gray-500 uppercase mb-1">Current Balance</h3>
-              <p className="text-2xl font-bold text-gray-900">${(capital + metrics.totalProfitLoss).toFixed(2)}</p>
+              <p className="text-2xl font-bold text-gray-900 flex items-center">
+                <span 
+                  className="mr-1 cursor-pointer hover:text-indigo-600 transition-colors" 
+                  onClick={handleToggleCurrencySelector}
+                  title="Click to change currency"
+                >
+                  {selectedCurrency}
+                </span>
+                {(capital + metrics.totalProfitLoss).toFixed(2)}
+              </p>
+              {isSelectingCurrency && (
+                <div className="absolute mt-1 bg-white shadow-lg rounded-md border border-gray-200 py-1 z-10">
+                  {CURRENCY_OPTIONS.map(currency => (
+                    <div 
+                      key={currency.code}
+                      className="px-3 py-1.5 hover:bg-gray-100 cursor-pointer flex items-center"
+                      onClick={() => handleSelectCurrency(currency.symbol)}
+                    >
+                      <span className="mr-2 font-medium">{currency.symbol}</span>
+                      <span className="text-xs text-gray-500">{currency.code}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
               <div className="flex items-center mt-1">
                 <span className={`text-sm font-medium ${metrics.totalProfitLoss >= 0 ? 'text-green-600' : 'text-red-600'} flex items-center`}>
                   {metrics.totalProfitLoss >= 0 ? <TrendingUp className="h-3.5 w-3.5 mr-1" /> : <TrendingDown className="h-3.5 w-3.5 mr-1" />}
@@ -139,7 +207,7 @@ export default function PerformanceMetricsComponent({
               <span>Starting Capital</span>
               {!isEditingCapital ? (
                 <div className="flex items-center">
-                  <span className="font-medium">${capital}</span>
+                  <span className="font-medium">{selectedCurrency}{capital}</span>
                   {!readOnly && (
                     <button 
                       onClick={handleEditCapital}
@@ -196,7 +264,7 @@ export default function PerformanceMetricsComponent({
             <div>
               <h3 className="text-xs font-medium text-gray-500 uppercase mb-1">Profit/Loss</h3>
               <p className={`text-2xl font-bold ${metrics.totalProfitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                ${metrics.totalProfitLoss.toFixed(2)}
+                {selectedCurrency}{metrics.totalProfitLoss.toFixed(2)}
               </p>
               <p className="text-sm text-gray-500 mt-1">Total from {metrics.totalTrades} trades</p>
             </div>

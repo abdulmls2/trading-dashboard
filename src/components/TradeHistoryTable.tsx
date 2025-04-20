@@ -13,6 +13,7 @@ interface Props {
   journalOwnerName?: string;
   onDeleteTrades?: (tradeIds: string[]) => void;
   showChat?: boolean;
+  selectedCurrency?: string;
 }
 
 // Interface for cell customization - local state
@@ -153,7 +154,8 @@ export default function TradeHistoryTable({
   onExitFullscreen,
   journalOwnerName,
   onDeleteTrades,
-  showChat
+  showChat,
+  selectedCurrency = '$'
 }: Props) {
   const [page, setPage] = React.useState(1);
   const [scale, setScale] = useState(1);
@@ -1270,6 +1272,27 @@ export default function TradeHistoryTable({
                               {trade.tradeLink}
                             </a>
                           ) : null}
+                        </td>
+                      );
+                    }
+                    
+                    if (column.key === 'profitLoss') {
+                      return (
+                        <td 
+                          key={column.key} 
+                          className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${trade.profitLoss >= 0 ? 'text-green-600' : 'text-red-600'} ${
+                            column.fixed ? 'sticky left-0 z-10 bg-white group-hover:bg-blue-50' : ''
+                          } ${isSelected ? 'bg-blue-50' : ''}`}
+                          style={cellStyle}
+                          onClick={(e) => {
+                            if (isDeleteMode) {
+                              handleRowCheckboxClick(e, trade.id);
+                            } else if (isCustomizing) {
+                              handleCellClick(e, trade.id, column.key);
+                            }
+                          }}
+                        >
+                          {selectedCurrency}{trade.profitLoss?.toFixed(2) ?? 'N/A'}
                         </td>
                       );
                     }

@@ -21,6 +21,17 @@ const getAvailableYears = () => {
   return years;
 };
 
+// Helper function to get saved currency from localStorage
+const getSavedCurrency = () => {
+  try {
+    const saved = localStorage.getItem('userCurrency');
+    return saved || '$'; // Default to $ if not found
+  } catch (error) {
+    console.error("Error accessing localStorage:", error);
+    return '$'; // Fallback to $ on error
+  }
+};
+
 export default function Journal() {
   const [trades, setTrades] = useState<Trade[]>([]);
   const [filteredTrades, setFilteredTrades] = useState<Trade[]>([]);
@@ -30,6 +41,7 @@ export default function Journal() {
   const [selectedTrade, setSelectedTrade] = useState<Trade | null>(null);
   const [selectedMonth, setSelectedMonth] = useState(months[new Date().getMonth()]);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
+  const [selectedCurrency, setSelectedCurrency] = useState(getSavedCurrency());
 
   // Function to load ALL trades
   const loadTrades = useCallback(async () => {
@@ -73,9 +85,17 @@ export default function Journal() {
     setFilteredTrades(filtered);
   }, [trades, selectedMonth, selectedYear]);
 
-  // Load initial trades on mount
+  // Load initial trades and currency on mount
   useEffect(() => {
     loadTrades();
+    // Update currency if it changes in another tab/window
+    const handleStorageChange = () => {
+      setSelectedCurrency(getSavedCurrency());
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, [loadTrades]);
 
   // Handler for deleting trades
@@ -169,6 +189,7 @@ export default function Journal() {
                 trades={filteredTrades}
                 onSelectTrade={handleSelectTrade}
                 onDeleteTrades={handleDeleteTrades}
+                selectedCurrency={selectedCurrency}
               />
             </div>
           )}

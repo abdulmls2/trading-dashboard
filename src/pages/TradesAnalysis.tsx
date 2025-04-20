@@ -67,6 +67,14 @@ export default function TradesAnalysis() {
   // Add state for chat visibility
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [selectedAnalysisTrade, setSelectedAnalysisTrade] = useState<Trade | null>(null);
+  // Add state for view modes
+  const [viewModes, setViewModes] = useState({
+    marketCondition: 'chart',
+    dayOfWeek: 'chart',
+    trend: 'chart',
+    confluenceCount: 'chart',
+    confluenceGroup: 'chart'
+  });
 
   // Load trades
   useEffect(() => {
@@ -726,6 +734,275 @@ export default function TradesAnalysis() {
     setSelectedConfluenceMetric(metric);
   };
 
+  // Toggle view mode between chart and summary
+  const toggleViewMode = (section: keyof typeof viewModes) => {
+    setViewModes(prev => ({
+      ...prev,
+      [section]: prev[section] === 'chart' ? 'summary' : 'chart'
+    }));
+  };
+
+  // Generate summary for market condition
+  const getMarketConditionSummary = () => {
+    if (!marketConditionAnalysis) return null;
+    
+    // Find best and worst market conditions by win rate
+    const bestByWinRate = [...marketConditionAnalysis].sort((a, b) => b.winRate - a.winRate)[0];
+    const worstByWinRate = [...marketConditionAnalysis].sort((a, b) => a.winRate - b.winRate)[0];
+    
+    // Find best and worst market conditions by P/L
+    const bestByPL = [...marketConditionAnalysis].sort((a, b) => b.profitLoss - a.profitLoss)[0];
+    const worstByPL = [...marketConditionAnalysis].sort((a, b) => a.profitLoss - b.profitLoss)[0];
+    
+    // Find most common market condition
+    const mostCommon = [...marketConditionAnalysis].sort((a, b) => b.total - a.total)[0];
+    
+    return (
+      <div className="space-y-4">
+        <h3 className="text-md font-semibold">Key Insights:</h3>
+        <ul className="list-disc pl-5 space-y-2">
+          <li>
+            <span className="font-medium">Best Market Condition (Win Rate):</span>{" "}
+            <span className="text-green-600">{bestByWinRate.condition}</span> with {bestByWinRate.winRate}% win rate
+            ({bestByWinRate.wins} wins, {bestByWinRate.losses} losses from {bestByWinRate.total} trades)
+          </li>
+          <li>
+            <span className="font-medium">Worst Market Condition (Win Rate):</span>{" "}
+            <span className="text-red-600">{worstByWinRate.condition}</span> with {worstByWinRate.winRate}% win rate
+            ({worstByWinRate.wins} wins, {worstByWinRate.losses} losses from {worstByWinRate.total} trades)
+          </li>
+          <li>
+            <span className="font-medium">Most Profitable Market Condition:</span>{" "}
+            <span className="text-green-600">{bestByPL.condition}</span> with {bestByPL.profitLoss.toFixed(2)} P/L
+          </li>
+          <li>
+            <span className="font-medium">Least Profitable Market Condition:</span>{" "}
+            <span className="text-red-600">{worstByPL.condition}</span> with {worstByPL.profitLoss.toFixed(2)} P/L
+          </li>
+          <li>
+            <span className="font-medium">Most Common Market Condition:</span>{" "}
+            {mostCommon.condition} ({mostCommon.total} trades, {mostCommon.winRate}% win rate)
+          </li>
+        </ul>
+        <p className="text-sm text-gray-600 italic mt-2">
+          Recommendation: Focus on trading during {bestByWinRate.condition} market conditions and be cautious or avoid trading during {worstByWinRate.condition}.
+        </p>
+      </div>
+    );
+  };
+
+  // Generate summary for day of week
+  const getDayOfWeekSummary = () => {
+    if (!dayOfWeekAnalysis) return null;
+    
+    // Find best and worst days by win rate
+    const bestByWinRate = [...dayOfWeekAnalysis].sort((a, b) => b.winRate - a.winRate)[0];
+    const worstByWinRate = [...dayOfWeekAnalysis].sort((a, b) => a.winRate - b.winRate)[0];
+    
+    // Find best and worst days by P/L
+    const bestByPL = [...dayOfWeekAnalysis].sort((a, b) => b.profitLoss - a.profitLoss)[0];
+    const worstByPL = [...dayOfWeekAnalysis].sort((a, b) => a.profitLoss - b.profitLoss)[0];
+    
+    // Find most active day
+    const mostActive = [...dayOfWeekAnalysis].sort((a, b) => b.total - a.total)[0];
+    
+    return (
+      <div className="space-y-4">
+        <h3 className="text-md font-semibold">Key Insights:</h3>
+        <ul className="list-disc pl-5 space-y-2">
+          <li>
+            <span className="font-medium">Best Day (Win Rate):</span>{" "}
+            <span className="text-green-600">{bestByWinRate.day}</span> with {bestByWinRate.winRate}% win rate
+            ({bestByWinRate.wins} wins, {bestByWinRate.losses} losses)
+          </li>
+          <li>
+            <span className="font-medium">Worst Day (Win Rate):</span>{" "}
+            <span className="text-red-600">{worstByWinRate.day}</span> with {worstByWinRate.winRate}% win rate
+            ({worstByWinRate.wins} wins, {worstByWinRate.losses} losses)
+          </li>
+          <li>
+            <span className="font-medium">Most Profitable Day:</span>{" "}
+            <span className="text-green-600">{bestByPL.day}</span> with {bestByPL.profitLoss.toFixed(2)} P/L
+          </li>
+          <li>
+            <span className="font-medium">Least Profitable Day:</span>{" "}
+            <span className="text-red-600">{worstByPL.day}</span> with {worstByPL.profitLoss.toFixed(2)} P/L
+          </li>
+          <li>
+            <span className="font-medium">Most Active Day:</span>{" "}
+            {mostActive.day} ({mostActive.total} trades, {mostActive.winRate}% win rate)
+          </li>
+        </ul>
+        <p className="text-sm text-gray-600 italic mt-2">
+          Recommendation: Consider focusing your trading on {bestByWinRate.day} and being more selective or taking smaller positions on {worstByWinRate.day}.
+        </p>
+      </div>
+    );
+  };
+
+  // Generate summary for trend analysis
+  const getTrendSummary = () => {
+    if (!trendAnalysis || trendAnalysis.length < 2) return null;
+    
+    const withTrend = trendAnalysis[0];
+    const againstTrend = trendAnalysis[1];
+    
+    const comparison = withTrend.winRate > againstTrend.winRate ? 
+      `Trading with the trend has a ${withTrend.winRate - againstTrend.winRate}% higher win rate` :
+      `Trading against the trend has a ${againstTrend.winRate - withTrend.winRate}% higher win rate`;
+    
+    const plComparison = withTrend.profitLoss > againstTrend.profitLoss ?
+      `Trading with the trend has generated ${(withTrend.profitLoss - againstTrend.profitLoss).toFixed(2)} more in profits` :
+      `Trading against the trend has generated ${(againstTrend.profitLoss - withTrend.profitLoss).toFixed(2)} more in profits`;
+    
+    const recommendation = withTrend.winRate > againstTrend.winRate ?
+      "Continue to prioritize trades that align with the prevailing trend." :
+      "Your counter-trend trading is performing well. Consider developing this strategy further.";
+    
+    return (
+      <div className="space-y-4">
+        <h3 className="text-md font-semibold">Key Insights:</h3>
+        <ul className="list-disc pl-5 space-y-2">
+          <li>
+            <span className="font-medium">With Trend Performance:</span>{" "}
+            {withTrend.winRate}% win rate ({withTrend.wins} wins, {withTrend.losses} losses) from {withTrend.total} trades
+          </li>
+          <li>
+            <span className="font-medium">Against Trend Performance:</span>{" "}
+            {againstTrend.winRate}% win rate ({againstTrend.wins} wins, {againstTrend.losses} losses) from {againstTrend.total} trades
+          </li>
+          <li>
+            <span className="font-medium">Comparison:</span>{" "}
+            {comparison}
+          </li>
+          <li>
+            <span className="font-medium">Profit Comparison:</span>{" "}
+            {plComparison}
+          </li>
+        </ul>
+        <p className="text-sm text-gray-600 italic mt-2">
+          Recommendation: {recommendation}
+        </p>
+      </div>
+    );
+  };
+
+  // Generate summary for confluence count
+  const getConfluenceCountSummary = () => {
+    if (!confluenceAnalysis) return null;
+    
+    // Find best and worst confluence counts by win rate
+    const bestByWinRate = [...confluenceAnalysis].sort((a, b) => b.winRate - a.winRate)[0];
+    const worstByWinRate = [...confluenceAnalysis].sort((a, b) => a.winRate - b.winRate)[0];
+    
+    // Find best and worst confluence counts by avg P/L
+    const bestByAvgPL = [...confluenceAnalysis].sort((a, b) => b.avgProfitLoss - a.avgProfitLoss)[0];
+    const worstByAvgPL = [...confluenceAnalysis].sort((a, b) => a.avgProfitLoss - b.avgProfitLoss)[0];
+    
+    // Check correlation between number of confluences and win rate
+    const correlation = confluenceAnalysis.length > 1 && 
+      confluenceAnalysis.every((item, i, arr) => 
+        i === 0 || item.confluenceCount > arr[i-1].confluenceCount) && 
+      confluenceAnalysis.every((item, i, arr) => 
+        i === 0 || item.winRate >= arr[i-1].winRate) ? 
+      "There's a positive correlation between the number of confluences and win rate." : 
+      "There's no clear correlation between the number of confluences and win rate.";
+    
+    return (
+      <div className="space-y-4">
+        <h3 className="text-md font-semibold">Key Insights:</h3>
+        <ul className="list-disc pl-5 space-y-2">
+          <li>
+            <span className="font-medium">Optimal Number of Confluences (Win Rate):</span>{" "}
+            <span className="text-green-600">{bestByWinRate.confluenceCount}</span> with {bestByWinRate.winRate}% win rate
+          </li>
+          <li>
+            <span className="font-medium">Worst Number of Confluences (Win Rate):</span>{" "}
+            <span className="text-red-600">{worstByWinRate.confluenceCount}</span> with {worstByWinRate.winRate}% win rate
+          </li>
+          <li>
+            <span className="font-medium">Optimal Number of Confluences (Avg P/L):</span>{" "}
+            <span className="text-green-600">{bestByAvgPL.confluenceCount}</span> with {bestByAvgPL.avgProfitLoss.toFixed(2)} avg P/L
+          </li>
+          <li>
+            <span className="font-medium">Correlation Analysis:</span>{" "}
+            {correlation}
+          </li>
+        </ul>
+        <p className="text-sm text-gray-600 italic mt-2">
+          Recommendation: Aim for {bestByWinRate.confluenceCount} confluence factors in your trading setups to maximize win rate.
+        </p>
+      </div>
+    );
+  };
+
+  // Generate summary for confluence groups
+  const getConfluenceGroupSummary = () => {
+    if (!confluenceGroupAnalysis || confluenceGroupAnalysis.length === 0) return null;
+    
+    // Find top 3 combinations by win rate
+    const topByWinRate = [...confluenceGroupAnalysis].sort((a, b) => b.winRate - a.winRate).slice(0, 3);
+    
+    // Find top 3 combinations by P/L
+    const topByPL = [...confluenceGroupAnalysis].sort((a, b) => b.profitLoss - a.profitLoss).slice(0, 3);
+    
+    // Find most common confluence combinations
+    const mostCommon = [...confluenceGroupAnalysis].sort((a, b) => b.total - a.total).slice(0, 3);
+    
+    // Format combination strings for readability
+    const formatCombinationForDisplay = (combo: string) => {
+      return combo
+        .replace(/P:/g, 'Pivot: ')
+        .replace(/B:/g, 'Banking: ')
+        .replace(/M:/g, 'MA: ')
+        .replace(/F:/g, 'Fib: ')
+        .split(' + ')
+        .join(', ');
+    };
+    
+    const topWinRateCombo = topByWinRate.length > 0 ? formatCombinationForDisplay(topByWinRate[0].combination) : '';
+    
+    return (
+      <div className="space-y-4">
+        <h3 className="text-md font-semibold">Top Performing Confluence Combinations:</h3>
+        <div>
+          <h4 className="font-medium text-green-700">Best by Win Rate:</h4>
+          <ol className="list-decimal pl-5 space-y-1">
+            {topByWinRate.map((item, idx) => (
+              <li key={`wr-${idx}`}>
+                <span className="font-medium">{formatCombinationForDisplay(item.combination)}</span>
+                <br />
+                <span className="text-sm">
+                  {item.winRate}% win rate ({item.wins} wins, {item.losses} losses from {item.total} trades)
+                </span>
+              </li>
+            ))}
+          </ol>
+        </div>
+        
+        <div>
+          <h4 className="font-medium text-blue-700">Best by Total P/L:</h4>
+          <ol className="list-decimal pl-5 space-y-1">
+            {topByPL.map((item, idx) => (
+              <li key={`pl-${idx}`}>
+                <span className="font-medium">{formatCombinationForDisplay(item.combination)}</span>
+                <br />
+                <span className="text-sm">
+                  {item.profitLoss.toFixed(2)} total P/L ({item.winRate}% win rate from {item.total} trades)
+                </span>
+              </li>
+            ))}
+          </ol>
+        </div>
+        
+        <p className="text-sm text-gray-600 italic mt-2">
+          Recommendation: Focus on trading setups that include the confluence factors from your top-performing combinations
+          {topWinRateCombo ? `, particularly ${topWinRateCombo}` : ''}.
+        </p>
+      </div>
+    );
+  };
+
   return (
     <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
       <div className="px-4 sm:px-0">
@@ -836,14 +1113,28 @@ export default function TradesAnalysis() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Market Condition Analysis */}
               <div className="bg-white rounded-lg shadow p-6">
-                <h2 className="text-lg font-medium text-gray-900 mb-4">Market Condition Analysis</h2>
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-lg font-medium text-gray-900">Market Condition Analysis</h2>
+                  <button 
+                    onClick={() => toggleViewMode('marketCondition')}
+                    className="px-3 py-1 text-sm rounded bg-gray-200 text-gray-700 hover:bg-gray-300"
+                  >
+                    {viewModes.marketCondition === 'chart' ? 'Show Summary' : 'Show Chart'}
+                  </button>
+                </div>
                 {marketConditionAnalysis && marketConditionAnalysis.length > 0 ? (
                   <>
-                    <div className="mb-6 h-64">
-                      {marketConditionChartData && (
-                        <Bar data={marketConditionChartData} options={barChartOptions} />
-                      )}
-                    </div>
+                    {viewModes.marketCondition === 'chart' ? (
+                      <div className="mb-6 h-64">
+                        {marketConditionChartData && (
+                          <Bar data={marketConditionChartData} options={barChartOptions} />
+                        )}
+                      </div>
+                    ) : (
+                      <div className="mb-6">
+                        {getMarketConditionSummary()}
+                      </div>
+                    )}
                     <div className="overflow-x-auto">
                       <table className="min-w-full divide-y divide-gray-200 text-sm">
                         <thead className="bg-gray-50">
@@ -882,14 +1173,28 @@ export default function TradesAnalysis() {
 
               {/* Day of Week Analysis */}
               <div className="bg-white rounded-lg shadow p-6">
-                <h2 className="text-lg font-medium text-gray-900 mb-4">Day of Week Analysis</h2>
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-lg font-medium text-gray-900">Day of Week Analysis</h2>
+                  <button 
+                    onClick={() => toggleViewMode('dayOfWeek')}
+                    className="px-3 py-1 text-sm rounded bg-gray-200 text-gray-700 hover:bg-gray-300"
+                  >
+                    {viewModes.dayOfWeek === 'chart' ? 'Show Summary' : 'Show Chart'}
+                  </button>
+                </div>
                 {dayOfWeekAnalysis && dayOfWeekAnalysis.length > 0 ? (
                   <>
-                    <div className="mb-6 h-64">
-                      {dayOfWeekChartData && (
-                        <Bar data={dayOfWeekChartData} options={barChartOptions} />
-                      )}
-                    </div>
+                    {viewModes.dayOfWeek === 'chart' ? (
+                      <div className="mb-6 h-64">
+                        {dayOfWeekChartData && (
+                          <Bar data={dayOfWeekChartData} options={barChartOptions} />
+                        )}
+                      </div>
+                    ) : (
+                      <div className="mb-6">
+                        {getDayOfWeekSummary()}
+                      </div>
+                    )}
                     <div className="overflow-x-auto">
                       <table className="min-w-full divide-y divide-gray-200 text-sm">
                         <thead className="bg-gray-50">
@@ -929,14 +1234,28 @@ export default function TradesAnalysis() {
 
             {/* Trend Analysis - Full width in its own row */}
             <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-lg font-medium text-gray-900 mb-4">Trend Analysis</h2>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-lg font-medium text-gray-900">Trend Analysis</h2>
+                <button 
+                  onClick={() => toggleViewMode('trend')}
+                  className="px-3 py-1 text-sm rounded bg-gray-200 text-gray-700 hover:bg-gray-300"
+                >
+                  {viewModes.trend === 'chart' ? 'Show Summary' : 'Show Chart'}
+                </button>
+              </div>
               {trendAnalysis && trendAnalysis.length > 0 ? (
                 <>
-                  <div className="mb-6 h-64">
-                    {trendChartData && (
-                      <Bar data={trendChartData} options={barChartOptions} />
-                    )}
-                  </div>
+                  {viewModes.trend === 'chart' ? (
+                    <div className="mb-6 h-64">
+                      {trendChartData && (
+                        <Bar data={trendChartData} options={barChartOptions} />
+                      )}
+                    </div>
+                  ) : (
+                    <div className="mb-6">
+                      {getTrendSummary()}
+                    </div>
+                  )}
                   <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
                       <thead className="bg-gray-50">
@@ -977,17 +1296,31 @@ export default function TradesAnalysis() {
 
             {/* Number of Confluences Analysis - Full width in its own row */}
             <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-lg font-medium text-gray-900 mb-4">Number of Confluences Analysis</h2>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-lg font-medium text-gray-900">Number of Confluences Analysis</h2>
+                <button 
+                  onClick={() => toggleViewMode('confluenceCount')}
+                  className="px-3 py-1 text-sm rounded bg-gray-200 text-gray-700 hover:bg-gray-300"
+                >
+                  {viewModes.confluenceCount === 'chart' ? 'Show Summary' : 'Show Chart'}
+                </button>
+              </div>
               <p className="text-sm text-gray-500 mb-4">
                 This analysis tracks the performance based on the number of confluences present (pivots, banking level, MA, fib).
               </p>
               {confluenceAnalysis && confluenceAnalysis.length > 0 ? (
                 <>
-                  <div className="mb-6 h-64">
-                    {confluenceChartData && (
-                      <Bar data={confluenceChartData} options={confluenceChartOptions} />
-                    )}
-                  </div>
+                  {viewModes.confluenceCount === 'chart' ? (
+                    <div className="mb-6 h-64">
+                      {confluenceChartData && (
+                        <Bar data={confluenceChartData} options={confluenceChartOptions} />
+                      )}
+                    </div>
+                  ) : (
+                    <div className="mb-6">
+                      {getConfluenceCountSummary()}
+                    </div>
+                  )}
                   <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
                       <thead className="bg-gray-50">
@@ -1036,6 +1369,13 @@ export default function TradesAnalysis() {
                 <h2 className="text-lg font-medium text-gray-900">Group of Confluence Analysis</h2>
                 
                 <div className="flex flex-col sm:flex-row gap-4 mt-2 lg:mt-0">
+                  <button 
+                    onClick={() => toggleViewMode('confluenceGroup')}
+                    className="px-3 py-1 text-sm rounded bg-gray-200 text-gray-700 hover:bg-gray-300"
+                  >
+                    {viewModes.confluenceGroup === 'chart' ? 'Show Summary' : 'Show Chart'}
+                  </button>
+
                   <div className="flex items-center">
                     <input
                       type="checkbox"
@@ -1092,11 +1432,17 @@ export default function TradesAnalysis() {
               
               {confluenceGroupAnalysis && confluenceGroupAnalysis.length > 0 ? (
                 <>
-                  <div className="mb-6 h-96">
-                    {confluenceGroupChartData && (
-                      <Bar data={confluenceGroupChartData} options={confluenceGroupChartOptions} />
-                    )}
-                  </div>
+                  {viewModes.confluenceGroup === 'chart' ? (
+                    <div className="mb-6 h-96">
+                      {confluenceGroupChartData && (
+                        <Bar data={confluenceGroupChartData} options={confluenceGroupChartOptions} />
+                      )}
+                    </div>
+                  ) : (
+                    <div className="mb-6">
+                      {getConfluenceGroupSummary()}
+                    </div>
+                  )}
                   <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
                       <thead className="bg-gray-50">

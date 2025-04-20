@@ -62,6 +62,8 @@ export default function TradesAnalysis() {
   const [includeMarketCondition, setIncludeMarketCondition] = useState(false);
   const [selectedMarketCondition, setSelectedMarketCondition] = useState("All");
   const [availableMarketConditions, setAvailableMarketConditions] = useState<string[]>([]);
+  // Add state for chart metric selection
+  const [selectedConfluenceMetric, setSelectedConfluenceMetric] = useState<'winRate' | 'profitLoss'>('winRate');
   // Add state for chat visibility
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [selectedAnalysisTrade, setSelectedAnalysisTrade] = useState<Trade | null>(null);
@@ -557,23 +559,25 @@ export default function TradesAnalysis() {
       labels: confluenceGroupAnalysis.map(item => item.combination),
       datasets: [
         {
-          label: 'Win Rate %',
-          data: confluenceGroupAnalysis.map(item => item.winRate),
-          backgroundColor: 'rgba(75, 192, 192, 0.6)',
-          borderColor: 'rgba(75, 192, 192, 1)',
+          label: selectedConfluenceMetric === 'winRate' ? 'Win Rate %' : 'Total P/L',
+          data: confluenceGroupAnalysis.map(item => selectedConfluenceMetric === 'winRate' ? item.winRate : item.profitLoss),
+          backgroundColor: selectedConfluenceMetric === 'winRate' 
+            ? 'rgba(75, 192, 192, 0.6)' 
+            : (ctx: any) => {
+                const value = ctx.raw;
+                return value >= 0 ? 'rgba(75, 192, 192, 0.6)' : 'rgba(255, 99, 132, 0.6)';
+              },
+          borderColor: selectedConfluenceMetric === 'winRate' 
+            ? 'rgba(75, 192, 192, 1)' 
+            : (ctx: any) => {
+                const value = ctx.raw;
+                return value >= 0 ? 'rgba(75, 192, 192, 1)' : 'rgba(255, 99, 132, 1)';
+              },
           borderWidth: 1,
-        },
-        {
-          label: 'Avg P/L',
-          data: confluenceGroupAnalysis.map(item => item.avgProfitLoss),
-          backgroundColor: 'rgba(153, 102, 255, 0.6)',
-          borderColor: 'rgba(153, 102, 255, 1)',
-          borderWidth: 1,
-          yAxisID: 'y1',
         }
       ],
     };
-  }, [confluenceGroupAnalysis]);
+  }, [confluenceGroupAnalysis, selectedConfluenceMetric]);
 
   // Chart options for bar charts
   const barChartOptions = {
@@ -627,68 +631,58 @@ export default function TradesAnalysis() {
   };
 
   // Chart options for confluence groups chart
-  const confluenceGroupChartOptions = {
-    responsive: true,
-    indexAxis: 'y' as const, // Horizontal bar chart
-    scales: {
-      y: {
-        type: 'category' as const,
-        display: true,
-        title: {
+  const confluenceGroupChartOptions = useMemo(() => {
+    return {
+      responsive: true,
+      indexAxis: 'y' as const, // Horizontal bar chart
+      scales: {
+        y: {
+          type: 'category' as const,
           display: true,
-          text: 'Confluence Combinations'
+          title: {
+            display: true,
+            text: 'Confluence Combinations'
+          },
+          ticks: {
+            // Simple truncation of long labels
+            callback: function(value: any, index: number): string {
+              const labels = confluenceGroupAnalysis?.map(item => item.combination) || [];
+              const label = labels[index] || '';
+              return label.length > 30 ? label.substring(0, 27) + '...' : label;
+            }
+          }
         },
-        ticks: {
-          // Simple truncation of long labels
-          callback: function(value: any, index: number): string {
-            const labels = confluenceGroupAnalysis?.map(item => item.combination) || [];
-            const label = labels[index] || '';
-            return label.length > 30 ? label.substring(0, 27) + '...' : label;
+        x: {
+          type: 'linear' as const,
+          display: true,
+          position: 'bottom' as const,
+          title: {
+            display: true,
+            text: selectedConfluenceMetric === 'winRate' ? 'Win Rate %' : 'Total P/L'
           }
         }
       },
-      x: {
-        type: 'linear' as const,
-        display: true,
-        position: 'bottom' as const,
-        title: {
-          display: true,
-          text: 'Win Rate %'
-        }
-      },
-      y1: {
-        type: 'linear' as const,
-        display: true,
-        position: 'right' as const,
-        grid: {
-          drawOnChartArea: false,
+      plugins: {
+        legend: {
+          position: 'top' as const,
         },
         title: {
           display: true,
-          text: 'Average P/L'
-        }
-      },
-    },
-    plugins: {
-      legend: {
-        position: 'top' as const,
-      },
-      title: {
-        display: true,
-        text: 'Performance by Specific Confluence Combinations',
-      },
-      tooltip: {
-        enabled: true,
-        displayColors: true,
-        callbacks: {
-          title: function(tooltipItems: any[]) {
-            // Display the full combination name in the tooltip
-            return tooltipItems[0].label;
+          text: `Performance by Specific Confluence Combinations (${selectedConfluenceMetric === 'winRate' ? 'Win Rate' : 'Total P/L'})`,
+        },
+        tooltip: {
+          enabled: true,
+          displayColors: true,
+          callbacks: {
+            title: function(tooltipItems: any[]) {
+              // Display the full combination name in the tooltip
+              return tooltipItems[0].label;
+            }
           }
         }
-      }
-    },
-  };
+      },
+    };
+  }, [confluenceGroupAnalysis, selectedConfluenceMetric]);
 
   // Helper function to format the combination display
   const formatCombination = (combination: string) => {
@@ -707,6 +701,11 @@ export default function TradesAnalysis() {
   // Handle market condition selection
   const handleMarketConditionChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedMarketCondition(e.target.value);
+  };
+
+  // Handle confluence metric change
+  const handleConfluenceMetricChange = (metric: 'winRate' | 'profitLoss') => {
+    setSelectedConfluenceMetric(metric);
   };
 
   return (
@@ -1040,6 +1039,31 @@ export default function TradesAnalysis() {
               <p className="text-sm text-gray-500 mb-4">
                 This analysis shows which specific combinations of confluences (Pivots, Banking Level, MA, Fib) perform best.
               </p>
+              
+              {/* Add metric toggle buttons */}
+              <div className="flex space-x-4 mb-4">
+                <button
+                  onClick={() => handleConfluenceMetricChange('winRate')}
+                  className={`px-3 py-1 text-sm rounded ${
+                    selectedConfluenceMetric === 'winRate' 
+                      ? 'bg-indigo-600 text-white' 
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                >
+                  Win Rate
+                </button>
+                <button
+                  onClick={() => handleConfluenceMetricChange('profitLoss')}
+                  className={`px-3 py-1 text-sm rounded ${
+                    selectedConfluenceMetric === 'profitLoss' 
+                      ? 'bg-indigo-600 text-white' 
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                >
+                  Total P/L
+                </button>
+              </div>
+              
               {confluenceGroupAnalysis && confluenceGroupAnalysis.length > 0 ? (
                 <>
                   <div className="mb-6 h-96">
@@ -1099,31 +1123,12 @@ export default function TradesAnalysis() {
                   </div>
                 </>
               ) : (
-                <p className="text-gray-500">No confluence group data available.</p>
+                <p className="text-gray-500">No confluence group analysis data available.</p>
               )}
             </div>
           </div>
         )}
       </div>
-
-      {/* Chat modal */}
-      {isChatOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="relative w-full max-w-3xl">
-            <button
-              onClick={() => setIsChatOpen(false)}
-              className="absolute -top-10 right-0 text-white hover:text-gray-300"
-            >
-              <X className="h-6 w-6" />
-            </button>
-            
-            <TradeChatBox
-              trade={selectedAnalysisTrade}
-              onClose={() => setIsChatOpen(false)}
-            />
-          </div>
-        </div>
-      )}
     </main>
   );
-} 
+}

@@ -158,13 +158,13 @@ export default function TradesAnalysis() {
   const marketConditionAnalysis = useMemo(() => {
     if (!filteredTrades.length) return null;
 
-    const conditions: Record<string, { total: number, wins: number, losses: number, profitLoss: number }> = {};
+    const conditions: Record<string, { total: number, wins: number, losses: number, breakeven: number, profitLoss: number }> = {};
     
     filteredTrades.forEach(trade => {
       const condition = trade.marketCondition || 'Unknown';
       
       if (!conditions[condition]) {
-        conditions[condition] = { total: 0, wins: 0, losses: 0, profitLoss: 0 };
+        conditions[condition] = { total: 0, wins: 0, losses: 0, breakeven: 0, profitLoss: 0 };
       }
       
       conditions[condition].total += 1;
@@ -172,8 +172,10 @@ export default function TradesAnalysis() {
       
       if (trade.profitLoss > 0) {
         conditions[condition].wins += 1;
-      } else {
+      } else if (trade.profitLoss < 0) {
         conditions[condition].losses += 1;
+      } else {
+        conditions[condition].breakeven += 1;
       }
     });
     
@@ -182,7 +184,8 @@ export default function TradesAnalysis() {
       total: stats.total,
       wins: stats.wins,
       losses: stats.losses,
-      winRate: stats.total > 0 ? Math.round((stats.wins / stats.total) * 100) : 0,
+      breakeven: stats.breakeven,
+      winRate: (stats.total - stats.breakeven) > 0 ? Math.round((stats.wins / (stats.total - stats.breakeven)) * 100) : 0,
       profitLoss: stats.profitLoss
     }));
   }, [filteredTrades]);
@@ -191,17 +194,17 @@ export default function TradesAnalysis() {
   const dayOfWeekAnalysis = useMemo(() => {
     if (!filteredTrades.length) return null;
 
-    const days: Record<string, { total: number, wins: number, losses: number, profitLoss: number }> = {};
+    const days: Record<string, { total: number, wins: number, losses: number, breakeven: number, profitLoss: number }> = {};
     
     daysOfWeek.forEach(day => {
-      days[day] = { total: 0, wins: 0, losses: 0, profitLoss: 0 };
+      days[day] = { total: 0, wins: 0, losses: 0, breakeven: 0, profitLoss: 0 };
     });
     
     filteredTrades.forEach(trade => {
       const day = trade.day || 'Unknown';
       
       if (!days[day]) {
-        days[day] = { total: 0, wins: 0, losses: 0, profitLoss: 0 };
+        days[day] = { total: 0, wins: 0, losses: 0, breakeven: 0, profitLoss: 0 };
       }
       
       days[day].total += 1;
@@ -209,8 +212,10 @@ export default function TradesAnalysis() {
       
       if (trade.profitLoss > 0) {
         days[day].wins += 1;
-      } else {
+      } else if (trade.profitLoss < 0) {
         days[day].losses += 1;
+      } else {
+        days[day].breakeven += 1;
       }
     });
     
@@ -219,7 +224,8 @@ export default function TradesAnalysis() {
       total: stats.total,
       wins: stats.wins,
       losses: stats.losses,
-      winRate: stats.total > 0 ? Math.round((stats.wins / stats.total) * 100) : 0,
+      breakeven: stats.breakeven,
+      winRate: (stats.total - stats.breakeven) > 0 ? Math.round((stats.wins / (stats.total - stats.breakeven)) * 100) : 0,
       profitLoss: stats.profitLoss
     }));
   }, [filteredTrades]);
@@ -234,6 +240,7 @@ export default function TradesAnalysis() {
       total: 0,
       wins: 0,
       losses: 0,
+      breakeven: 0,
       profitLoss: 0
     };
 
@@ -243,6 +250,7 @@ export default function TradesAnalysis() {
       total: 0,
       wins: 0,
       losses: 0,
+      breakeven: 0,
       profitLoss: 0
     };
 
@@ -261,19 +269,21 @@ export default function TradesAnalysis() {
       
       if (trade.profitLoss > 0) {
         target.wins += 1;
-      } else {
+      } else if (trade.profitLoss < 0) {
         target.losses += 1;
+      } else {
+        target.breakeven += 1;
       }
     });
 
     return [
       {
         ...withTrend,
-        winRate: withTrend.total > 0 ? Math.round((withTrend.wins / withTrend.total) * 100) : 0
+        winRate: (withTrend.total - withTrend.breakeven) > 0 ? Math.round((withTrend.wins / (withTrend.total - withTrend.breakeven)) * 100) : 0
       },
       {
         ...againstTrend,
-        winRate: againstTrend.total > 0 ? Math.round((againstTrend.wins / againstTrend.total) * 100) : 0
+        winRate: (againstTrend.total - againstTrend.breakeven) > 0 ? Math.round((againstTrend.wins / (againstTrend.total - againstTrend.breakeven)) * 100) : 0
       }
     ];
   }, [filteredTrades]);
@@ -283,12 +293,12 @@ export default function TradesAnalysis() {
     if (!filteredTrades.length) return null;
 
     // Initialize data structure to track trades by number of confluences
-    const byConfluenceCount: Record<number, { total: number, wins: number, losses: number, profitLoss: number }> = {
-      0: { total: 0, wins: 0, losses: 0, profitLoss: 0 },
-      1: { total: 0, wins: 0, losses: 0, profitLoss: 0 },
-      2: { total: 0, wins: 0, losses: 0, profitLoss: 0 },
-      3: { total: 0, wins: 0, losses: 0, profitLoss: 0 },
-      4: { total: 0, wins: 0, losses: 0, profitLoss: 0 }
+    const byConfluenceCount: Record<number, { total: number, wins: number, losses: number, breakeven: number, profitLoss: number }> = {
+      0: { total: 0, wins: 0, losses: 0, breakeven: 0, profitLoss: 0 },
+      1: { total: 0, wins: 0, losses: 0, breakeven: 0, profitLoss: 0 },
+      2: { total: 0, wins: 0, losses: 0, breakeven: 0, profitLoss: 0 },
+      3: { total: 0, wins: 0, losses: 0, breakeven: 0, profitLoss: 0 },
+      4: { total: 0, wins: 0, losses: 0, breakeven: 0, profitLoss: 0 }
     };
 
     filteredTrades.forEach(trade => {
@@ -302,7 +312,7 @@ export default function TradesAnalysis() {
       
       // Add trade data to the appropriate confluence count bucket
       if (!byConfluenceCount[confluenceCount]) {
-        byConfluenceCount[confluenceCount] = { total: 0, wins: 0, losses: 0, profitLoss: 0 };
+        byConfluenceCount[confluenceCount] = { total: 0, wins: 0, losses: 0, breakeven: 0, profitLoss: 0 };
       }
       
       byConfluenceCount[confluenceCount].total += 1;
@@ -310,8 +320,10 @@ export default function TradesAnalysis() {
       
       if (trade.profitLoss > 0) {
         byConfluenceCount[confluenceCount].wins += 1;
-      } else {
+      } else if (trade.profitLoss < 0) {
         byConfluenceCount[confluenceCount].losses += 1;
+      } else {
+        byConfluenceCount[confluenceCount].breakeven += 1;
       }
     });
     
@@ -321,7 +333,8 @@ export default function TradesAnalysis() {
       total: stats.total,
       wins: stats.wins,
       losses: stats.losses,
-      winRate: stats.total > 0 ? Math.round((stats.wins / stats.total) * 100) : 0,
+      breakeven: stats.breakeven,
+      winRate: (stats.total - stats.breakeven) > 0 ? Math.round((stats.wins / (stats.total - stats.breakeven)) * 100) : 0,
       profitLoss: stats.profitLoss,
       avgProfitLoss: stats.total > 0 ? stats.profitLoss / stats.total : 0
     })).filter(item => item.total > 0); // Filter out confluence counts with no trades
@@ -336,6 +349,7 @@ export default function TradesAnalysis() {
       total: number, 
       wins: number, 
       losses: number, 
+      breakeven: number,
       profitLoss: number,
       valueMap: Record<string, Record<string, number>>, // Track actual values
       marketCondition: string
@@ -397,7 +411,8 @@ export default function TradesAnalysis() {
         combinationPerformance[combinationKey] = { 
           total: 0, 
           wins: 0, 
-          losses: 0, 
+          losses: 0,
+          breakeven: 0,
           profitLoss: 0,
           valueMap: {
             'P': {}, // Pivots values
@@ -425,8 +440,10 @@ export default function TradesAnalysis() {
       
       if (trade.profitLoss > 0) {
         combo.wins += 1;
-      } else {
+      } else if (trade.profitLoss < 0) {
         combo.losses += 1;
+      } else {
+        combo.breakeven += 1;
       }
     });
     
@@ -438,7 +455,8 @@ export default function TradesAnalysis() {
           total: stats.total,
           wins: stats.wins,
           losses: stats.losses,
-          winRate: stats.total > 0 ? Math.round((stats.wins / stats.total) * 100) : 0,
+          breakeven: stats.breakeven,
+          winRate: (stats.total - stats.breakeven) > 0 ? Math.round((stats.wins / (stats.total - stats.breakeven)) * 100) : 0,
           profitLoss: stats.profitLoss,
           avgProfitLoss: stats.total > 0 ? stats.profitLoss / stats.total : 0,
           valueMap: stats.valueMap,
@@ -834,6 +852,7 @@ export default function TradesAnalysis() {
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Wins</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Losses</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Breakeven</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Win Rate</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">P/L</th>
                           </tr>
@@ -845,6 +864,7 @@ export default function TradesAnalysis() {
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.total}</td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600">{item.wins}</td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600">{item.losses}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.breakeven}</td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.winRate}%</td>
                               <td className={`px-6 py-4 whitespace-nowrap text-sm ${item.profitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                                 {item.profitLoss.toFixed(2)}
@@ -878,6 +898,7 @@ export default function TradesAnalysis() {
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Wins</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Losses</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Breakeven</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Win Rate</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">P/L</th>
                           </tr>
@@ -889,6 +910,7 @@ export default function TradesAnalysis() {
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.total}</td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600">{item.wins}</td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600">{item.losses}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.breakeven}</td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.winRate}%</td>
                               <td className={`px-6 py-4 whitespace-nowrap text-sm ${item.profitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                                 {item.profitLoss.toFixed(2)}
@@ -924,6 +946,7 @@ export default function TradesAnalysis() {
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Wins</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Losses</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Breakeven</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Win Rate</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">P/L</th>
                         </tr>
@@ -936,6 +959,7 @@ export default function TradesAnalysis() {
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.total}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600">{item.wins}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600">{item.losses}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.breakeven}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.winRate}%</td>
                             <td className={`px-6 py-4 whitespace-nowrap text-sm ${item.profitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                               {item.profitLoss.toFixed(2)}
@@ -972,6 +996,7 @@ export default function TradesAnalysis() {
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Wins</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Losses</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Breakeven</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Win Rate</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total P/L</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Avg P/L</th>
@@ -986,6 +1011,7 @@ export default function TradesAnalysis() {
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.total}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600">{item.wins}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600">{item.losses}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.breakeven}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.winRate}%</td>
                             <td className={`px-6 py-4 whitespace-nowrap text-sm ${item.profitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                               {item.profitLoss.toFixed(2)}
@@ -1082,6 +1108,7 @@ export default function TradesAnalysis() {
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Wins</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Losses</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Breakeven</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Win Rate</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total P/L</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Avg P/L</th>
@@ -1108,6 +1135,7 @@ export default function TradesAnalysis() {
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.total}</td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600">{item.wins}</td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600">{item.losses}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.breakeven}</td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.winRate}%</td>
                               <td className={`px-6 py-4 whitespace-nowrap text-sm ${item.profitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                                 {item.profitLoss.toFixed(2)}

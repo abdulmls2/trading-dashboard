@@ -9,14 +9,14 @@ interface TradeTimeHeatmapProps {
 const TRADING_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 const SHORT_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 
-// Time blocks (4-hour blocks for simplicity)
+// Time blocks (4-hour blocks starting from 6AM)
 const TIME_BLOCKS = [
-  { start: 0, end: 4 },
-  { start: 4, end: 8 },
-  { start: 8, end: 12 },
-  { start: 12, end: 16 },
-  { start: 16, end: 20 },
-  { start: 20, end: 24 },
+  { start: 6, end: 10 },
+  { start: 10, end: 14 },
+  { start: 14, end: 18 },
+  { start: 18, end: 22 },
+  { start: 22, end: 2 },  // This crosses midnight
+  { start: 2, end: 6 },
 ];
 
 export default function TradeTimeHeatmap({ trades }: TradeTimeHeatmapProps) {
@@ -45,8 +45,27 @@ export default function TradeTimeHeatmap({ trades }: TradeTimeHeatmapProps) {
         // Skip if we can't parse the time correctly
         if (isNaN(hour) || hour < 0 || hour > 23) return;
         
-        // Find the appropriate time block
-        const timeBlockIndex = TIME_BLOCKS.findIndex(block => hour >= block.start && hour < block.end);
+        // Find the appropriate time block, handling blocks that cross midnight
+        let timeBlockIndex = -1;
+        
+        for (let i = 0; i < TIME_BLOCKS.length; i++) {
+          const block = TIME_BLOCKS[i];
+          
+          if (block.start < block.end) {
+            // Normal block (e.g., 6-10, 10-14, etc.)
+            if (hour >= block.start && hour < block.end) {
+              timeBlockIndex = i;
+              break;
+            }
+          } else {
+            // Block that crosses midnight (e.g., 22-2)
+            if (hour >= block.start || hour < block.end) {
+              timeBlockIndex = i;
+              break;
+            }
+          }
+        }
+        
         if (timeBlockIndex === -1) return;
         
         // Extract pips from trade
@@ -81,10 +100,13 @@ export default function TradeTimeHeatmap({ trades }: TradeTimeHeatmapProps) {
   // Format time range for display
   const formatTimeRange = (start: number, end: number) => {
     const formatHour = (hour: number) => {
-      if (hour === 0 || hour === 24) return '12 AM';
-      if (hour === 12) return '12 PM';
-      if (hour < 12) return `${hour} AM`;
-      return `${hour - 12} PM`;
+      // Handle hours that wrap around midnight
+      const normalizedHour = hour >= 24 ? hour - 24 : (hour < 0 ? hour + 24 : hour);
+      
+      if (normalizedHour === 0) return '12 AM';
+      if (normalizedHour === 12) return '12 PM';
+      if (normalizedHour < 12) return `${normalizedHour} AM`;
+      return `${normalizedHour - 12} PM`;
     };
     
     return `${formatHour(start)} - ${formatHour(end)}`;

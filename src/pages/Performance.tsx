@@ -6,6 +6,7 @@ import TradeChatBox from '../components/TradeChatBox';
 import PipsProgressChart from '../components/PipsProgressChart';
 import ProfitLossProgressChart from '../components/ProfitLossProgressChart';
 import PairDistributionChart from '../components/PairDistributionChart';
+import TradeTimeHeatmap from '../components/TradeTimeHeatmap';
 import { PlusCircle, MessageSquare, ChevronDown, Filter, Calendar, Clock } from 'lucide-react';
 import { Trade, PerformanceMetrics as Metrics } from '../types';
 import { getTrades, getTradeViolations, getPerformanceMetrics, updatePerformanceMetrics } from '../lib/api';
@@ -429,27 +430,8 @@ export default function Performance() {
             {/* 3. Pair Distribution Chart */}
             <PairDistributionChart trades={filteredTrades} />
             
-            {/* 4. Trade Time Map Placeholder */}
-            <div 
-              className="bg-white p-6 rounded-lg shadow relative overflow-hidden group cursor-help"
-              title="Coming soon"
-            >
-              <div className="absolute inset-0 bg-white bg-opacity-70 backdrop-blur-md opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity duration-200 z-10">
-                <p className="text-lg font-medium text-gray-800">Coming soon</p>
-              </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Trade Time Map</h3>
-              <div className="flex items-center justify-center h-60 relative">
-                <div className="w-full h-full grid grid-cols-7 grid-rows-5 gap-2 opacity-50">
-                  {Array.from({ length: 35 }).map((_, i) => (
-                    <div 
-                      key={i} 
-                      className={`rounded bg-indigo-${Math.floor(Math.random() * 5) * 100 + 300}`}
-                      style={{ opacity: Math.random() * 0.7 + 0.3 }}
-                    ></div>
-                  ))}
-                </div>
-              </div>
-            </div>
+            {/* 4. Trade Time Map */}
+            <TradeTimeHeatmap trades={filteredTrades} />
           </div>
         </div>
         

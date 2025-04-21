@@ -4,10 +4,11 @@ import 'react-calendar/dist/Calendar.css';
 import { format, isValid } from 'date-fns';
 // import Header from '../components/Header'; // Ensure this is removed or commented out
 import { Trade, TradeCalendarDay } from '../types';
-import { getTrades } from '../lib/api';
+import { getTrades, useEffectiveUserId } from '../lib/api';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 
 export default function CalendarPage() {
+  const effectiveUserId = useEffectiveUserId();
   const [value, setValue] = useState<Date>(new Date());
   const [trades, setTrades] = useState<Trade[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -16,9 +17,17 @@ export default function CalendarPage() {
 
   useEffect(() => {
     async function loadTrades() {
+      if (!effectiveUserId) {
+        console.warn("No effectiveUserId available, cannot load trades for calendar");
+        return;
+      }
+      
       try {
         setLoading(true);
-        const tradeData = await getTrades();
+        console.log(`Calendar: Loading trades for user ${effectiveUserId}`);
+        const tradeData = await getTrades(effectiveUserId);
+        console.log(`Calendar: Loaded ${tradeData.length} trades for user ${effectiveUserId}`);
+        
         // Add the time property required by the Trade interface
         const formattedTrades = tradeData.map(trade => ({
           ...trade,
@@ -26,13 +35,17 @@ export default function CalendarPage() {
         }));
         setTrades(formattedTrades);
       } catch (err) {
+        console.error("Failed to load trades for calendar:", err);
         setError(err instanceof Error ? err.message : 'Failed to load trades');
       } finally {
         setLoading(false);
       }
     }
-    loadTrades();
-  }, []);
+    
+    if (effectiveUserId) {
+      loadTrades();
+    }
+  }, [effectiveUserId]);
 
   // Group trades by date
   const tradesByDate = useMemo(() => {

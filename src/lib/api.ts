@@ -3,13 +3,31 @@ import { Trade, PerformanceMetrics } from '../types';
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 
-export async function createTrade(trade: Omit<Trade, 'id' | 'time'>) {
-  const { data: { user } } = await supabase.auth.getUser();
+// Custom hook to get the effective user ID, considering impersonation
+export function useEffectiveUserId() {
+  const { effectiveUserId } = useAuth();
+  
+  // Return the effective user ID directly
+  return effectiveUserId;
+}
+
+export async function createTrade(trade: Omit<Trade, 'id' | 'time'>, targetUserId?: string | null) {
+  // If targetUserId is provided and not null, use it (for admin impersonation)
+  // Otherwise, get the current user
+  let userId: string;
+  
+  if (targetUserId) {
+    userId = targetUserId;
+  } else {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User not authenticated');
+    userId = user.id;
+  }
   
   const { data, error } = await supabase
     .from('trades')
     .insert([{
-      user_id: user?.id,
+      user_id: userId,
       date: trade.date,
       pair: trade.pair,
       action: trade.action,
@@ -92,14 +110,19 @@ export async function deleteTrade(id: string) {
   if (error) throw error;
 }
 
-export async function getTrades(targetUserId?: string) {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('User not authenticated');
+export async function getTrades(targetUserId?: string | null) {
+  // If targetUserId is provided and not null, use it (for admin impersonation)
+  // Otherwise, get the current user
+  let userId: string;
   
-  const userIdToFetch = targetUserId || user.id;
+  if (targetUserId) {
+    userId = targetUserId;
+  } else {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User not authenticated');
+    userId = user.id;
+  }
 
-  // Even for admins, we'll filter by their user_id 
-  // to ensure they only see their own trades in the trade history table
   const { data, error } = await supabase
     .from('trades')
     .select(`
@@ -132,7 +155,7 @@ export async function getTrades(targetUserId?: string) {
       additional_confluences,
       created_at
     `)
-    .eq('user_id', userIdToFetch)
+    .eq('user_id', userId)
     .order('date', { ascending: false });
 
   if (error) throw error;
@@ -170,17 +193,24 @@ export async function getTrades(targetUserId?: string) {
   }));
 }
 
-export async function getPerformanceMetrics(month: string, targetUserId?: string) {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('User not authenticated');
-
-  const userIdToFetch = targetUserId || user.id;
+export async function getPerformanceMetrics(month: string, targetUserId?: string | null) {
+  // If targetUserId is provided and not null, use it (for admin impersonation)
+  // Otherwise, get the current user
+  let userId: string;
+  
+  if (targetUserId) {
+    userId = targetUserId;
+  } else {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User not authenticated');
+    userId = user.id;
+  }
 
   const query = supabase
     .from('performance_metrics')
     .select('*')
     .eq('month', month)
-    .eq('user_id', userIdToFetch);
+    .eq('user_id', userId);
 
   const { data, error } = await query.maybeSingle();
 

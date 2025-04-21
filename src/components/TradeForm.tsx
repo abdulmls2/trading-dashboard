@@ -68,11 +68,12 @@ interface Props {
   onClose: () => void;
   existingTrade?: Trade;
   readOnly?: boolean;
+  targetUserId?: string;
 }
 
 type TabType = 'basic' | 'technical' | 'analysis' | 'result' | 'notes' | 'import';
 
-export default function TradeForm({ onClose, existingTrade, readOnly = false }: Props) {
+export default function TradeForm({ onClose, existingTrade, readOnly = false, targetUserId }: Props) {
   const [activeTab, setActiveTab] = useState<TabType>('basic');
   const [profitLossInput, setProfitLossInput] = useState<string>(
     // Initialize with existing trade value or empty string for new trades
@@ -157,7 +158,8 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
   // Check for rule violations when key fields change
   useEffect(() => {
     const checkRules = async () => {
-      if (!user) return;
+      // Make sure we have either a user or a targetUserId
+      if (!user && !targetUserId) return;
 
       try {
         // Only check these specific fields for rule violations
@@ -170,7 +172,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
         };
 
         console.log('Checking trade against rules:', partialTrade);
-        const result = await checkTradeAgainstRules(partialTrade, user.id);
+        const result = await checkTradeAgainstRules(partialTrade, targetUserId || user!.id);
         console.log('Rule check result:', result);
         
         if (!result.isValid) {
@@ -195,11 +197,15 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
   // Check if user has the against trend rule
   useEffect(() => {
     const checkAgainstTrendRule = async () => {
-      if (!user) return;
+      if (!user && !targetUserId) return;
       
       try {
-        console.log('Checking against trend rule for user:', user.id);
-        const rules = await getUserTradingRules(user.id);
+        // Get the user ID to use
+        const userId = targetUserId || (user ? user.id : null);
+        if (!userId) return;
+        
+        console.log('Checking against trend rule for user:', userId);
+        const rules = await getUserTradingRules(userId);
         console.log('User trading rules:', rules);
         
         const againstTrendRule = rules.find(r => r.ruleType === 'action_direction');
@@ -215,68 +221,59 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
     };
     
     checkAgainstTrendRule();
-  }, [user]);
+  }, [user, targetUserId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user && !targetUserId) return;
     
-    // Don't submit if in read-only mode
-    if (readOnly) {
-      onClose();
-      return;
-    }
-    
-    setError('');
     setLoading(true);
-
+    setError('');
+    
     try {
-      // Create a new object without empty strings for optional fields
-      const submissionData = Object.fromEntries(
-        Object.entries(formData).map(([key, value]) => {
-          // Convert empty strings to null for optional fields
-          if (key === 'exitTime' && value === '') {
-            return [key, null];
-          }
-          return [key, value];
-        })
-      );
-
-      let tradeId: string;
+      if (formData.profitLoss === undefined) {
+        formData.profitLoss = parseFloat(profitLossInput) || 0;
+      }
       
-      if (existingTrade) {
-        const result = await updateTrade(existingTrade.id, submissionData);
-        tradeId = existingTrade.id;
-      } else {
-        // The id is optional in our form, but not needed for create
-        const { id, ...createData } = submissionData;
-        const result = await createTrade(createData as Omit<Trade, 'id'>);
-        tradeId = result.id;
+      // Check if record has rule violations after full form entry
+      if (ruleViolations.length > 0 && !acknowledgedViolations) {
+        setShowViolationWarning(true);
+        setLoading(false);
+        return;
       }
 
-      // If there are any rule violations, record them
-      if (ruleViolations.length > 0 && user) {
-        // Only create violations if this is a new trade or if editing and the violations changed
-        if (!existingTrade) {
-          // For new trades, create all violations
+      // Determine the user ID to use
+      const userId = targetUserId || (user ? user.id : null);
+      if (!userId) {
+        setError('No user identified for this operation');
+        setLoading(false);
+        return;
+      }
+      
+      if (existingTrade) {
+        await updateTrade(existingTrade.id, formData);
+      } else {
+        const newTrade = await createTrade(formData, userId);
+        
+        // If there were acknowledged violations, record them
+        if (ruleViolations.length > 0 && acknowledgedViolations) {
           for (const violation of ruleViolations) {
             await createTradeViolation({
-              tradeId,
-              userId: user.id,
-              ruleType: violation.ruleType as any,
+              tradeId: newTrade.id,
+              userId: userId,
+              ruleType: violation.ruleType as "pair" | "day" | "lot" | "action_direction",
               violatedValue: violation.violatedValue,
               allowedValues: violation.allowedValues,
               acknowledged: true
             });
           }
         }
-        // For existing trades, don't create new violations as they were already recorded
-        // If we need to update existing violations, we would implement that logic here
       }
-
+      
       onClose();
     } catch (err) {
-      console.error('Submission error:', err);
-      setError(err instanceof Error ? err.message : 'An error occurred while saving the trade');
+      console.error('Error saving trade:', err);
+      setError(err instanceof Error ? err.message : 'Failed to save trade');
     } finally {
       setLoading(false);
     }
@@ -368,9 +365,13 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
   
   // Function to check multiple trades for rule violations
   const checkMultipleTradesForViolations = async (trades: TradeFormData[]) => {
-    if (!user || !trades.length) return;
+    if ((!user && !targetUserId) || !trades.length) return;
     
     try {
+      // Get the user ID to use
+      const userId = targetUserId || (user ? user.id : null);
+      if (!userId) return;
+      
       // Check first trade for violations to show in the UI
       const partialTrade = {
         pair: trades[0].pair,
@@ -380,7 +381,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
         direction: trades[0].direction
       };
       
-      const result = await checkTradeAgainstRules(partialTrade, user.id);
+      const result = await checkTradeAgainstRules(partialTrade, userId);
       
       if (!result.isValid) {
         setRuleViolations(result.violations);
@@ -411,23 +412,22 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
             direction: trade.direction
           };
           
-          const tradeResult = await checkTradeAgainstRules(partialTrade, user.id);
+          const tradeResult = await checkTradeAgainstRules(partialTrade, userId);
           if (!tradeResult.isValid) {
-            violationCount++;
             violationsSet.add(i);
+            violationCount++;
           }
         }
       }
       
-      // Update the tracking state silently
       setTradesWithViolations(violationsSet);
       
-      // No need to show any warning messages about violations
-      
-      return violationCount > 0;
+      // If we have violations in multiple trades, show a summary
+      if (violationCount > 1) {
+        console.log(`Found rule violations in ${violationCount} trades`);
+      }
     } catch (err) {
-      console.error('Error checking multiple trades for violations:', err);
-      return false;
+      console.error('Error checking multiple trades for rule violations:', err);
     }
   };
   
@@ -1019,7 +1019,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false }: 
                 await createTradeViolation({
                   tradeId,
                   userId: user.id,
-                  ruleType: violation.ruleType as any,
+                  ruleType: violation.ruleType as "pair" | "day" | "lot" | "action_direction",
                   violatedValue: violation.violatedValue,
                   allowedValues: violation.allowedValues,
                   acknowledged: true

@@ -9,7 +9,7 @@ import PipsProgressChart from '../components/PipsProgressChart';
 import ProfitLossProgressChart from '../components/ProfitLossProgressChart';
 import { PlusCircle, MessageSquare, LineChart, BarChart, PieChart } from 'lucide-react';
 import { Trade, PerformanceMetrics as Metrics } from '../types';
-import { getTrades, getTradeViolations, getPerformanceMetrics, updatePerformanceMetrics } from '../lib/api';
+import { getTrades, getTradeViolations, getPerformanceMetrics, updatePerformanceMetrics, useEffectiveUserId } from '../lib/api';
 
 // Default empty calculated metrics
 const emptyCalculatedMetrics = {
@@ -48,6 +48,9 @@ const getAvailableYears = () => {
 };
 
 export default function UserPerformanceView() { // Renamed component
+  // Get the effective user ID (which will be the impersonated user ID if admin is impersonating)
+  const effectiveUserId = useEffectiveUserId();
+  
   const [showTradeForm, setShowTradeForm] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const [selectedTrade, setSelectedTrade] = useState<Trade | null>(null);
@@ -136,6 +139,11 @@ export default function UserPerformanceView() { // Renamed component
 
   // Function to fetch metrics for a given month/year
   const fetchMonthlyMetrics = useCallback(async (year: number, monthName: string) => {
+    if (!effectiveUserId) {
+      console.warn("No effectiveUserId available, cannot fetch monthly metrics");
+      return;
+    }
+    
     const monthStr = getMonthString(year, monthName);
     if (!monthStr) {
       setMonthlyDbMetrics(null); // Reset if month/year is invalid or "All"
@@ -144,7 +152,8 @@ export default function UserPerformanceView() { // Renamed component
     
     setLoadingMetrics(true);
     try {
-      const data = await getPerformanceMetrics(monthStr);
+      console.log(`Fetching performance metrics for month ${monthStr} and user ${effectiveUserId}`);
+      const data = await getPerformanceMetrics(monthStr, effectiveUserId);
       setMonthlyDbMetrics(data);
     } catch (err) {
       console.error("Failed to load monthly metrics:", err);
@@ -153,7 +162,7 @@ export default function UserPerformanceView() { // Renamed component
     } finally {
       setLoadingMetrics(false);
     }
-  }, [getMonthString]);
+  }, [getMonthString, effectiveUserId]);
 
   // Filter trades whenever trades, selectedMonth, or selectedYear changes
   const filterTrades = useCallback(() => {
@@ -192,35 +201,44 @@ export default function UserPerformanceView() { // Renamed component
   }, [trades, selectedMonth, selectedYear, fetchMonthlyMetrics]);
 
   // Initial data load for trades and violations
-  const loadInitialData = async () => {
+  const loadInitialData = useCallback(async () => {
+    if (!effectiveUserId) {
+      console.warn("No effectiveUserId available, cannot load initial data");
+      return;
+    }
+    
     try {
       setLoading(true);
+      console.log(`Loading trades and violations for user ${effectiveUserId}`);
       const [tradeData, violationData] = await Promise.all([
-        getTrades(),
-        getTradeViolations()
+        getTrades(effectiveUserId),
+        getTradeViolations(effectiveUserId)
       ]);
       
+      console.log(`Loaded ${tradeData.length} trades for user ${effectiveUserId}`);
+      // Format trades to add the time property needed by the Trade type
       const formattedTrades = tradeData.map(trade => ({ ...trade, time: trade.entryTime }));
       setTrades(formattedTrades);
       setViolations(violationData);
-      // Initial filter and metrics fetch will be triggered by the filterTrades effect
-    } catch (err) { 
+    } catch (err) {
+      console.error("Failed to load initial data:", err);
       setError(err instanceof Error ? err.message : 'Failed to load data');
     } finally {
       setLoading(false);
     }
-  };
+  }, [effectiveUserId]);
 
+  // Load initial data and set up filtering
   useEffect(() => {
-    loadInitialData();
-  }, []); // Runs only once on mount
-
-  // Effect to run filtering and metric fetching when selections change
-  useEffect(() => {
-    if (trades.length > 0) {
-      filterTrades();
+    if (effectiveUserId) {
+      loadInitialData();
     }
-  }, [selectedMonth, selectedYear, trades, filterTrades]);
+  }, [loadInitialData, effectiveUserId]);
+  
+  // Whenever trades, month, or year changes, update filtered trades
+  useEffect(() => {
+    filterTrades();
+  }, [filterTrades]);
 
   // Handler to update monthly metrics in DB
   const handleUpdateMonthlyMetrics = useCallback(async (updates: Partial<Metrics>) => {

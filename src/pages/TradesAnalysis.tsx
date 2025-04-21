@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { getTrades } from '../lib/api';
+import { getTrades, useEffectiveUserId } from '../lib/api';
 import { Trade } from '../types';
 import TradeChatBox from '../components/TradeChatBox';
 import {
@@ -53,6 +53,7 @@ const confluenceTypes = ['pivots', 'bankingLevel', 'ma', 'fib'];
 const confluenceLabels = ['Pivots', 'Banking Level', 'MA', 'Fib'];
 
 export default function TradesAnalysis() {
+  const effectiveUserId = useEffectiveUserId();
   const [trades, setTrades] = useState<Trade[]>([]);
   const [filteredTrades, setFilteredTrades] = useState<Trade[]>([]);
   const [selectedMonth, setSelectedMonth] = useState("All Trades");
@@ -79,9 +80,16 @@ export default function TradesAnalysis() {
   // Load trades
   useEffect(() => {
     async function loadTrades() {
+      if (!effectiveUserId) {
+        console.warn("No effectiveUserId available, cannot load trades for analysis");
+        return;
+      }
+      
       try {
         setLoading(true);
-        const data = await getTrades();
+        console.log(`TradesAnalysis: Loading trades for user ${effectiveUserId}`);
+        const data = await getTrades(effectiveUserId);
+        console.log(`TradesAnalysis: Loaded ${data.length} trades for user ${effectiveUserId}`);
         
         // Format the trades properly
         const formattedTrades = data.map(trade => ({
@@ -104,14 +112,17 @@ export default function TradesAnalysis() {
         setTrades(formattedTrades);
         setFilteredTrades(formattedTrades); // Set initial filtered trades
       } catch (err) {
+        console.error("Failed to load trades for analysis:", err);
         setError(err instanceof Error ? err.message : 'Failed to load trades');
       } finally {
         setLoading(false);
       }
     }
 
-    loadTrades();
-  }, []);
+    if (effectiveUserId) {
+      loadTrades();
+    }
+  }, [effectiveUserId]);
 
   // Filter trades by selected month and year
   const filterTrades = () => {

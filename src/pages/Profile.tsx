@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
+import { useEffectiveUserId } from '../lib/api';
 
 interface ProfileData {
   full_name: string;
@@ -8,7 +9,8 @@ interface ProfileData {
 }
 
 export default function Profile() {
-  const { user } = useAuth();
+  const { user, isAdmin, effectiveUser } = useAuth();
+  const effectiveUserId = useEffectiveUserId(); // Get the effective user ID (impersonated user or actual user)
   const [loading, setLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -18,15 +20,16 @@ export default function Profile() {
   });
 
   const fetchProfile = useCallback(async () => {
-    if (!user) return;
+    if (!effectiveUserId) return;
 
     try {
       setLoading(true);
+      console.log(`Profile: Fetching profile for user ID ${effectiveUserId}`);
       
       const { data, error } = await supabase
         .from('profiles')
         .select('full_name, username')
-        .eq('user_id', user.id)
+        .eq('user_id', effectiveUserId)
         .single();
 
       if (error) {
@@ -34,6 +37,7 @@ export default function Profile() {
       }
 
       if (data) {
+        console.log(`Profile: Data loaded for user ${effectiveUserId}`, data);
         setProfileData({
           full_name: data.full_name || '',
           username: data.username || '',
@@ -48,7 +52,7 @@ export default function Profile() {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [effectiveUserId]);
 
   useEffect(() => {
     fetchProfile();
@@ -65,7 +69,7 @@ export default function Profile() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!user || !isEditing) return;
+    if (!effectiveUserId || !isEditing) return;
 
     try {
       setLoading(true);
@@ -78,7 +82,7 @@ export default function Profile() {
           username: profileData.username,
           updated_at: new Date(),
         })
-        .eq('user_id', user.id);
+        .eq('user_id', effectiveUserId);
 
       if (error) {
         throw error;
@@ -100,13 +104,24 @@ export default function Profile() {
     }
   };
 
+  // Only allow editing for own profile, not when impersonating
+  const isImpersonating = effectiveUser?.user_id !== user?.id;
+  const canEdit = !isImpersonating;
+
   return (
     <div>
       <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
           <div className="bg-white shadow-md rounded-lg border border-gray-200">
             <div className="px-6 py-5 border-b border-gray-200 bg-gray-50">
-              <h3 className="text-lg leading-6 font-medium text-gray-900">Profile Settings</h3>
+              <h3 className="text-lg leading-6 font-medium text-gray-900">
+                Profile Settings
+                {isImpersonating && isAdmin && (
+                  <span className="ml-2 text-xs text-indigo-600">
+                    (View Only - You are impersonating this user)
+                  </span>
+                )}
+              </h3>
             </div>
             <div className="px-6 py-5">
               {message && (
@@ -133,7 +148,7 @@ export default function Profile() {
                         onChange={handleChange}
                         className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border border-gray-300 rounded-md bg-gray-50 p-2"
                         placeholder="Enter your full name"
-                        disabled={!isEditing}
+                        disabled={!isEditing || !canEdit}
                       />
                     </div>
                   </div>
@@ -151,13 +166,13 @@ export default function Profile() {
                         onChange={handleChange}
                         className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border border-gray-300 rounded-md bg-gray-50 p-2"
                         placeholder="Enter your username"
-                        disabled={!isEditing}
+                        disabled={!isEditing || !canEdit}
                       />
                     </div>
                   </div>
 
                   <div className="flex justify-end pt-5 border-t border-gray-200">
-                    {!isEditing ? (
+                    {!isEditing && canEdit ? (
                       <button
                         type="button"
                         onClick={() => {
@@ -170,26 +185,30 @@ export default function Profile() {
                       </button>
                     ) : (
                       <>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setIsEditing(false);
-                            fetchProfile(); // Reset form data
-                            setMessage(null);
-                          }}
-                          className="mr-3 bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          type="submit"
-                          disabled={loading}
-                          className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${
-                            loading ? 'opacity-70 cursor-not-allowed' : ''
-                          }`}
-                        >
-                          {loading ? 'Saving...' : 'Save Changes'}
-                        </button>
+                        {canEdit && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsEditing(false);
+                                fetchProfile(); // Reset form data
+                                setMessage(null);
+                              }}
+                              className="mr-3 bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="submit"
+                              disabled={loading}
+                              className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${
+                                loading ? 'opacity-70 cursor-not-allowed' : ''
+                              }`}
+                            >
+                              {loading ? 'Saving...' : 'Save Changes'}
+                            </button>
+                          </>
+                        )}
                       </>
                     )}
                   </div>

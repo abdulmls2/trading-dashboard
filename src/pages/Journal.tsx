@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import TradeHistoryTable from '../components/TradeHistoryTable';
 import { Trade } from '../types';
-import { getTrades, deleteTrade } from '../lib/api';
+import { getTrades, deleteTrade, useEffectiveUserId } from '../lib/api';
 import TradeForm from '../components/TradeForm';
 import { PlusCircle } from 'lucide-react';
 
@@ -33,6 +33,7 @@ const getSavedCurrency = () => {
 };
 
 export default function Journal() {
+  const effectiveUserId = useEffectiveUserId();
   const [trades, setTrades] = useState<Trade[]>([]);
   const [filteredTrades, setFilteredTrades] = useState<Trade[]>([]);
   const [loading, setLoading] = useState(true);
@@ -45,10 +46,20 @@ export default function Journal() {
 
   // Function to load ALL trades
   const loadTrades = useCallback(async () => {
+    console.log("Journal: Loading trades for effectiveUserId:", effectiveUserId);
+    
+    if (!effectiveUserId) {
+      console.warn("No effectiveUserId available, cannot load trades");
+      return;
+    }
+    
     setLoading(true);
     setError(null);
     try {
-      const tradeData = await getTrades();
+      // Pass the effectiveUserId as a string (getTrades expects string | undefined)
+      const tradeData = await getTrades(effectiveUserId);
+      console.log(`Journal: Loaded ${tradeData.length} trades for user ID ${effectiveUserId}`);
+      
       const formattedTrades = tradeData.map(trade => ({ ...trade, time: trade.entryTime }));
       setTrades(formattedTrades);
     } catch (err) {
@@ -57,7 +68,7 @@ export default function Journal() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [effectiveUserId]);
 
   // Filter trades whenever the main list or filters change
   useEffect(() => {
@@ -220,6 +231,7 @@ export default function Journal() {
                 <TradeForm
                   onClose={handleTradeFormClose}
                   existingTrade={selectedTrade || undefined}
+                  targetUserId={effectiveUserId || undefined}
                 />
               </div>
             </div>

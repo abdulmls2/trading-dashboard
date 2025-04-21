@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useUserImpersonation } from '../contexts/UserImpersonationContext';
 import { supabase } from '../lib/supabase';
 import TradeHistoryTable from '../components/TradeHistoryTable';
 import { Trade as TradeType } from '../types';
 import TradeForm from '../components/TradeForm';
 import UserTradingRulesForm from '../components/UserTradingRulesForm';
 import TradeViolationsTable from '../components/TradeViolationsTable';
-import UserPerformanceView from './UserPerformanceView';
-import { BarChart2 } from 'lucide-react';
+import { BarChart2, User, Calendar, BookOpen, Activity, Settings, AlertTriangle } from 'lucide-react';
 
 interface UserProfile {
   id: string;
@@ -54,7 +54,13 @@ interface DbTrade {
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
+  const { 
+    startImpersonation, 
+    stopImpersonation, 
+    isImpersonating, 
+    redirectToUserSection 
+  } = useUserImpersonation();
   const params = useParams<{ userId?: string }>();
   const location = useLocation();
   const [profiles, setProfiles] = useState<UserProfile[]>([]);
@@ -72,7 +78,6 @@ export default function AdminDashboard() {
   const [showViolationsModal, setShowViolationsModal] = useState(false);
   const [activeTab, setActiveTab] = useState<'users' | 'violations'>('users');
   const [editMode, setEditMode] = useState(false);
-  const [showUserPerformanceView, setShowUserPerformanceView] = useState(false);
 
   useEffect(() => {
     async function checkAdminAndLoadUsers() {
@@ -137,11 +142,7 @@ export default function AdminDashboard() {
       const userProfile = profiles.find(profile => profile.user_id === params.userId);
       
       if (userProfile) {
-        // Set up the performance view state
-        setSelectedUserId(params.userId);
-        setSelectedUserEmail(userProfile.email);
-        setSelectedUserFullName(userProfile.full_name || userProfile.email);
-        setShowUserPerformanceView(true);
+        handleImpersonateUser(userProfile);
       }
     }
   }, [params.userId, profiles]);
@@ -189,141 +190,30 @@ export default function AdminDashboard() {
     );
   }
 
-  const handleViewTrades = async (userId: string, email: string, fullName: string | null) => {
-    try {
-      setSelectedUserId(userId);
-      setSelectedUserEmail(email);
-      setSelectedUserFullName(fullName || email); // Use email as fallback if no name
-      
-      const { data: trades, error: tradesError } = await supabase
-        .from('trades')
-        .select('*')
-        .eq('user_id', userId)
-        .order('date', { ascending: false });
-
-      if (tradesError) throw tradesError;
-
-      // Format trades from database format to TradeHistoryTable's expected format
-      const formattedTrades: TradeType[] = (trades || []).map((trade: DbTrade) => ({
-        id: trade.id,
-        userId: trade.user_id || '',
-        date: trade.date,
-        time: trade.entry_time, // Using entry_time as time
-        pair: trade.pair,
-        action: trade.action as 'Buy' | 'Sell',
-        entryTime: trade.entry_time,
-        exitTime: trade.exit_time,
-        lots: trade.lots,
-        pipStopLoss: trade.pip_stop_loss,
-        pipTakeProfit: trade.pip_take_profit,
-        profitLoss: trade.profit_loss,
-        pivots: trade.pivots || '',
-        bankingLevel: trade.banking_level || '',
-        riskRatio: trade.risk_ratio || 0,
-        comments: trade.comments,
-        day: trade.day || '',
-        direction: trade.direction || '',
-        orderType: trade.order_type || '',
-        marketCondition: trade.market_condition || '',
-        ma: trade.ma || '',
-        fib: trade.fib || '',
-        gap: trade.gap || '',
-        mindset: trade.mindset || '',
-        tradeLink: trade.trade_link || '',
-        trueReward: trade.true_reward || '',
-        true_tp_sl: trade.true_tp_sl || '',
-        additional_confluences: trade.additional_confluences || ''
-      }));
-
-      setSelectedUserTrades(formattedTrades);
-      setShowTradesModal(true);
-    } catch (err) {
-      console.error('Error fetching trades:', err);
-      setError('Failed to load trades');
-    }
+  // Function to start impersonating a user
+  const handleImpersonateUser = (profile: UserProfile) => {
+    startImpersonation(profile);
   };
 
-  // Handler for when a trade is selected in the table
-  const handleSelectTrade = (trade: TradeType) => {
-    setSelectedTrade(trade);
-    setEditMode(true);
-    setShowTradeForm(true);
-  };
-
-  // Handle closing the trade form
-  const handleTradeFormClose = () => {
-    setShowTradeForm(false);
-    setSelectedTrade(null);
-    setEditMode(false);
+  // Redirect to user's section (journal, performance, etc.)
+  const handleViewUserSection = (section: string, profile: UserProfile) => {
+    console.log("Admin viewing section:", section, "for user:", profile.user_id, profile.email);
     
-    // Refresh the trades list if we're viewing trades
-    if (showTradesModal && selectedUserId) {
-      refreshUserTrades(selectedUserId);
+    // Ensure we have all the user data needed
+    if (!profile.user_id) {
+      console.error("Cannot impersonate user - missing user_id", profile);
+      return;
     }
-  };
-
-  const refreshUserTrades = async (userId: string) => {
-    console.log("Refreshing trades for user:", userId);
-    try {
-      const { data: trades, error: tradesError } = await supabase
-        .from('trades')
-        .select('*')
-        .eq('user_id', userId)
-        .order('date', { ascending: false });
-
-      if (tradesError) throw tradesError;
-
-      console.log("Fetched trades:", trades?.length || 0);
-
-      // Format trades from database format to TradeHistoryTable's expected format
-      const formattedTrades: TradeType[] = (trades || []).map((trade: DbTrade) => ({
-        id: trade.id,
-        userId: trade.user_id || '',
-        date: trade.date,
-        time: trade.entry_time, // Using entry_time as time
-        pair: trade.pair,
-        action: trade.action as 'Buy' | 'Sell',
-        entryTime: trade.entry_time,
-        exitTime: trade.exit_time,
-        lots: trade.lots,
-        pipStopLoss: trade.pip_stop_loss,
-        pipTakeProfit: trade.pip_take_profit,
-        profitLoss: trade.profit_loss,
-        pivots: trade.pivots || '',
-        bankingLevel: trade.banking_level || '',
-        riskRatio: trade.risk_ratio || 0,
-        comments: trade.comments,
-        day: trade.day || '',
-        direction: trade.direction || '',
-        orderType: trade.order_type || '',
-        marketCondition: trade.market_condition || '',
-        ma: trade.ma || '',
-        fib: trade.fib || '',
-        gap: trade.gap || '',
-        mindset: trade.mindset || '',
-        tradeLink: trade.trade_link || '',
-        trueReward: trade.true_reward || '',
-        true_tp_sl: trade.true_tp_sl || '',
-        additional_confluences: trade.additional_confluences || ''
-      }));
-
-      console.log("Setting formatted trades:", formattedTrades.length);
-      setSelectedUserTrades(formattedTrades);
-    } catch (err) {
-      console.error('Error refreshing trades:', err);
-      setError('Failed to refresh trades');
-    }
-  };
-
-  const handleExitFullscreen = () => {
-    setShowTradesModal(false);
-  };
-
-  const handleDeleteTrades = async (tradeIds: string[]) => {
-    if (selectedUserId) {
-      // Refresh trades for the current user
-      refreshUserTrades(selectedUserId);
-    }
+    
+    // Start impersonating the user
+    startImpersonation(profile);
+    
+    // Add a small delay to ensure impersonation state is updated
+    setTimeout(() => {
+      console.log("Redirecting to", section, "for impersonated user:", profile.user_id);
+      // Redirect to /performance instead of /admin
+      navigate(`/performance`);
+    }, 100);
   };
 
   const handleManageRules = (userId: string, email: string, fullName: string | null) => {
@@ -348,15 +238,6 @@ export default function AdminDashboard() {
 
   // Handle selecting a trade from violations table
   const handleSelectViolationTrade = async (tradeId: string) => {
-    // First check if the trade is already in the current selection
-    const trade = selectedUserTrades.find(t => t.id === tradeId);
-    
-    if (trade) {
-      setSelectedTrade(trade);
-      setEditMode(false);
-      setShowTradeForm(true);
-    } else {
-      // Trade is not in the current selection, need to fetch it
       try {
         console.log('Fetching trade:', tradeId);
         
@@ -376,77 +257,31 @@ export default function AdminDashboard() {
           // Now fetch the profile data separately
           const { data: profileData } = await supabase
             .from('profiles')
-            .select('email, full_name')
+          .select('*')
             .eq('user_id', tradeData.user_id)
             .single();
             
           console.log('Fetched trade data:', tradeData);
           console.log('Fetched profile data:', profileData);
           
-          // Set the selected user info for showing in the modal
-          setSelectedUserId(tradeData.user_id);
-          setSelectedUserEmail(profileData?.email || '');
-          setSelectedUserFullName(profileData?.full_name || profileData?.email || 'User');
+        // Start impersonating this user and redirect to journal
+        if (profileData) {
+          startImpersonation(profileData);
           
-          // Format the trade for the form
-          const formattedTrade: TradeType = {
-            id: tradeData.id,
-            userId: tradeData.user_id,
-            date: tradeData.date,
-            time: tradeData.entry_time,
-            pair: tradeData.pair,
-            action: tradeData.action as 'Buy' | 'Sell',
-            entryTime: tradeData.entry_time,
-            exitTime: tradeData.exit_time,
-            lots: tradeData.lots,
-            pipStopLoss: tradeData.pip_stop_loss,
-            pipTakeProfit: tradeData.pip_take_profit,
-            profitLoss: tradeData.profit_loss,
-            pivots: tradeData.pivots || '',
-            bankingLevel: tradeData.banking_level || '',
-            riskRatio: tradeData.risk_ratio || 0,
-            comments: tradeData.comments,
-            day: tradeData.day || '',
-            direction: tradeData.direction || '',
-            orderType: tradeData.order_type || '',
-            marketCondition: tradeData.market_condition || '',
-            ma: tradeData.ma || '',
-            fib: tradeData.fib || '',
-            gap: tradeData.gap || '',
-            mindset: tradeData.mindset || '',
-            tradeLink: tradeData.trade_link || '',
-            trueReward: tradeData.true_reward || '',
-            true_tp_sl: tradeData.true_tp_sl || '',
-            additional_confluences: tradeData.additional_confluences || ''
-          };
-          
-          setSelectedTrade(formattedTrade);
-          setEditMode(false);
-          setShowTradeForm(true);
+          // We need a small delay to ensure impersonation is set up
+          setTimeout(() => {
+            redirectToUserSection('journal');
+          }, 100);
+        }
         }
       } catch (err) {
         console.error('Error fetching trade:', err);
         setError('Failed to fetch trade details');
-      }
     }
   };
 
-  // Handler to show the performance view for a selected user
-  const handleViewPerformance = (userId: string, email: string, fullName: string | null) => {
-    setSelectedUserId(userId);
-    setSelectedUserEmail(email);
-    setSelectedUserFullName(fullName || email);
-    // Use navigate instead of state to create a bookmarkable URL
-    navigate(`/admin/user-performance/${userId}`);
-  };
-
-  // Handler to exit the performance view and return to the user list
-  const handleExitPerformanceView = () => {
-    navigate("/admin"); // Navigate back to the main admin page
-  };
-
-  // Render the user management table if not showing trades or performance
-  if (!showTradesModal && !params.userId) {
+  // Render the user management table if not impersonating
+  if (!isImpersonating) {
     return (
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 sm:px-0">
@@ -546,30 +381,25 @@ export default function AdminDashboard() {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         <div className="flex space-x-4">
                           <button
-                            onClick={() => handleViewTrades(profile.user_id, profile.email, profile.full_name)}
-                            className="text-indigo-600 hover:text-indigo-900 font-medium"
+                            onClick={() => handleViewUserSection('journal', profile)}
+                            className="text-indigo-600 hover:text-indigo-900 p-1 rounded-full hover:bg-indigo-50"
+                            title="View Journal"
                           >
-                            View Journal
+                            <BookOpen className="h-5 w-5" />
                           </button>
                           <button
                             onClick={() => handleManageRules(profile.user_id, profile.email, profile.full_name)}
-                            className="text-green-600 hover:text-green-900 font-medium"
+                            className="text-green-600 hover:text-green-900 p-1 rounded-full hover:bg-green-50"
+                            title="Manage Rules"
                           >
-                            Manage Rules
+                            <Settings className="h-5 w-5" />
                           </button>
                           <button
                             onClick={() => handleViewViolations(profile.user_id, profile.email, profile.full_name)}
-                            className="text-orange-600 hover:text-orange-900 font-medium"
+                            className="text-orange-600 hover:text-orange-900 p-1 rounded-full hover:bg-orange-50"
+                            title="View Violations"
                           >
-                            Violations
-                          </button>
-                          <button
-                            onClick={() => handleViewPerformance(profile.user_id, profile.email, profile.full_name)}
-                            className="text-purple-600 hover:text-purple-900 font-medium flex items-center"
-                            title="View Performance"
-                          >
-                            <BarChart2 className="h-4 w-4 mr-1" />
-                            Performance
+                            <AlertTriangle className="h-5 w-5" />
                           </button>
                         </div>
                       </td>
@@ -638,122 +468,32 @@ export default function AdminDashboard() {
             </div>
           </div>
         )}
-
-        {/* Trade Form Modal - Added here so it works in the violations view */}
-        {showTradeForm && (
-          <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-6">
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-xl font-semibold text-gray-900">
-                    {editMode 
-                      ? 'Edit Trade for ' 
-                      : 'View Trade Details for '}{selectedUserFullName}
-                  </h2>
-                  <div className="flex space-x-4">
-                    {!editMode && (
-                      <button
-                        onClick={() => setEditMode(true)}
-                        className="px-3 py-1 bg-indigo-100 rounded text-indigo-700 hover:bg-indigo-200 transition-colors"
-                      >
-                        Edit
-                      </button>
-                    )}
-                    <button
-                      onClick={handleTradeFormClose}
-                      className="text-gray-400 hover:text-gray-500"
-                    >
-                      <span className="sr-only">Close</span>
-                      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-                <TradeForm 
-                  onClose={handleTradeFormClose}
-                  existingTrade={selectedTrade || undefined}
-                  readOnly={!editMode}
-                />
-              </div>
-            </div>
-          </div>
-        )}
       </main>
     );
   }
 
-  // Render UserPerformanceView if we have a userId in params
-  if (params.userId && selectedUserId) {
-    return (
-      <UserPerformanceView
-        userId={selectedUserId}
-        userName={selectedUserFullName}
-        onExit={handleExitPerformanceView}
-        isAdminView={true} // Indicate this is the admin view
-      />
-    );
-  }
-
-  // Render the trade history in fullscreen mode
+  // If impersonating, show a banner and navigation options for admin
   return (
-    <>
-      <div className="mt-16 flex-grow px-4 pb-4">
-        <div className="TradeHistoryTableWrapper h-full">
-          <div style={{ minHeight: 'calc(100vh - 80px)' }}>
-            <TradeHistoryTable 
-              trades={selectedUserTrades} 
-              onSelectTrade={handleSelectTrade}
-              forcedFullScreen={true}
-              targetUserId={selectedUserId}
-              onExitFullscreen={handleExitFullscreen}
-              journalOwnerName={selectedUserFullName}
-              onDeleteTrades={handleDeleteTrades}
-            />
+    <div className="relative">
+      {/* Admin banner for impersonation mode */}
+      <div className="fixed top-0 left-0 right-0 bg-indigo-600 text-white z-50 p-2 shadow-md">
+        <div className="max-w-7xl mx-auto flex justify-between items-center">
+          <div>
+            <span className="font-semibold">Admin Mode:</span> Viewing dashboard as {selectedUserFullName || "User"}
+          </div>
+          <div className="flex items-center space-x-4">
+            <button
+              onClick={() => stopImpersonation()}
+              className="px-3 py-1 bg-white text-indigo-600 rounded hover:bg-indigo-100 font-medium text-sm"
+            >
+              Exit User View
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Trade Form Modal */}
-      {showTradeForm && (
-        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-semibold text-gray-900">
-                  {editMode 
-                    ? 'Edit Trade for ' 
-                    : 'View Trade Details for '}{selectedUserFullName}
-                </h2>
-                <div className="flex space-x-4">
-                  {!editMode && (
-                    <button
-                      onClick={() => setEditMode(true)}
-                      className="px-3 py-1 bg-indigo-100 rounded text-indigo-700 hover:bg-indigo-200 transition-colors"
-                    >
-                      Edit
-                    </button>
-                  )}
-                  <button
-                    onClick={handleTradeFormClose}
-                    className="text-gray-400 hover:text-gray-500"
-                  >
-                    <span className="sr-only">Close</span>
-                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-              <TradeForm 
-                onClose={handleTradeFormClose}
-                existingTrade={selectedTrade || undefined}
-                readOnly={!editMode}
-              />
-            </div>
-          </div>
+      {/* Add extra padding to account for the admin banner */}
+      <div className="pt-12"></div>
         </div>
-      )}
-    </>
   );
 }

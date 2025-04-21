@@ -6,6 +6,7 @@ import TradeForm from '../components/TradeForm';
 import TradeChatBox from '../components/TradeChatBox';
 import PairDistributionChart from '../components/PairDistributionChart';
 import PipsProgressChart from '../components/PipsProgressChart';
+import ProfitLossProgressChart from '../components/ProfitLossProgressChart';
 import { PlusCircle, MessageSquare, LineChart, BarChart, PieChart } from 'lucide-react';
 import { Trade, PerformanceMetrics as Metrics } from '../types';
 import { getTrades, getTradeViolations, getPerformanceMetrics, updatePerformanceMetrics } from '../lib/api';
@@ -340,7 +341,7 @@ export default function UserPerformanceView() { // Renamed component
             <h2 className="text-lg font-medium text-gray-900 mb-4">Performance Charts</h2>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Pips Progress Chart (Replaced Monthly Performance) */}
+              {/* 1. Pips Progress Chart */}
               <PipsProgressChart 
                 trades={filteredTrades} 
                 monthlyPipTarget={monthlyDbMetrics?.monthlyPipTarget ?? defaultDbMetrics.monthlyPipTarget}
@@ -349,33 +350,20 @@ export default function UserPerformanceView() { // Renamed component
                 selectedYear={selectedYear !== "All Years" ? selectedYear : undefined}
               />
               
-              {/* Pair Distribution Chart */}
+              {/* 2. Profit/Loss Progress Chart */}
+              <ProfitLossProgressChart 
+                trades={filteredTrades}
+                capital={monthlyDbMetrics?.capital ?? defaultDbMetrics.capital}
+                isAllMonthsView={selectedMonth === "All Trades" && selectedYear !== "All Years"}
+                isAllYearsView={selectedMonth === "All Trades" && selectedYear === "All Years"}
+                selectedYear={selectedYear !== "All Years" ? selectedYear : undefined}
+                selectedCurrency="$"
+              />
+              
+              {/* 3. Pair Distribution Chart */}
               <PairDistributionChart trades={filteredTrades} />
               
-              {/* Bar Chart Placeholder */}
-              <div 
-                className="bg-white p-6 rounded-lg shadow relative overflow-hidden group cursor-help"
-                title="Coming soon"
-              >
-                <div className="absolute inset-0 bg-white bg-opacity-70 backdrop-blur-md opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity duration-200 z-10">
-                  <p className="text-lg font-medium text-gray-800">Coming soon</p>
-                </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Trade Volume by Pair</h3>
-                <div className="flex items-center justify-center h-60 relative">
-                  <BarChart className="w-10 h-10 text-indigo-500 absolute" />
-                  <div className="w-full h-full opacity-50">
-                    <div className="h-40 w-full flex items-end justify-around">
-                      <div className="h-32 w-12 bg-indigo-500"></div>
-                      <div className="h-20 w-12 bg-indigo-500"></div>
-                      <div className="h-36 w-12 bg-indigo-500"></div>
-                      <div className="h-16 w-12 bg-indigo-500"></div>
-                      <div className="h-24 w-12 bg-indigo-500"></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Heat Map Placeholder */}
+              {/* 4. Heat Map Placeholder */}
               <div 
                 className="bg-white p-6 rounded-lg shadow relative overflow-hidden group cursor-help"
                 title="Coming soon"

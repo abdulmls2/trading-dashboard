@@ -242,6 +242,12 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false, ta
         return;
       }
 
+      // Ensure the 'time' field has a value before submitting
+      // Use entryTime if time is empty
+      if (!formData.time || formData.time.trim() === '') {
+        formData.time = formData.entryTime || new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
+      }
+
       // Determine the user ID to use
       const userId = targetUserId || (user ? user.id : null);
       if (!userId) {

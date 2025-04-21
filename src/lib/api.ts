@@ -32,7 +32,7 @@ export async function createTrade(trade: Omit<Trade, 'id' | 'time'>, targetUserI
       pair: trade.pair,
       action: trade.action,
       entry_time: trade.entryTime,
-      exit_time: trade.exitTime,
+      exit_time: trade.exitTime === '' ? null : trade.exitTime,
       lots: trade.lots,
       pip_stop_loss: trade.pipStopLoss,
       pip_take_profit: trade.pipTakeProfit,
@@ -49,7 +49,7 @@ export async function createTrade(trade: Omit<Trade, 'id' | 'time'>, targetUserI
       fib: trade.fib,
       gap: trade.gap,
       mindset: trade.mindset,
-      trade_link: trade.tradeLink,
+      trade_link: trade.tradeLink === '' ? null : trade.tradeLink,
       true_reward: trade.trueReward,
       true_tp_sl: trade.true_tp_sl,
       additional_confluences: trade.additional_confluences
@@ -68,7 +68,7 @@ export async function updateTrade(id: string, trade: Partial<Omit<Trade, 'time'>
   if (trade.pair) updates.pair = trade.pair;
   if (trade.action) updates.action = trade.action;
   if (trade.entryTime) updates.entry_time = trade.entryTime;
-  if (trade.exitTime) updates.exit_time = trade.exitTime;
+  if (trade.exitTime !== undefined) updates.exit_time = trade.exitTime === '' ? null : trade.exitTime;
   if (trade.lots) updates.lots = trade.lots;
   if (trade.pipStopLoss) updates.pip_stop_loss = trade.pipStopLoss;
   if (trade.pipTakeProfit) updates.pip_take_profit = trade.pipTakeProfit;
@@ -85,7 +85,7 @@ export async function updateTrade(id: string, trade: Partial<Omit<Trade, 'time'>
   if (trade.fib) updates.fib = trade.fib;
   if (trade.gap) updates.gap = trade.gap;
   if (trade.mindset) updates.mindset = trade.mindset;
-  if (trade.tradeLink) updates.trade_link = trade.tradeLink;
+  if (trade.tradeLink !== undefined) updates.trade_link = trade.tradeLink === '' ? null : trade.tradeLink;
   if (trade.trueReward) updates.true_reward = trade.trueReward;
   if (trade.true_tp_sl) updates.true_tp_sl = trade.true_tp_sl;
   if (trade.additional_confluences) updates.additional_confluences = trade.additional_confluences;

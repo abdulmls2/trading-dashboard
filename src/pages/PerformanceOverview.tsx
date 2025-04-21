@@ -4,6 +4,7 @@ import PerformanceMetricsComponent from '../components/PerformanceMetrics';
 // import TradeHistoryTable from '../components/TradeHistoryTable'; // Removed import
 import TradeForm from '../components/TradeForm';
 import TradeChatBox from '../components/TradeChatBox';
+import PairDistributionChart from '../components/PairDistributionChart';
 import { PlusCircle, MessageSquare, LineChart, BarChart, PieChart } from 'lucide-react';
 import { Trade, PerformanceMetrics as Metrics } from '../types';
 import { getTrades, getTradeViolations, getPerformanceMetrics, updatePerformanceMetrics } from '../lib/api';
@@ -331,7 +332,7 @@ export default function UserPerformanceView() { // Renamed component
             violationsCount={calculatedPerformanceMetrics.violationsCount}
             violatedTradesCount={calculatedPerformanceMetrics.violatedTradesCount}
             onUpdateMetrics={handleUpdateMonthlyMetrics}
-            isLoading={loadingMetrics} // Pass loading state
+            isLoading={loadingMetrics}
           />
           
           <div>
@@ -366,20 +367,8 @@ export default function UserPerformanceView() { // Renamed component
                 </div>
               </div>
               
-              {/* Pie Chart Placeholder */}
-              <div 
-                className="bg-white p-6 rounded-lg shadow relative overflow-hidden group cursor-help"
-                title="Coming soon"
-              >
-                <div className="absolute inset-0 bg-white bg-opacity-70 backdrop-blur-md opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity duration-200 z-10">
-                  <p className="text-lg font-medium text-gray-800">Coming soon</p>
-                </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Win/Loss Distribution</h3>
-                <div className="flex items-center justify-center h-60 relative">
-                  <PieChart className="w-10 h-10 text-indigo-500 absolute" />
-                  <div className="w-40 h-40 rounded-full bg-gradient-to-r from-green-500 to-blue-500 opacity-50"></div>
-                </div>
-              </div>
+              {/* Pair Distribution Chart (Replaced Win/Loss) */}
+              <PairDistributionChart trades={filteredTrades} />
               
               {/* Bar Chart Placeholder */}
               <div 

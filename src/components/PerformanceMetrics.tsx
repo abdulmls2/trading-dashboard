@@ -52,7 +52,7 @@ export default function PerformanceMetricsComponent({
   violatedTradesCount = 0,
   onUpdateMetrics,
   isLoading,
-  readOnly = false
+  readOnly = false,
 }: Props) {
   const [isEditingPipTarget, setIsEditingPipTarget] = useState(false);
   const [tempPipTarget, setTempPipTarget] = useState(monthlyPipTarget.toString());

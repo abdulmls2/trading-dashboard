@@ -90,6 +90,36 @@ export default function PairDistributionChart({ trades }: PairDistributionChartP
       );
     }
     
+    // Special case for when there's only one pair (100%)
+    if (pairDistribution.length === 1) {
+      return (
+        <>
+          {/* Complete donut circle for 100% case */}
+          <circle 
+            cx={centerX} 
+            cy={centerY} 
+            r={(outerRadius + innerRadius) / 2} 
+            fill="none" 
+            stroke={pairDistribution[0].color}
+            strokeWidth={outerRadius - innerRadius}
+          />
+          
+          {/* Add percentage label on the donut */}
+          <text
+            x={centerX}
+            y={centerY - labelRadius} // Position at the top of the donut
+            textAnchor="middle"
+            dominantBaseline="middle"
+            fontSize="12"
+            fontWeight="medium"
+            fill="#ffffff"
+          >
+            {Math.round(pairDistribution[0].percentage)}%
+          </text>
+        </>
+      );
+    }
+    
     // Calculate paths for each segment
     let startAngle = 0;
     const segments: React.ReactElement[] = [];
@@ -185,7 +215,7 @@ export default function PairDistributionChart({ trades }: PairDistributionChartP
       );
     }
     
-    // Display the most frequent pair and its percentage
+    // For single pair, still show the pair name in the center
     const topPair = pairDistribution[0];
     return (
       <>

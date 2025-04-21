@@ -3,6 +3,7 @@ import PerformanceMetricsComponent from '../components/PerformanceMetrics';
 import TradeHistoryTable from '../components/TradeHistoryTable';
 import TradeForm from '../components/TradeForm';
 import TradeChatBox from '../components/TradeChatBox';
+import PipsProgressChart from '../components/PipsProgressChart';
 import { PlusCircle, MessageSquare, ChevronDown, Filter, Calendar, Clock } from 'lucide-react';
 import { Trade, PerformanceMetrics as Metrics } from '../types';
 import { getTrades, getTradeViolations, getPerformanceMetrics, updatePerformanceMetrics } from '../lib/api';
@@ -396,6 +397,18 @@ export default function Performance() {
             violatedTradesCount={calculatedPerformanceMetrics.violatedTradesCount}
             onUpdateMetrics={handleUpdateMonthlyMetrics}
             isLoading={loadingMetrics}
+          />
+        </div>
+        
+        {/* Pips Progress Chart */}
+        <div className="mb-8">
+          <h2 className="text-lg font-medium text-gray-900 mb-4">Performance Insights</h2>
+          <PipsProgressChart 
+            trades={filteredTrades}
+            monthlyPipTarget={monthlyDbMetrics?.monthlyPipTarget ?? defaultDbMetrics.monthlyPipTarget}
+            isAllMonthsView={selectedMonth === "All Trades" && selectedYear !== "All Years"}
+            isAllYearsView={selectedMonth === "All Trades" && selectedYear === "All Years"}
+            selectedYear={selectedYear !== "All Years" ? selectedYear : undefined}
           />
         </div>
         

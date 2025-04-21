@@ -5,6 +5,7 @@ import PerformanceMetricsComponent from '../components/PerformanceMetrics';
 import TradeForm from '../components/TradeForm';
 import TradeChatBox from '../components/TradeChatBox';
 import PairDistributionChart from '../components/PairDistributionChart';
+import PipsProgressChart from '../components/PipsProgressChart';
 import { PlusCircle, MessageSquare, LineChart, BarChart, PieChart } from 'lucide-react';
 import { Trade, PerformanceMetrics as Metrics } from '../types';
 import { getTrades, getTradeViolations, getPerformanceMetrics, updatePerformanceMetrics } from '../lib/api';
@@ -339,35 +340,16 @@ export default function UserPerformanceView() { // Renamed component
             <h2 className="text-lg font-medium text-gray-900 mb-4">Performance Charts</h2>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Line Chart Placeholder */}
-              <div 
-                className="bg-white p-6 rounded-lg shadow relative overflow-hidden group cursor-help"
-                title="Coming soon"
-              >
-                <div className="absolute inset-0 bg-white bg-opacity-70 backdrop-blur-md opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity duration-200 z-10">
-                  <p className="text-lg font-medium text-gray-800">Coming soon</p>
-                </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Monthly Performance</h3>
-                <div className="flex items-center justify-center h-60 relative">
-                  <LineChart className="w-10 h-10 text-indigo-500 absolute" />
-                  <div className="w-full h-full opacity-50">
-                    <div className="h-40 w-full flex items-end">
-                      <div className="h-20 w-1/12 bg-blue-500 mx-1"></div>
-                      <div className="h-28 w-1/12 bg-blue-500 mx-1"></div>
-                      <div className="h-16 w-1/12 bg-blue-500 mx-1"></div>
-                      <div className="h-32 w-1/12 bg-blue-500 mx-1"></div>
-                      <div className="h-24 w-1/12 bg-blue-500 mx-1"></div>
-                      <div className="h-36 w-1/12 bg-blue-500 mx-1"></div>
-                      <div className="h-20 w-1/12 bg-blue-500 mx-1"></div>
-                      <div className="h-28 w-1/12 bg-blue-500 mx-1"></div>
-                      <div className="h-12 w-1/12 bg-blue-500 mx-1"></div>
-                      <div className="h-24 w-1/12 bg-blue-500 mx-1"></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              {/* Pips Progress Chart (Replaced Monthly Performance) */}
+              <PipsProgressChart 
+                trades={filteredTrades} 
+                monthlyPipTarget={monthlyDbMetrics?.monthlyPipTarget ?? defaultDbMetrics.monthlyPipTarget}
+                isAllMonthsView={selectedMonth === "All Trades" && selectedYear !== "All Years"}
+                isAllYearsView={selectedMonth === "All Trades" && selectedYear === "All Years"}
+                selectedYear={selectedYear !== "All Years" ? selectedYear : undefined}
+              />
               
-              {/* Pair Distribution Chart (Replaced Win/Loss) */}
+              {/* Pair Distribution Chart */}
               <PairDistributionChart trades={filteredTrades} />
               
               {/* Bar Chart Placeholder */}

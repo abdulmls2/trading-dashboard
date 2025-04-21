@@ -112,16 +112,26 @@ export default function TradeTimeHeatmap({ trades }: TradeTimeHeatmapProps) {
     return `${formatHour(start)} - ${formatHour(end)}`;
   };
   
-  // Get color based on pips (all blocks will be light purple with different opacities)
-  const getBlockOpacity = (pips: number) => {
+  // Get block color and opacity based on pips
+  const getBlockStyle = (pips: number) => {
     // Normalize pips to an opacity between 0.3 and 0.9
     const absValue = Math.abs(pips);
-    if (absValue === 0) return 0.3;
+    let opacity = 0.3;
     
-    if (absValue > 30) return 0.9;
+    if (absValue > 0) {
+      // Scale between 0.3 and 0.9 based on pip value
+      opacity = Math.min(0.9, 0.3 + (absValue / 30) * 0.6);
+    }
     
-    // Scale between 0.3 and 0.9
-    return 0.3 + (absValue / 30) * 0.6;
+    // Positive pips: purple, Negative pips: red
+    const bgColorClass = pips >= 0 ? 'bg-indigo-200' : 'bg-red-200';
+    const textColorClass = pips >= 0 ? 'text-indigo-800' : 'text-red-800';
+    
+    return {
+      opacity,
+      bgColorClass,
+      textColorClass
+    };
   };
   
   // Position for grid layout
@@ -175,19 +185,20 @@ export default function TradeTimeHeatmap({ trades }: TradeTimeHeatmapProps) {
           {activeBlocks.map((block, index) => {
             const [dayIndex, timeIndex] = block.timeBlock.split('-').map(Number);
             const position = getGridPosition(block.timeBlock);
+            const { opacity, bgColorClass, textColorClass } = getBlockStyle(block.pips);
             
             return (
               <div 
                 key={`block-${index}`} 
-                className="rounded-lg bg-indigo-200 m-1 flex items-center justify-center"
+                className={`rounded-lg ${bgColorClass} m-1 flex items-center justify-center`}
                 style={{
                   ...position,
-                  opacity: getBlockOpacity(block.pips)
+                  opacity: opacity
                 }}
                 title={`${block.day}, ${formatTimeRange(TIME_BLOCKS[timeIndex].start, TIME_BLOCKS[timeIndex].end)}
 Pips: ${block.pips > 0 ? '+' : ''}${block.pips.toFixed(1)}`}
               >
-                <span className="text-xs font-medium text-indigo-800">
+                <span className={`text-xs font-medium ${textColorClass}`}>
                   {block.pips > 0 ? '+' : ''}{block.pips.toFixed(1)}
                 </span>
               </div>

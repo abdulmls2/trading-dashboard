@@ -27,6 +27,7 @@ export interface Trade {
   trueReward: string;
   true_tp_sl: string;
   additional_confluences: string;
+  top_bob_fv: string;
   created_at?: string;
 }
 

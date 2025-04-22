@@ -8,6 +8,7 @@ import * as XLSX from 'xlsx';
 // Make the Trade interface work with both create and update operations
 interface TradeFormData extends Omit<Trade, 'id'> {
   id?: string;
+  top_bob_fv?: string;
 }
 
 const currencyPairs = [
@@ -64,6 +65,12 @@ const gapOptions = [
   'Currency Gap'
 ];
 
+const balanceConfluenceOptions = [
+  'Top of Balance (TOP)',
+  'Bottom of Balance (BOB)',
+  'Fair Value (FV)'
+];
+
 interface Props {
   onClose: () => void;
   existingTrade?: Trade;
@@ -107,6 +114,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false, ta
       true_tp_sl: '',
       additional_confluences: '',
       time: '', // Adding required time field with empty string default
+      top_bob_fv: '',
     }
   );
 
@@ -314,6 +322,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false, ta
       true_tp_sl: '',
       additional_confluences: '',
       time: '',
+      top_bob_fv: '',
     });
     setActiveTab('basic');
   };
@@ -560,6 +569,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false, ta
         comments: commentsValue,                   // Comments (index 23)
         exitTime: '',
         time: validEntryTime,                      // ENSURE time has the same valid value as entryTime
+        top_bob_fv: '',                            // Balance Confluence (default empty)
       };
       
       return importedTrade;
@@ -1351,6 +1361,23 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false, ta
             </div>
 
             <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Balance Confluences</label>
+              <select
+                value={formData.top_bob_fv}
+                onChange={(e) => setFormData({ ...formData, top_bob_fv: e.target.value })}
+                className={selectClassName}
+                disabled={readOnly}
+              >
+                <option value="">Select Balance Confluence</option>
+                {balanceConfluenceOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">MA</label>
               <select
                 value={formData.ma}
@@ -1705,6 +1732,10 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false, ta
                       <p className="text-sm">{importPreview.bankingLevel}</p>
                     </div>
                     <div>
+                      <p className="text-sm font-medium text-gray-500">Balance Confluences:</p>
+                      <p className="text-sm">{importPreview.top_bob_fv}</p>
+                    </div>
+                    <div>
                       <p className="text-sm font-medium text-gray-500">Additional Confluences:</p>
                       <p className="text-xs text-gray-900 truncate">{importPreview.additional_confluences}</p>
                     </div>
@@ -1924,6 +1955,10 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false, ta
                         <div>
                           <p className="text-xs font-medium text-gray-500">Banking Level:</p>
                           <p className="text-xs">{multipleTradesPreview[selectedPreviewIndex].bankingLevel}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500">Balance Confluences:</p>
+                          <p className="text-xs">{multipleTradesPreview[selectedPreviewIndex].top_bob_fv}</p>
                         </div>
                         <div>
                           <p className="text-xs font-medium text-gray-500">Additional Confluences:</p>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useUserImpersonation } from '../contexts/UserImpersonationContext';
@@ -9,6 +9,8 @@ import TradeForm from '../components/TradeForm';
 import UserTradingRulesForm from '../components/UserTradingRulesForm';
 import TradeViolationsTable from '../components/TradeViolationsTable';
 import { BarChart2, User, Calendar, BookOpen, Activity, Settings, AlertTriangle } from 'lucide-react';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 
 interface UserProfile {
   id: string;
@@ -83,6 +85,7 @@ export default function AdminDashboard() {
   const [editMode, setEditMode] = useState(false);
   const [selectedYear, setSelectedYear] = useState<number | 'all'>(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState<number | 'all'>(new Date().getMonth()); // 0-11
+  const reportContentRef = useRef<HTMLDivElement>(null);
   
   // Available years for selection (current year and 5 years back)
   const availableYears = Array.from(
@@ -586,6 +589,78 @@ export default function AdminDashboard() {
     }
   };
 
+  // Improve the PDF generation function
+  const downloadReportAsPDF = async () => {
+    if (!reportContentRef.current || !summaryData) return;
+    
+    try {
+      setError(null);
+      const content = reportContentRef.current;
+      
+      // Get all sections to generate them separately
+      const sections = content.querySelectorAll('.report-section');
+      
+      // Create PDF
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 10; // margin in mm
+      
+      // Add report title
+      pdf.setFontSize(18);
+      pdf.setTextColor(44, 62, 80); // Dark blue
+      pdf.text(`Trading Summary Report`, pageWidth/2, 15, { align: 'center' });
+      
+      // Add period subtitle
+      pdf.setFontSize(14);
+      pdf.text(`${summaryData.period.monthYear}`, pageWidth/2, 22, { align: 'center' });
+      
+      // Add date of generation
+      pdf.setFontSize(10);
+      pdf.setTextColor(100, 100, 100); // Gray
+      pdf.text(`Generated on: ${new Date().toLocaleDateString()}`, pageWidth/2, 30, { align: 'center' });
+      
+      // Process each section
+      let yPosition = 40;
+      
+      for (let i = 0; i < sections.length; i++) {
+        const section = sections[i];
+        
+        // Generate canvas for this section
+        const canvas = await html2canvas(section as HTMLElement, {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+        });
+        
+        // Calculate dimensions while maintaining aspect ratio
+        const availableWidth = pageWidth - 2 * margin;
+        const imgWidth = availableWidth;
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+        
+        // Check if this section needs a new page
+        if (yPosition + imgHeight > pageHeight - margin) {
+          pdf.addPage();
+          yPosition = margin;
+        }
+        
+        // Add section to PDF
+        const imgData = canvas.toDataURL('image/png');
+        pdf.addImage(imgData, 'PNG', margin, yPosition, imgWidth, imgHeight);
+        
+        // Update position for next section
+        yPosition += imgHeight + 10; // Add some space between sections
+      }
+      
+      // Download PDF
+      pdf.save(`trading_report_${summaryData.period.monthYear.replace(/\s+/g, '_')}.pdf`);
+      
+    } catch (err) {
+      console.error('Error generating PDF:', err);
+      setError('Failed to generate PDF. Please try again.');
+    }
+  };
+
   // Render the user management table if not impersonating
   if (!isImpersonating) {
     return (
@@ -785,13 +860,24 @@ export default function AdminDashboard() {
                   </select>
                 </div>
                 <div className="flex-1"></div>
-                <button
-                  type="button"
-                  onClick={fetchSummaryData}
-                  className="mt-6 inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                >
-                  Generate Report
-                </button>
+                <div className="flex space-x-2 mt-6">
+                  <button
+                    type="button"
+                    onClick={fetchSummaryData}
+                    className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                  >
+                    Generate Report
+                  </button>
+                  {summaryData && (
+                    <button
+                      type="button"
+                      onClick={downloadReportAsPDF}
+                      className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                    >
+                      Download PDF
+                    </button>
+                  )}
+                </div>
               </div>
               
               {loadingSummary ? (
@@ -799,20 +885,20 @@ export default function AdminDashboard() {
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600" />
                 </div>
               ) : summaryData ? (
-                <div className="space-y-8">
+                <div ref={reportContentRef} className="space-y-12">
                   {/* Overall Statistics */}
-                  <div>
+                  <div className="report-section">
                     <h3 className="text-lg font-medium text-gray-900 mb-4">Overall Trading Statistics</h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                       <div className="bg-white overflow-hidden shadow rounded-lg">
                         <div className="px-4 py-5 sm:p-6">
-                          <dt className="text-sm font-medium text-gray-500 truncate">Total Trades</dt>
+                          <dt className="text-base font-bold text-gray-800 mb-2">Total Trades</dt>
                           <dd className="mt-1 text-3xl font-semibold text-gray-900">{summaryData.overall.totalTrades}</dd>
                         </div>
                       </div>
                       <div className="bg-white overflow-hidden shadow rounded-lg">
                         <div className="px-4 py-5 sm:p-6">
-                          <dt className="text-sm font-medium text-gray-500 truncate">Total Profit/Loss</dt>
+                          <dt className="text-base font-bold text-gray-800 mb-2">Total Profit/Loss</dt>
                           <dd className={`mt-1 text-3xl font-semibold ${summaryData.overall.totalProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                             {summaryData.overall.totalProfit.toFixed(2)}
                           </dd>
@@ -820,13 +906,13 @@ export default function AdminDashboard() {
                       </div>
                       <div className="bg-white overflow-hidden shadow rounded-lg">
                         <div className="px-4 py-5 sm:p-6">
-                          <dt className="text-sm font-medium text-gray-500 truncate">Win Rate</dt>
+                          <dt className="text-base font-bold text-gray-800 mb-2">Win Rate</dt>
                           <dd className="mt-1 text-3xl font-semibold text-gray-900">{summaryData.overall.winRate.toFixed(1)}%</dd>
                         </div>
                       </div>
                       <div className="bg-white overflow-hidden shadow rounded-lg">
                         <div className="px-4 py-5 sm:p-6">
-                          <dt className="text-sm font-medium text-gray-500 truncate">Total Pips</dt>
+                          <dt className="text-base font-bold text-gray-800 mb-2">Total Pips</dt>
                           <dd className="mt-1 text-3xl font-semibold text-indigo-600">
                             {summaryData.overall.totalPips.toFixed(1)}
                           </dd>
@@ -834,7 +920,7 @@ export default function AdminDashboard() {
                       </div>
                       <div className="bg-white overflow-hidden shadow rounded-lg">
                         <div className="px-4 py-5 sm:p-6">
-                          <dt className="text-sm font-medium text-gray-500 truncate">Rule Violations</dt>
+                          <dt className="text-base font-bold text-gray-800 mb-2">Rule Violations</dt>
                           <dd className="mt-1 text-3xl font-semibold text-orange-500">{summaryData.overall.totalViolations}</dd>
                         </div>
                       </div>
@@ -842,7 +928,7 @@ export default function AdminDashboard() {
                   </div>
                   
                   {/* Top Trading Pairs */}
-                  <div>
+                  <div className="report-section">
                     <h3 className="text-lg font-medium text-gray-900 mb-4">Top Trading Pairs</h3>
                     <div className="bg-white shadow overflow-hidden sm:rounded-lg">
                       <table className="min-w-full divide-y divide-gray-200">
@@ -878,7 +964,7 @@ export default function AdminDashboard() {
                   </div>
                   
                   {/* User Performance Rankings */}
-                  <div>
+                  <div className="report-section">
                     <h3 className="text-lg font-medium text-gray-900 mb-4">User Performance Rankings</h3>
                     <div className="bg-white shadow overflow-hidden sm:rounded-lg">
                       <table className="min-w-full divide-y divide-gray-200">

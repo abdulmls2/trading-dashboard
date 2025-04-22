@@ -7,6 +7,7 @@ export default function Auth() {
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
   const [fullName, setFullName] = useState('');
+  const [level, setLevel] = useState<string>('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { signIn, signUp } = useAuth();
@@ -18,7 +19,8 @@ export default function Auth() {
 
     try {
       if (isSignUp) {
-        await signUp(email, password, username, fullName);
+        const levelNum = level ? parseInt(level) : null;
+        await signUp(email, password, username, fullName, levelNum);
         // After successful signup, automatically sign in
         await signIn(email, password);
       } else {
@@ -125,6 +127,27 @@ export default function Auth() {
                       onChange={(e) => setFullName(e.target.value)}
                       className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                     />
+                  </div>
+                </div>
+
+                <div>
+                  <label htmlFor="level" className="block text-sm font-medium text-gray-700">
+                    Your Level
+                  </label>
+                  <div className="mt-1">
+                    <select
+                      id="level"
+                      name="level"
+                      required
+                      value={level}
+                      onChange={(e) => setLevel(e.target.value)}
+                      className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    >
+                      <option value="">Select your level</option>
+                      <option value="1">Level 1</option>
+                      <option value="2">Level 2</option>
+                      <option value="3">Level 3</option>
+                    </select>
                   </div>
                 </div>
               </>

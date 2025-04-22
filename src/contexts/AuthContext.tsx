@@ -23,7 +23,7 @@ interface AuthContextType {
   isAdmin: boolean;
   isImpersonating: () => boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, username: string, fullName: string) => Promise<void>;
+  signUp: (email: string, password: string, username: string, fullName: string, level: number | null) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -81,7 +81,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(false);
   };
 
-  const signUp = async (email: string, password: string, username: string, fullName: string) => {
+  const signUp = async (email: string, password: string, username: string, fullName: string, level: number | null = null) => {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -94,7 +94,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     
     if (data.user) {
       console.log('User signed up, attempting to create profile for:', data.user.id);
-      console.log('Profile data:', { userId: data.user.id, username, fullName, email });
+      console.log('Profile data:', { userId: data.user.id, username, fullName, email, level });
       
       // Create a profile entry
       const { error: profileError } = await supabase
@@ -105,6 +105,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           full_name: fullName,
           email, // Also include email in the profile
           role: 'normal', // Default role for new users
+          level, // Add the level field
         }, {
           onConflict: 'user_id' // Specify the conflict target column
         });
@@ -163,7 +164,7 @@ function AuthContextWithImpersonation({
   loading: boolean;
   isAdmin: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, username: string, fullName: string) => Promise<void>;
+  signUp: (email: string, password: string, username: string, fullName: string, level: number | null) => Promise<void>;
   signOut: () => Promise<void>;
 }) {
   // Use the UserImpersonationContext to get impersonation state

@@ -6,6 +6,7 @@ import { useEffectiveUserId } from '../lib/api';
 interface ProfileData {
   full_name: string;
   username: string;
+  level: number | null;
 }
 
 export default function Profile() {
@@ -17,6 +18,7 @@ export default function Profile() {
   const [profileData, setProfileData] = useState<ProfileData>({
     full_name: '',
     username: '',
+    level: null,
   });
 
   const fetchProfile = useCallback(async () => {
@@ -28,7 +30,7 @@ export default function Profile() {
       
       const { data, error } = await supabase
         .from('profiles')
-        .select('full_name, username')
+        .select('full_name, username, level')
         .eq('user_id', effectiveUserId)
         .single();
 
@@ -41,6 +43,7 @@ export default function Profile() {
         setProfileData({
           full_name: data.full_name || '',
           username: data.username || '',
+          level: data.level,
         });
       }
     } catch (error) {
@@ -58,11 +61,11 @@ export default function Profile() {
     fetchProfile();
   }, [fetchProfile]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setProfileData(prev => ({
       ...prev,
-      [name]: value,
+      [name]: name === 'level' ? (value ? parseInt(value) : null) : value,
     }));
   };
 
@@ -80,6 +83,7 @@ export default function Profile() {
         .update({
           full_name: profileData.full_name,
           username: profileData.username,
+          level: profileData.level,
           updated_at: new Date(),
         })
         .eq('user_id', effectiveUserId);
@@ -168,6 +172,27 @@ export default function Profile() {
                         placeholder="Enter your username"
                         disabled={!isEditing || !canEdit}
                       />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label htmlFor="level" className="block text-sm font-medium text-gray-700 mb-1">
+                      Your Level
+                    </label>
+                    <div className="mt-1">
+                      <select
+                        id="level"
+                        name="level"
+                        value={profileData.level || ''}
+                        onChange={handleChange}
+                        className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border border-gray-300 rounded-md bg-gray-50 p-2"
+                        disabled={!isEditing || !canEdit}
+                      >
+                        <option value="">Select your level</option>
+                        <option value="1">Level 1</option>
+                        <option value="2">Level 2</option>
+                        <option value="3">Level 3</option>
+                      </select>
                     </div>
                   </div>
 

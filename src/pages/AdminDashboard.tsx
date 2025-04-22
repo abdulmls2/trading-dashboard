@@ -23,6 +23,7 @@ interface UserProfile {
   created_at: string;
   last_trade_date?: string;
   discord_username?: string | null;
+  level?: number | null;
 }
 
 // Interface for database trade records
@@ -670,6 +671,45 @@ export default function AdminDashboard() {
     }
   };
 
+  // Add this helper function to get level color
+  const getLevelColor = (level: number | null | undefined) => {
+    switch (level) {
+      case 1:
+        return 'bg-blue-100 text-blue-800'; // Level 1: Blue
+      case 2:
+        return 'bg-yellow-100 text-yellow-800'; // Level 2: Yellow/Gold
+      case 3:
+        return 'bg-purple-100 text-purple-800'; // Level 3: Purple
+      default:
+        return 'bg-gray-100 text-gray-800'; // Default/Not set: Gray
+    }
+  };
+
+  // Enhance the countUsersByLevel function to also count users who have never journaled
+  const countUsersByLevel = (profiles: UserProfile[]) => {
+    const counts = {
+      level1: 0,
+      level2: 0,
+      level3: 0,
+      notSet: 0,
+      neverJournaled: 0
+    };
+    
+    profiles.forEach(profile => {
+      if (profile.level === 1) counts.level1++;
+      else if (profile.level === 2) counts.level2++;
+      else if (profile.level === 3) counts.level3++;
+      else counts.notSet++;
+      
+      // Count users who have never journaled
+      if (!profile.last_trade_date) {
+        counts.neverJournaled++;
+      }
+    });
+    
+    return counts;
+  };
+
   // Render the user management table if not impersonating
   if (!isImpersonating) {
     return (
@@ -714,114 +754,164 @@ export default function AdminDashboard() {
           </div>
 
           {activeTab === 'users' ? (
-            <div className="bg-white shadow overflow-hidden sm:rounded-lg overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Email
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Full Name
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Username
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Joined
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      <div className="flex items-center">
-                        <span>Last Journaled</span>
-                        <button 
-                          onClick={sortByLastJournaled}
-                          className="ml-1 focus:outline-none"
-                          aria-label="Sort by last journaled date"
-                        >
-                          <svg 
-                            className="h-4 w-4 text-gray-500 hover:text-gray-700" 
-                            fill="none" 
-                            viewBox="0 0 24 24" 
-                            stroke="currentColor"
-                          >
-                            {sortDirection === 'asc' ? (
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                            ) : (
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                            )}
-                          </svg>
-                        </button>
-                      </div>
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {profiles.map((profile) => (
-                    <tr key={profile.id}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {profile.email}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {profile.full_name || '-'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {profile.username || '-'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {new Date(profile.created_at).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {profile.last_trade_date 
-                          ? new Date(profile.last_trade_date).toLocaleDateString() 
-                          : 'Never'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <div className="flex space-x-4">
-                          <button
-                            onClick={() => handleViewUserSection('journal', profile)}
-                            className="text-indigo-600 hover:text-indigo-900 p-1 rounded-full hover:bg-indigo-50"
-                            title="View Journal"
-                          >
-                            <BookOpen className="h-5 w-5" />
-                          </button>
-                          <button
-                            onClick={() => handleManageRules(profile.user_id, profile.email, profile.full_name)}
-                            className="text-green-600 hover:text-green-900 p-1 rounded-full hover:bg-green-50"
-                            title="Manage Rules"
-                          >
-                            <Settings className="h-5 w-5" />
-                          </button>
-                          <button
-                            onClick={() => handleViewViolations(profile.user_id, profile.email, profile.full_name)}
-                            className="text-orange-600 hover:text-orange-900 p-1 rounded-full hover:bg-orange-50"
-                            title="View Violations"
-                          >
-                            <AlertTriangle className="h-5 w-5" />
-                          </button>
-                          <button
-                            onClick={() => handleViewUserSummary(profile.user_id, profile.email, profile.full_name)}
-                            className="text-blue-600 hover:text-blue-900 p-1 rounded-full hover:bg-blue-50"
-                            title="View Summary Report"
-                          >
-                            <FileText className="h-5 w-5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                  {profiles.length === 0 && (
-                    <tr>
-                      <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500">
-                        No users found
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+            <>
+              <div className="mt-4 mb-6">
+                <h3 className="text-lg font-medium text-gray-700 mb-3">User Statistics</h3>
+                <div className="grid grid-cols-5 gap-3">
+                  <div className={`p-3 rounded-lg shadow ${getLevelColor(1)} bg-opacity-20`}>
+                    <p className="text-xs font-medium">Level 1</p>
+                    <p className="text-2xl font-bold">{countUsersByLevel(profiles).level1}</p>
+                  </div>
+                  <div className={`p-3 rounded-lg shadow ${getLevelColor(2)} bg-opacity-20`}>
+                    <p className="text-xs font-medium">Level 2</p>
+                    <p className="text-2xl font-bold">{countUsersByLevel(profiles).level2}</p>
+                  </div>
+                  <div className={`p-3 rounded-lg shadow ${getLevelColor(3)} bg-opacity-20`}>
+                    <p className="text-xs font-medium">Level 3</p>
+                    <p className="text-2xl font-bold">{countUsersByLevel(profiles).level3}</p>
+                  </div>
+                  <div className={`p-3 rounded-lg shadow ${getLevelColor(null)} bg-opacity-20`}>
+                    <p className="text-xs font-medium">Not Set</p>
+                    <p className="text-2xl font-bold">{countUsersByLevel(profiles).notSet}</p>
+                  </div>
+                  <div className="p-3 rounded-lg shadow bg-red-50">
+                    <p className="text-xs font-medium text-red-700">Never Journaled</p>
+                    <p className="text-2xl font-bold text-red-600">{countUsersByLevel(profiles).neverJournaled}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-8 flex flex-col">
+                <div className="-my-2 overflow-hidden">
+                  <div className="py-2 align-middle inline-block min-w-full">
+                    <div className="shadow overflow-hidden border-b border-gray-200 sm:rounded-lg">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              User
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Discord Username
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              CLF Level
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Joined
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              <div className="flex items-center">
+                                <span>Last Journaled</span>
+                                <button 
+                                  onClick={sortByLastJournaled}
+                                  className="ml-1 focus:outline-none"
+                                  aria-label="Sort by last journaled date"
+                                >
+                                  <svg 
+                                    className="h-4 w-4 text-gray-500 hover:text-gray-700" 
+                                    fill="none" 
+                                    viewBox="0 0 24 24" 
+                                    stroke="currentColor"
+                                  >
+                                    {sortDirection === 'asc' ? (
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                                    ) : (
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                    )}
+                                  </svg>
+                                </button>
+                              </div>
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Actions
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {profiles.map((profile) => (
+                            <tr key={profile.id} className="hover:bg-gray-50">
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="flex items-center">
+                                  <div className="flex-shrink-0 h-10 w-10">
+                                    {/* Avatar or placeholder */}
+                                    <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
+                                      <span className="text-gray-500">{profile.full_name?.charAt(0) || profile.email.charAt(0)}</span>
+                                    </div>
+                                  </div>
+                                  <div className="ml-4">
+                                    <div className="text-sm font-medium text-gray-900">
+                                      {profile.full_name || "Unnamed User"}
+                                    </div>
+                                    <div className="text-sm text-gray-500">
+                                      {profile.email}
+                                    </div>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="text-sm text-gray-900">{profile.discord_username || profile.username || "-"}</div>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getLevelColor(profile.level)}`}>
+                                  Level {profile.level || "Not set"}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {new Date(profile.created_at).toLocaleDateString()}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {profile.last_trade_date 
+                                  ? new Date(profile.last_trade_date).toLocaleDateString() 
+                                  : 'Never'}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                <div className="flex space-x-4">
+                                  <button
+                                    onClick={() => handleViewUserSection('journal', profile)}
+                                    className="text-indigo-600 hover:text-indigo-900 p-1 rounded-full hover:bg-indigo-50"
+                                    title="View Journal"
+                                  >
+                                    <BookOpen className="h-5 w-5" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleManageRules(profile.user_id, profile.email, profile.full_name)}
+                                    className="text-green-600 hover:text-green-900 p-1 rounded-full hover:bg-green-50"
+                                    title="Manage Rules"
+                                  >
+                                    <Settings className="h-5 w-5" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleViewViolations(profile.user_id, profile.email, profile.full_name)}
+                                    className="text-orange-600 hover:text-orange-900 p-1 rounded-full hover:bg-orange-50"
+                                    title="View Violations"
+                                  >
+                                    <AlertTriangle className="h-5 w-5" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleViewUserSummary(profile.user_id, profile.email, profile.full_name)}
+                                    className="text-blue-600 hover:text-blue-900 p-1 rounded-full hover:bg-blue-50"
+                                    title="View Summary Report"
+                                  >
+                                    <FileText className="h-5 w-5" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                          {profiles.length === 0 && (
+                            <tr>
+                              <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500">
+                                No users found
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </>
           ) : activeTab === 'violations' ? (
             <div className="bg-white shadow overflow-hidden sm:rounded-lg p-4">
               <h2 className="text-xl font-medium text-gray-900 mb-4">All Trading Rule Violations</h2>

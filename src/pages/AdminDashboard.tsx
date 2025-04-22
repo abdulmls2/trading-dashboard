@@ -8,9 +8,10 @@ import { Trade as TradeType } from '../types';
 import TradeForm from '../components/TradeForm';
 import UserTradingRulesForm from '../components/UserTradingRulesForm';
 import TradeViolationsTable from '../components/TradeViolationsTable';
-import { BarChart2, User, Calendar, BookOpen, Activity, Settings, AlertTriangle } from 'lucide-react';
+import { BarChart2, User, Calendar, BookOpen, Activity, Settings, AlertTriangle, FileText } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+import UserSummaryReport from '../components/UserSummaryReport';
 
 interface UserProfile {
   id: string;
@@ -86,6 +87,7 @@ export default function AdminDashboard() {
   const [selectedYear, setSelectedYear] = useState<number | 'all'>(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState<number | 'all'>(new Date().getMonth()); // 0-11
   const reportContentRef = useRef<HTMLDivElement>(null);
+  const [showSummaryModal, setShowSummaryModal] = useState(false);
   
   // Available years for selection (current year and 5 years back)
   const availableYears = Array.from(
@@ -539,6 +541,13 @@ export default function AdminDashboard() {
     setShowViolationsModal(true);
   };
 
+  const handleViewUserSummary = (userId: string, email: string, fullName: string | null) => {
+    setSelectedUserId(userId);
+    setSelectedUserEmail(email);
+    setSelectedUserFullName(fullName || email);
+    setShowSummaryModal(true);
+  };
+
   // Handle when a user's trading rules are updated
   const handleRulesUpdated = () => {
     // You could refresh user data or show a notification here
@@ -791,6 +800,13 @@ export default function AdminDashboard() {
                             title="View Violations"
                           >
                             <AlertTriangle className="h-5 w-5" />
+                          </button>
+                          <button
+                            onClick={() => handleViewUserSummary(profile.user_id, profile.email, profile.full_name)}
+                            className="text-blue-600 hover:text-blue-900 p-1 rounded-full hover:bg-blue-50"
+                            title="View Summary Report"
+                          >
+                            <FileText className="h-5 w-5" />
                           </button>
                         </div>
                       </td>
@@ -1054,6 +1070,16 @@ export default function AdminDashboard() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* User Summary Modal */}
+        {showSummaryModal && (
+          <UserSummaryReport
+            userId={selectedUserId}
+            userEmail={selectedUserEmail}
+            userName={selectedUserFullName}
+            onClose={() => setShowSummaryModal(false)}
+          />
         )}
       </main>
     );

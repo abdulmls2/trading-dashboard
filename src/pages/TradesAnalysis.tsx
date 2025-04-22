@@ -49,8 +49,8 @@ const getAvailableYears = () => {
 const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
 // Confluence types to analyze
-const confluenceTypes = ['pivots', 'bankingLevel', 'ma', 'fib'];
-const confluenceLabels = ['Pivots', 'Banking Level', 'MA', 'Fib'];
+const confluenceTypes = ['pivots', 'bankingLevel', 'ma', 'fib', 'top_bob_fv'];
+const confluenceLabels = ['Pivots', 'Banking Level', 'MA', 'Fib', 'Balance Confluences'];
 
 export default function TradesAnalysis() {
   const effectiveUserId = useEffectiveUserId();
@@ -328,6 +328,7 @@ export default function TradesAnalysis() {
       if (trade.bankingLevel && trade.bankingLevel !== 'None' && trade.bankingLevel !== 'none' && trade.bankingLevel !== '') confluenceCount++;
       if (trade.ma && trade.ma !== 'None' && trade.ma !== 'none' && trade.ma !== '') confluenceCount++;
       if (trade.fib && trade.fib !== 'None' && trade.fib !== 'none' && trade.fib !== '') confluenceCount++;
+      if (trade.top_bob_fv && trade.top_bob_fv !== 'None' && trade.top_bob_fv !== 'none' && trade.top_bob_fv !== '') confluenceCount++;
       
       // Add trade data to the appropriate confluence count bucket
       if (!byConfluenceCount[confluenceCount]) {
@@ -406,6 +407,11 @@ export default function TradesAnalysis() {
         valueDetails['F'] = trade.fib;
       }
       
+      if (trade.top_bob_fv && trade.top_bob_fv !== 'None' && trade.top_bob_fv !== 'none' && trade.top_bob_fv !== '') {
+        activeConfluences.push('T');
+        valueDetails['T'] = trade.top_bob_fv;
+      }
+      
       // Skip if no confluences are present
       if (activeConfluences.length === 0) return;
       
@@ -437,7 +443,8 @@ export default function TradesAnalysis() {
             'P': {}, // Pivots values
             'B': {}, // Banking Level values
             'M': {}, // MA values
-            'F': {}  // Fib values
+            'F': {}, // Fib values
+            'T': {}  // Top/Bottom of Balance (TOP/BOB) or Fair Value (FV)
           },
           marketCondition
         };
@@ -616,118 +623,46 @@ export default function TradesAnalysis() {
     };
   }, [confluenceGroupAnalysis, selectedConfluenceMetric]);
 
-  // Chart options for bar charts
-  const barChartOptions = {
-    responsive: true,
-    plugins: {
-      legend: {
-        position: 'top' as const,
-      },
-      title: {
-        display: true,
-        text: 'Performance by Category',
-      },
-    },
-  };
-
-  // Chart options for confluence chart with dual Y axis
-  const confluenceChartOptions = {
-    responsive: true,
-    scales: {
-      y: {
-        type: 'linear' as const,
-        display: true,
-        position: 'left' as const,
-        title: {
-          display: true,
-          text: 'Win Rate & Trade Count'
-        }
-      },
-      y1: {
-        type: 'linear' as const,
-        display: true,
-        position: 'right' as const,
-        grid: {
-          drawOnChartArea: false,
-        },
-        title: {
-          display: true,
-          text: 'Average P/L'
-        }
-      },
-    },
-    plugins: {
-      legend: {
-        position: 'top' as const,
-      },
-      title: {
-        display: true,
-        text: 'Performance by Number of Confluences',
-      },
-    },
-  };
-
-  // Chart options for confluence groups chart
-  const confluenceGroupChartOptions = useMemo(() => {
-    return {
-      responsive: true,
-      indexAxis: 'y' as const, // Horizontal bar chart
-      scales: {
-        y: {
-          type: 'category' as const,
-          display: true,
-          title: {
-            display: true,
-            text: 'Confluence Combinations'
-          },
-          ticks: {
-            // Simple truncation of long labels
-            callback: function(value: any, index: number): string {
-              const labels = confluenceGroupAnalysis?.map(item => item.combination) || [];
-              const label = labels[index] || '';
-              return label.length > 30 ? label.substring(0, 27) + '...' : label;
-            }
-          }
-        },
-        x: {
-          type: 'linear' as const,
-          display: true,
-          position: 'bottom' as const,
-          title: {
-            display: true,
-            text: selectedConfluenceMetric === 'winRate' ? 'Win Rate %' : 'Total P/L'
-          }
-        }
-      },
-      plugins: {
-        legend: {
-          position: 'top' as const,
-        },
-        title: {
-          display: true,
-          text: `Performance by Specific Confluence Combinations (${selectedConfluenceMetric === 'winRate' ? 'Win Rate' : 'Total P/L'})`,
-        },
-        tooltip: {
-          enabled: true,
-          displayColors: true,
-          callbacks: {
-            title: function(tooltipItems: any[]) {
-              // Display the full combination name in the tooltip
-              return tooltipItems[0].label;
-            }
-          }
-        }
-      },
-    };
-  }, [confluenceGroupAnalysis, selectedConfluenceMetric]);
-
   // Helper function to format the combination display
   const formatCombination = (combination: string) => {
-    return combination
+    // First make specific replacements for the balance confluence values
+    let formatted = combination
+      .replace(/T:Top of Balance \(TOP\)/g, 'T:TOB')
+      .replace(/T:Bottom of Balance \(BOB\)/g, 'T:BOB')
+      .replace(/T:Fair Value \(FV\)/g, 'T:FV');
+    
+    // Then do the general replacements
+    return formatted
       .replace(/P:/g, 'Pivot: ')
       .replace(/B:/g, 'Banking: ')
       .replace(/M:/g, 'MA: ')
-      .replace(/F:/g, 'Fib: ');
+      .replace(/F:/g, 'Fib: ')
+      .replace(/T:/g, 'Balance: ');
+  };
+
+  // Helper function to abbreviate Balance Confluence values
+  const abbreviateBalanceConfluence = (value: string): string => {
+    if (value.includes('Top of Balance')) return 'TOB';
+    if (value.includes('Bottom of Balance')) return 'BOB';
+    if (value.includes('Fair Value')) return 'FV';
+    return value;
+  };
+
+  // Helper function for chart labels - uses shorter format
+  const formatCombinationForChart = (combination: string) => {
+    // First abbreviate balance confluence values without the T: prefix
+    let formatted = combination
+      .replace(/T:Top of Balance \(TOP\)/g, 'TOB')
+      .replace(/T:Bottom of Balance \(BOB\)/g, 'BOB')
+      .replace(/T:Fair Value \(FV\)/g, 'FV');
+    
+    // Then do short-form replacements for charts, but remove T: completely
+    return formatted
+      .replace(/P:/g, 'P:')
+      .replace(/B:/g, 'B:')
+      .replace(/M:/g, 'M:')
+      .replace(/F:/g, 'F:')
+      .replace(/T:/g, '');
   };
 
   // Handle market condition inclusion toggle
@@ -967,6 +902,7 @@ export default function TradesAnalysis() {
         .replace(/B:/g, 'Banking: ')
         .replace(/M:/g, 'MA: ')
         .replace(/F:/g, 'Fib: ')
+        .replace(/T:/g, 'Balance: ')
         .split(' + ')
         .join(', ');
     };
@@ -1013,6 +949,111 @@ export default function TradesAnalysis() {
       </div>
     );
   };
+
+  // Chart options for bar charts
+  const barChartOptions = {
+    responsive: true,
+    plugins: {
+      legend: {
+        position: 'top' as const,
+      },
+      title: {
+        display: true,
+        text: 'Performance by Category',
+      },
+    },
+  };
+
+  // Chart options for confluence chart with dual Y axis
+  const confluenceChartOptions = {
+    responsive: true,
+    scales: {
+      y: {
+        type: 'linear' as const,
+        display: true,
+        position: 'left' as const,
+        title: {
+          display: true,
+          text: 'Win Rate & Trade Count'
+        }
+      },
+      y1: {
+        type: 'linear' as const,
+        display: true,
+        position: 'right' as const,
+        grid: {
+          drawOnChartArea: false,
+        },
+        title: {
+          display: true,
+          text: 'Average P/L'
+        }
+      },
+    },
+    plugins: {
+      legend: {
+        position: 'top' as const,
+      },
+      title: {
+        display: true,
+        text: 'Performance by Number of Confluences',
+      },
+    },
+  };
+
+  // Chart options for confluence groups chart
+  const confluenceGroupChartOptions = useMemo(() => {
+    return {
+      responsive: true,
+      indexAxis: 'y' as const, // Horizontal bar chart
+      scales: {
+        y: {
+          type: 'category' as const,
+          display: true,
+          title: {
+            display: true,
+            text: 'Confluence Combinations'
+          },
+          ticks: {
+            // Use abbreviated format for chart labels
+            callback: function(value: any, index: number): string {
+              const labels = confluenceGroupAnalysis?.map(item => item.combination) || [];
+              const label = labels[index] || '';
+              return formatCombinationForChart(label);
+            }
+          }
+        },
+        x: {
+          type: 'linear' as const,
+          display: true,
+          position: 'bottom' as const,
+          title: {
+            display: true,
+            text: selectedConfluenceMetric === 'winRate' ? 'Win Rate %' : 'Total P/L'
+          }
+        }
+      },
+      plugins: {
+        legend: {
+          position: 'top' as const,
+        },
+        title: {
+          display: true,
+          text: `Performance by Specific Confluence Combinations (${selectedConfluenceMetric === 'winRate' ? 'Win Rate' : 'Total P/L'})`,
+        },
+        tooltip: {
+          enabled: true,
+          displayColors: true,
+          callbacks: {
+            title: function(tooltipItems: any[]) {
+              // Display the full combination name in the tooltip
+              return formatCombination(tooltipItems[0].label);
+            }
+          }
+        }
+      },
+    };
+  }, [confluenceGroupAnalysis, selectedConfluenceMetric]);
 
   return (
     <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
@@ -1101,6 +1142,7 @@ export default function TradesAnalysis() {
                     winningTrades: winningTrades,
                     losingTrades: losingTrades
                   }),
+                  top_bob_fv: '',
                 };
                 setSelectedAnalysisTrade(analysisTrade);
                 setIsChatOpen(true);

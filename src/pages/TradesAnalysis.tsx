@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { getTrades, useEffectiveUserId } from '../lib/api';
 import { Trade } from '../types';
 import TradeChatBox from '../components/TradeChatBox';
+import { useAccount } from '../contexts/AccountContext';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -54,6 +55,7 @@ const confluenceLabels = ['Pivots', 'Banking Level', 'MA', 'Fib', 'Balance Confl
 
 export default function TradesAnalysis() {
   const effectiveUserId = useEffectiveUserId();
+  const { currentAccount, isLoading: accountLoading } = useAccount();
   const [trades, setTrades] = useState<Trade[]>([]);
   const [filteredTrades, setFilteredTrades] = useState<Trade[]>([]);
   const [selectedMonth, setSelectedMonth] = useState("All Trades");
@@ -87,9 +89,9 @@ export default function TradesAnalysis() {
       
       try {
         setLoading(true);
-        console.log(`TradesAnalysis: Loading trades for user ${effectiveUserId}`);
-        const data = await getTrades(effectiveUserId);
-        console.log(`TradesAnalysis: Loaded ${data.length} trades for user ${effectiveUserId}`);
+        console.log(`TradesAnalysis: Loading trades for user ${effectiveUserId} and account ${currentAccount?.id || 'all'}`);
+        const data = await getTrades(effectiveUserId, currentAccount?.id || null);
+        console.log(`TradesAnalysis: Loaded ${data.length} trades for user ${effectiveUserId} and account ${currentAccount?.name || 'all'}`);
         
         // Format the trades properly
         const formattedTrades = data.map(trade => ({
@@ -119,10 +121,10 @@ export default function TradesAnalysis() {
       }
     }
 
-    if (effectiveUserId) {
+    if (effectiveUserId && !accountLoading) {
       loadTrades();
     }
-  }, [effectiveUserId]);
+  }, [effectiveUserId, currentAccount, accountLoading]);
 
   // Filter trades by selected month and year
   const filterTrades = () => {

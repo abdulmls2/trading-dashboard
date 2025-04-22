@@ -11,7 +11,7 @@ export function useEffectiveUserId() {
   return effectiveUserId;
 }
 
-export async function createTrade(trade: Omit<Trade, 'id' | 'time'>, targetUserId?: string | null) {
+export async function createTrade(trade: Omit<Trade, 'id' | 'time'>, targetUserId?: string | null, accountId?: string | null) {
   // If targetUserId is provided and not null, use it (for admin impersonation)
   // Otherwise, get the current user
   let userId: string;
@@ -23,11 +23,26 @@ export async function createTrade(trade: Omit<Trade, 'id' | 'time'>, targetUserI
     if (!user) throw new Error('User not authenticated');
     userId = user.id;
   }
+
+  // If no accountId is provided, get the default account
+  if (!accountId) {
+    const { data: accounts } = await supabase
+      .from('trading_accounts')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('is_default', true)
+      .limit(1);
+      
+    if (accounts && accounts.length > 0) {
+      accountId = accounts[0].id;
+    }
+  }
   
   const { data, error } = await supabase
     .from('trades')
     .insert([{
       user_id: userId,
+      account_id: accountId,
       date: trade.date,
       pair: trade.pair,
       action: trade.action,
@@ -112,7 +127,7 @@ export async function deleteTrade(id: string) {
   if (error) throw error;
 }
 
-export async function getTrades(targetUserId?: string | null) {
+export async function getTrades(targetUserId?: string | null, accountId?: string | null) {
   // If targetUserId is provided and not null, use it (for admin impersonation)
   // Otherwise, get the current user
   let userId: string;
@@ -125,11 +140,13 @@ export async function getTrades(targetUserId?: string | null) {
     userId = user.id;
   }
 
-  const { data, error } = await supabase
+  // Start building the query
+  let query = supabase
     .from('trades')
     .select(`
       id,
       user_id,
+      account_id,
       date,
       pair,
       action,
@@ -158,8 +175,15 @@ export async function getTrades(targetUserId?: string | null) {
       top_bob_fv,
       created_at
     `)
-    .eq('user_id', userId)
-    .order('date', { ascending: false });
+    .eq('user_id', userId);
+
+  // If accountId is provided, filter by it
+  if (accountId) {
+    query = query.eq('account_id', accountId);
+  }
+
+  // Execute the query
+  const { data, error } = await query.order('date', { ascending: false });
 
   if (error) throw error;
 
@@ -167,6 +191,7 @@ export async function getTrades(targetUserId?: string | null) {
   return data.map(trade => ({
     id: trade.id,
     userId: trade.user_id,
+    accountId: trade.account_id,
     date: trade.date,
     pair: trade.pair,
     action: trade.action,
@@ -197,7 +222,7 @@ export async function getTrades(targetUserId?: string | null) {
   }));
 }
 
-export async function getPerformanceMetrics(month: string, targetUserId?: string | null) {
+export async function getPerformanceMetrics(month: string, targetUserId?: string | null, accountId?: string | null) {
   // If targetUserId is provided and not null, use it (for admin impersonation)
   // Otherwise, get the current user
   let userId: string;
@@ -215,6 +240,11 @@ export async function getPerformanceMetrics(month: string, targetUserId?: string
     .select('*')
     .eq('month', month)
     .eq('user_id', userId);
+
+  // Add account_id filter if provided
+  if (accountId) {
+    query.eq('account_id', accountId);
+  }
 
   const { data, error } = await query.maybeSingle();
 
@@ -236,11 +266,12 @@ export async function getPerformanceMetrics(month: string, targetUserId?: string
     createdAt: data.created_at,
     updatedAt: data.updated_at,
     monthlyPipTarget: data.monthly_pip_target,
-    capital: data.capital
+    capital: data.capital,
+    accountId: data.account_id
   };
 }
 
-export async function updatePerformanceMetrics(metrics: Partial<Omit<PerformanceMetrics, 'id'>> & { month: string }, targetUserId?: string) {
+export async function updatePerformanceMetrics(metrics: Partial<Omit<PerformanceMetrics, 'id'>> & { month: string }, targetUserId?: string, accountId?: string | null) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('User not authenticated');
 
@@ -251,6 +282,11 @@ export async function updatePerformanceMetrics(metrics: Partial<Omit<Performance
     month: metrics.month
   };
 
+  // Add account_id to upsert data if provided
+  if (accountId) {
+    upsertData.account_id = accountId;
+  }
+
   if (metrics.totalTrades !== undefined) upsertData.total_trades = metrics.totalTrades;
   if (metrics.winRate !== undefined) upsertData.win_rate = metrics.winRate;
   if (metrics.averageRRR !== undefined) upsertData.average_rrr = metrics.averageRRR;
@@ -258,30 +294,66 @@ export async function updatePerformanceMetrics(metrics: Partial<Omit<Performance
   if (metrics.monthlyPipTarget !== undefined) upsertData.monthly_pip_target = metrics.monthlyPipTarget;
   if (metrics.capital !== undefined) upsertData.capital = metrics.capital;
 
-  const { data, error } = await supabase
-    .from('performance_metrics')
-    .upsert([upsertData], { onConflict: 'user_id, month' })
-    .select()
-    .single();
+  try {
+    // Try with account_id in the conflict keys first (if accountId is provided)
+    if (accountId) {
+      const { data, error } = await supabase
+        .from('performance_metrics')
+        .upsert([upsertData], { onConflict: 'user_id, month, account_id' })
+        .select()
+        .single();
 
-  if (error) throw error;
-  
-  return {
-    id: data.id,
-    userId: data.user_id,
-    totalTrades: data.total_trades,
-    winRate: data.win_rate,
-    averageRRR: data.average_rrr,
-    totalProfitLoss: data.total_profit_loss,
-    month: data.month,
-    createdAt: data.created_at,
-    updatedAt: data.updated_at,
-    monthlyPipTarget: data.monthly_pip_target,
-    capital: data.capital
-  };
+      if (!error) {
+        return {
+          id: data.id,
+          userId: data.user_id,
+          totalTrades: data.total_trades,
+          winRate: data.win_rate,
+          averageRRR: data.average_rrr,
+          totalProfitLoss: data.total_profit_loss,
+          month: data.month,
+          createdAt: data.created_at,
+          updatedAt: data.updated_at,
+          monthlyPipTarget: data.monthly_pip_target,
+          capital: data.capital,
+          accountId: data.account_id
+        };
+      }
+
+      // If we get here, there was an error with the account_id conflict key
+      console.warn("Error using account_id in conflict key, falling back to user_id and month only:", error);
+    }
+
+    // Fallback to just user_id and month (this will work even if account_id column doesn't exist yet)
+    const { data, error } = await supabase
+      .from('performance_metrics')
+      .upsert([upsertData], { onConflict: 'user_id, month' })
+      .select()
+      .single();
+
+    if (error) throw error;
+    
+    return {
+      id: data.id,
+      userId: data.user_id,
+      totalTrades: data.total_trades,
+      winRate: data.win_rate,
+      averageRRR: data.average_rrr,
+      totalProfitLoss: data.total_profit_loss,
+      month: data.month,
+      createdAt: data.created_at,
+      updatedAt: data.updated_at,
+      monthlyPipTarget: data.monthly_pip_target,
+      capital: data.capital,
+      accountId: data.account_id
+    };
+  } catch (error) {
+    console.error("Error updating performance metrics:", error);
+    throw error;
+  }
 }
 
-export async function calculateMonthlyMetrics(month: string, targetUserId?: string) {
+export async function calculateMonthlyMetrics(month: string, targetUserId?: string, accountId?: string) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('User not authenticated');
 
@@ -290,12 +362,19 @@ export async function calculateMonthlyMetrics(month: string, targetUserId?: stri
   const startDate = new Date(month);
   const endDate = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0);
 
-  const { data: trades, error } = await supabase
+  let query = supabase
     .from('trades')
     .select('*')
     .eq('user_id', userIdToFetch)
     .gte('date', startDate.toISOString().split('T')[0])
     .lte('date', endDate.toISOString().split('T')[0]);
+
+  // Filter by account if provided
+  if (accountId) {
+    query = query.eq('account_id', accountId);
+  }
+
+  const { data: trades, error } = await query;
 
   if (error) throw error;
 
@@ -305,7 +384,8 @@ export async function calculateMonthlyMetrics(month: string, targetUserId?: stri
       winRate: 0,
       averageRRR: 0,
       totalProfitLoss: 0,
-      month: startDate
+      month: startDate,
+      accountId: accountId
     };
   }
 
@@ -320,7 +400,8 @@ export async function calculateMonthlyMetrics(month: string, targetUserId?: stri
     winRate,
     averageRRR,
     totalProfitLoss,
-    month: startDate
+    month: startDate,
+    accountId: accountId
   };
 }
 
@@ -588,43 +669,71 @@ export async function deleteTradingRule(id: string) {
 }
 
 // Trade Violations Management
-export async function getTradeViolations(userId?: string, showAll?: boolean) {
+export async function getTradeViolations(userId?: string, accountId?: string | null, showAll?: boolean) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('User not authenticated');
 
-  // First, query just the violations and trades
-  const query = supabase
+  // Determine the user ID to fetch violations for
+  const targetUserId = showAll ? undefined : (userId || user.id);
+
+  // Build the base query for violations
+  let violationQuery = supabase
     .from('trade_violations')
     .select(`
-      *,
-      trades(*)
+      id,
+      trade_id,
+      user_id,
+      rule_type,
+      violated_value,
+      allowed_values,
+      acknowledged,
+      created_at,
+      trades (
+        id,
+        date,
+        pair,
+        action,
+        profit_loss,
+        account_id 
+      )
     `);
 
-  // If showAll is true, don't filter by userId (for admin view of all violations)
-  // If a userId is specified, filter by it (for admin viewing a specific user)
-  // Otherwise, use the current user's ID
-  let finalQuery;
-  if (showAll) {
-    finalQuery = query;
-  } else {
-    finalQuery = userId ? query.eq('user_id', userId) : query.eq('user_id', user.id);
+  // Apply user filter if needed
+  if (targetUserId) {
+    violationQuery = violationQuery.eq('user_id', targetUserId);
+  }
+
+  // Execute the violation query
+  const { data: violationsData, error: violationsError } = await violationQuery.order('created_at', { ascending: false });
+
+  if (violationsError) throw violationsError;
+  
+  if (!violationsData || violationsData.length === 0) return [];
+
+  // Filter violations based on accountId if provided
+  let filteredViolations = violationsData;
+  if (accountId) {
+    filteredViolations = violationsData.filter(v => {
+      // Check if trades data exists and is the expected object (or array with one object)
+      const trade = Array.isArray(v.trades) ? v.trades[0] : v.trades;
+      return trade && trade.account_id === accountId;
+    });
   }
   
-  const { data, error } = await finalQuery.order('created_at', { ascending: false });
+  if (filteredViolations.length === 0) return [];
 
-  if (error) throw error;
-  
-  // If no data, return empty array
-  if (!data || data.length === 0) return [];
-  
-  // Extract unique user IDs to get their profiles
-  const userIds = [...new Set(data.map(v => v.user_id))];
+  // Extract unique user IDs from the final filtered violations
+  const userIds = [...new Set(filteredViolations.map(v => v.user_id))];
   
   // Get profile information for these users
-  const { data: profilesData } = await supabase
+  const { data: profilesData, error: profilesError } = await supabase
     .from('profiles')
     .select('user_id, email, full_name, username')
     .in('user_id', userIds);
+
+  if (profilesError) {
+      console.error("Error fetching profiles for violations:", profilesError);
+  }
     
   // Create a mapping of user_id to profile
   interface ProfileInfo {
@@ -643,24 +752,31 @@ export async function getTradeViolations(userId?: string, showAll?: boolean) {
     };
   });
 
-  return data.map(violation => ({
-    id: violation.id,
-    tradeId: violation.trade_id,
-    userId: violation.user_id,
-    ruleType: violation.rule_type,
-    violatedValue: violation.violated_value,
-    allowedValues: violation.allowed_values,
-    acknowledged: violation.acknowledged,
-    createdAt: violation.created_at,
-    trade: violation.trades ? {
-      id: violation.trades.id,
-      date: violation.trades.date,
-      pair: violation.trades.pair,
-      action: violation.trades.action,
-      profitLoss: violation.trades.profit_loss
-    } : null,
-    user: profileMap[violation.user_id] || null
-  }));
+  // Map the final filtered violations to the desired output format
+  return filteredViolations.map(violation => {
+    // Handle the case where trades might be an array or an object
+    const tradeData = Array.isArray(violation.trades) ? violation.trades[0] : violation.trades;
+    
+    return {
+      id: violation.id,
+      tradeId: violation.trade_id,
+      userId: violation.user_id,
+      ruleType: violation.rule_type,
+      violatedValue: violation.violated_value,
+      allowedValues: violation.allowed_values,
+      acknowledged: violation.acknowledged,
+      createdAt: violation.created_at,
+      trade: tradeData ? {
+        id: tradeData.id,
+        date: tradeData.date,
+        pair: tradeData.pair,
+        action: tradeData.action,
+        profitLoss: tradeData.profit_loss,
+        accountId: tradeData.account_id
+      } : null,
+      user: profileMap[violation.user_id] || null
+    };
+  });
 }
 
 export async function createTradeViolation(violation: Omit<import('../types').TradeViolation, 'id' | 'createdAt'>) {
@@ -763,4 +879,164 @@ export async function checkTradeAgainstRules(
     isValid: violations.length === 0,
     violations
   };
+}
+
+// Trading Accounts
+export async function getUserTradingAccounts(targetUserId?: string | null) {
+  let userId: string;
+  
+  if (targetUserId) {
+    userId = targetUserId;
+  } else {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User not authenticated');
+    userId = user.id;
+  }
+
+  const { data, error } = await supabase
+    .from('trading_accounts')
+    .select('*')
+    .eq('user_id', userId)
+    .order('is_default', { ascending: false })
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return data;
+}
+
+export async function createTradingAccount(name: string, description: string = '', isDefault: boolean = false, targetUserId?: string | null) {
+  let userId: string;
+  
+  if (targetUserId) {
+    userId = targetUserId;
+  } else {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User not authenticated');
+    userId = user.id;
+  }
+
+  // If this account is set as default, we need to unset any existing default accounts
+  if (isDefault) {
+    await supabase
+      .from('trading_accounts')
+      .update({ is_default: false })
+      .eq('user_id', userId);
+  }
+
+  const { data, error } = await supabase
+    .from('trading_accounts')
+    .insert({
+      user_id: userId,
+      name,
+      description,
+      is_default: isDefault
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function setDefaultTradingAccount(accountId: string, targetUserId?: string | null) {
+  let userId: string;
+  
+  if (targetUserId) {
+    userId = targetUserId;
+  } else {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User not authenticated');
+    userId = user.id;
+  }
+
+  // First, unset all default accounts for this user
+  await supabase
+    .from('trading_accounts')
+    .update({ is_default: false })
+    .eq('user_id', userId);
+
+  // Then set the selected account as default
+  const { data, error } = await supabase
+    .from('trading_accounts')
+    .update({ is_default: true })
+    .eq('id', accountId)
+    .eq('user_id', userId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteTradingAccount(accountId: string) {
+  // Check if this is the only account
+  const { count } = await supabase
+    .from('trading_accounts')
+    .select('*', { count: 'exact', head: true });
+    
+  if (count === 1) {
+    throw new Error('Cannot delete the only trading account');
+  }
+  
+  // Check if this is the default account
+  const { data: account } = await supabase
+    .from('trading_accounts')
+    .select('is_default')
+    .eq('id', accountId)
+    .single();
+    
+  // Get another account to set as default if this is the default
+  if (account?.is_default) {
+    const { data: otherAccount } = await supabase
+      .from('trading_accounts')
+      .select('id')
+      .neq('id', accountId)
+      .limit(1)
+      .single();
+      
+    if (otherAccount) {
+      await setDefaultTradingAccount(otherAccount.id);
+    }
+  }
+
+  const { error } = await supabase
+    .from('trading_accounts')
+    .delete()
+    .eq('id', accountId);
+
+  if (error) throw error;
+}
+
+// Add a new function to update a trading account
+export async function updateTradingAccount(accountId: string, updates: { name?: string; description?: string; isDefault?: boolean }) {
+  const updateData: any = {};
+  
+  if (updates.name !== undefined) updateData.name = updates.name;
+  if (updates.description !== undefined) updateData.description = updates.description;
+  if (updates.isDefault !== undefined) {
+    // If setting as default, first unset any existing default accounts
+    if (updates.isDefault) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+      
+      await supabase
+        .from('trading_accounts')
+        .update({ is_default: false })
+        .eq('user_id', user.id);
+    }
+    
+    updateData.is_default = updates.isDefault;
+  }
+  
+  updateData.updated_at = new Date();
+  
+  const { data, error } = await supabase
+    .from('trading_accounts')
+    .update(updateData)
+    .eq('id', accountId)
+    .select()
+    .single();
+    
+  if (error) throw error;
+  return data;
 }

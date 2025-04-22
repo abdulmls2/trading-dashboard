@@ -4,6 +4,7 @@ import { Trade } from '../types';
 import { getTrades, deleteTrade, useEffectiveUserId } from '../lib/api';
 import TradeForm from '../components/TradeForm';
 import { PlusCircle } from 'lucide-react';
+import { useAccount } from '../contexts/AccountContext';
 
 // Copied from PerformanceOverview
 const months = [
@@ -34,6 +35,7 @@ const getSavedCurrency = () => {
 
 export default function Journal() {
   const effectiveUserId = useEffectiveUserId();
+  const { currentAccount, isLoading: accountLoading } = useAccount();
   const [trades, setTrades] = useState<Trade[]>([]);
   const [filteredTrades, setFilteredTrades] = useState<Trade[]>([]);
   const [loading, setLoading] = useState(true);
@@ -56,9 +58,9 @@ export default function Journal() {
     setLoading(true);
     setError(null);
     try {
-      // Pass the effectiveUserId as a string (getTrades expects string | undefined)
-      const tradeData = await getTrades(effectiveUserId);
-      console.log(`Journal: Loaded ${tradeData.length} trades for user ID ${effectiveUserId}`);
+      // Pass the effectiveUserId and currentAccount.id to getTrades
+      const tradeData = await getTrades(effectiveUserId, currentAccount?.id || null);
+      console.log(`Journal: Loaded ${tradeData.length} trades for user ID ${effectiveUserId} and account ${currentAccount?.name || 'all'}`);
       
       const formattedTrades = tradeData.map(trade => ({ ...trade, time: trade.entryTime }));
       setTrades(formattedTrades);
@@ -68,7 +70,7 @@ export default function Journal() {
     } finally {
       setLoading(false);
     }
-  }, [effectiveUserId]);
+  }, [effectiveUserId, currentAccount]);
 
   // Filter trades whenever the main list or filters change
   useEffect(() => {
@@ -96,9 +98,12 @@ export default function Journal() {
     setFilteredTrades(filtered);
   }, [trades, selectedMonth, selectedYear]);
 
-  // Load initial trades and currency on mount
+  // Load initial trades and currency on mount or when account changes
   useEffect(() => {
-    loadTrades();
+    if (effectiveUserId && !accountLoading) {
+      loadTrades();
+    }
+    
     // Update currency if it changes in another tab/window
     const handleStorageChange = () => {
       setSelectedCurrency(getSavedCurrency());
@@ -107,7 +112,7 @@ export default function Journal() {
     return () => {
       window.removeEventListener('storage', handleStorageChange);
     };
-  }, [loadTrades]);
+  }, [loadTrades, effectiveUserId, accountLoading, currentAccount]);
 
   // Handler for deleting trades
   const handleDeleteTrades = async (tradeIds: string[]) => {

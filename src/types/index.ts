@@ -1,6 +1,7 @@
 export interface Trade {
   id: string;
   userId?: string;
+  accountId?: string;
   date: string;
   time: string;
   pair: string;
@@ -40,6 +41,7 @@ export interface User {
 export interface PerformanceMetrics {
   id?: string;
   userId?: string;
+  accountId?: string;
   totalTrades: number;
   winRate: number;
   averageRRR: number;

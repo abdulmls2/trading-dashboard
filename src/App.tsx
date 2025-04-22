@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { AccountProvider } from './contexts/AccountContext';
 import { UserImpersonationProvider } from './contexts/UserImpersonationContext';
 import Dashboard from './pages/Dashboard';
 import LogTrade from './pages/LogTrade';
@@ -131,7 +132,9 @@ function App() {
     <Router>
       <UserImpersonationProvider>
         <AuthProvider>
-          <AppRoutes />
+          <AccountProvider>
+            <AppRoutes />
+          </AccountProvider>
         </AuthProvider>
       </UserImpersonationProvider>
     </Router>

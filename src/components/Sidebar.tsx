@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Menu, X, ChevronLeft, ChevronRight, LogOut, Settings, User, BarChart2, Calendar, PlusCircle, Shield, Home, BookOpen, MessageSquare, Rocket } from 'lucide-react';
+import { Menu, X, ChevronLeft, ChevronRight, LogOut, Settings, User, BarChart2, Calendar, PlusCircle, Shield, Home, BookOpen, MessageSquare, Rocket, Plus, CreditCard, Edit, Trash } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useAccount } from '../contexts/AccountContext';
 import { supabase } from '../lib/supabase';
 
 export default function Sidebar() {
@@ -10,6 +11,11 @@ export default function Sidebar() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [userFullName, setUserFullName] = useState('');
   const location = useLocation(); // Hook to get current path
+  const { accounts, currentAccount, setCurrentAccount, createAccount, updateAccount, deleteAccount, isLoading } = useAccount();
+  const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
+  const [showAccountForm, setShowAccountForm] = useState(false);
+  const [accountFormData, setAccountFormData] = useState({ name: '', description: '', isDefault: false });
+  const [editingAccount, setEditingAccount] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchUserData() {
@@ -37,6 +43,48 @@ export default function Sidebar() {
   };
 
   const isActive = (path: string) => location.pathname === path;
+
+  const handleAccountChange = (account: any) => {
+    setCurrentAccount(account);
+    setIsAccountMenuOpen(false);
+  };
+
+  const handleAccountFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      if (editingAccount) {
+        await updateAccount(editingAccount, accountFormData);
+      } else {
+        await createAccount(accountFormData.name, accountFormData.description, accountFormData.isDefault);
+      }
+      setShowAccountForm(false);
+      setEditingAccount(null);
+      setAccountFormData({ name: '', description: '', isDefault: false });
+    } catch (error) {
+      console.error('Error saving account:', error);
+    }
+  };
+
+  const handleEditAccount = (account: any) => {
+    setEditingAccount(account.id);
+    setAccountFormData({
+      name: account.name,
+      description: account.description || '',
+      isDefault: account.is_default
+    });
+    setShowAccountForm(true);
+  };
+
+  const handleDeleteAccount = async (id: string) => {
+    if (window.confirm('Are you sure you want to delete this account? All associated trades will remain but will not be associated with an account.')) {
+      try {
+        await deleteAccount(id);
+      } catch (error) {
+        console.error('Error deleting account:', error);
+        alert(error instanceof Error ? error.message : 'Failed to delete account');
+      }
+    }
+  };
 
   const navItems = [
     { path: '/performance', icon: Rocket, label: 'Performance Overview' },
@@ -114,6 +162,152 @@ export default function Sidebar() {
            </button>
          )}
       </div>
+
+      {/* Account Selector */}
+      {!isCollapsed && (
+        <div className="px-4 py-2 border-b">
+          <div className="flex justify-between items-center">
+            <p className="text-xs font-medium text-gray-500">ACCOUNT</p>
+            <button 
+              onClick={() => setIsAccountMenuOpen(!isAccountMenuOpen)} 
+              className="text-xs text-blue-600 hover:text-blue-800"
+            >
+              Change
+            </button>
+          </div>
+          
+          {currentAccount && (
+            <div className="mt-1 flex items-center justify-between">
+              <div>
+                <p className="font-medium text-sm">{currentAccount.name}</p>
+                {currentAccount.is_default && (
+                  <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">Default</span>
+                )}
+              </div>
+              <button
+                onClick={() => {
+                  setAccountFormData({ name: '', description: '', isDefault: false });
+                  setEditingAccount(null);
+                  setShowAccountForm(true);
+                }}
+                className="text-gray-500 hover:text-gray-700"
+                title="Create new account"
+              >
+                <Plus size={16} />
+              </button>
+            </div>
+          )}
+          
+          {isAccountMenuOpen && (
+            <div className="absolute z-10 mt-2 w-56 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
+              <div className="py-1">
+                {accounts.map(account => (
+                  <div key={account.id} className="px-4 py-2 hover:bg-gray-100 flex justify-between items-center">
+                    <button 
+                      onClick={() => handleAccountChange(account)}
+                      className="text-sm text-left w-full"
+                    >
+                      <span className={`${currentAccount?.id === account.id ? 'font-bold' : ''}`}>
+                        {account.name}
+                        {account.is_default && (
+                          <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded-full">Default</span>
+                        )}
+                      </span>
+                    </button>
+                    <div className="flex space-x-1">
+                      <button 
+                        onClick={() => handleEditAccount(account)}
+                        className="text-gray-500 hover:text-gray-700"
+                      >
+                        <Edit size={14} />
+                      </button>
+                      {!account.is_default && (
+                        <button 
+                          onClick={() => handleDeleteAccount(account.id)}
+                          className="text-gray-500 hover:text-red-600"
+                        >
+                          <Trash size={14} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                <button 
+                  onClick={() => {
+                    setAccountFormData({ name: '', description: '', isDefault: false });
+                    setEditingAccount(null);
+                    setShowAccountForm(true);
+                    setIsAccountMenuOpen(false);
+                  }}
+                  className="px-4 py-2 text-sm text-blue-600 hover:bg-gray-100 w-full text-left flex items-center"
+                >
+                  <Plus size={14} className="mr-2" />
+                  Add new account
+                </button>
+              </div>
+            </div>
+          )}
+          
+          {showAccountForm && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 z-20 flex items-center justify-center">
+              <div className="bg-white rounded-lg p-6 w-96">
+                <h3 className="text-lg font-medium mb-4">{editingAccount ? 'Edit Account' : 'Create New Account'}</h3>
+                <form onSubmit={handleAccountFormSubmit}>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Account Name</label>
+                    <input 
+                      type="text" 
+                      value={accountFormData.name} 
+                      onChange={(e) => setAccountFormData({...accountFormData, name: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      required
+                    />
+                  </div>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                    <textarea 
+                      value={accountFormData.description} 
+                      onChange={(e) => setAccountFormData({...accountFormData, description: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      rows={3}
+                    />
+                  </div>
+                  <div className="mb-4 flex items-center">
+                    <input 
+                      type="checkbox" 
+                      id="is-default" 
+                      checked={accountFormData.isDefault} 
+                      onChange={(e) => setAccountFormData({...accountFormData, isDefault: e.target.checked})}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <label htmlFor="is-default" className="ml-2 block text-sm text-gray-700">
+                      Set as default account
+                    </label>
+                  </div>
+                  <div className="flex justify-end space-x-2">
+                    <button 
+                      type="button" 
+                      onClick={() => {
+                        setShowAccountForm(false);
+                        setEditingAccount(null);
+                      }}
+                      className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+                    >
+                      Cancel
+                    </button>
+                    <button 
+                      type="submit" 
+                      className="px-4 py-2 bg-blue-600 border border-transparent rounded-md text-sm font-medium text-white hover:bg-blue-700"
+                    >
+                      {editingAccount ? 'Update' : 'Create'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Navigation */}
       <nav className="flex-grow mt-4 space-y-1 px-2">

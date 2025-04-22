@@ -6,9 +6,11 @@ import { format, isValid } from 'date-fns';
 import { Trade, TradeCalendarDay } from '../types';
 import { getTrades, useEffectiveUserId } from '../lib/api';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
+import { useAccount } from '../contexts/AccountContext';
 
 export default function CalendarPage() {
   const effectiveUserId = useEffectiveUserId();
+  const { currentAccount, isLoading: accountLoading } = useAccount();
   const [value, setValue] = useState<Date>(new Date());
   const [trades, setTrades] = useState<Trade[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -24,9 +26,9 @@ export default function CalendarPage() {
       
       try {
         setLoading(true);
-        console.log(`Calendar: Loading trades for user ${effectiveUserId}`);
-        const tradeData = await getTrades(effectiveUserId);
-        console.log(`Calendar: Loaded ${tradeData.length} trades for user ${effectiveUserId}`);
+        console.log(`Calendar: Loading trades for user ${effectiveUserId} and account ${currentAccount?.id || 'all'}`);
+        const tradeData = await getTrades(effectiveUserId, currentAccount?.id || null);
+        console.log(`Calendar: Loaded ${tradeData.length} trades for user ${effectiveUserId} and account ${currentAccount?.name || 'all'}`);
         
         // Add the time property required by the Trade interface
         const formattedTrades = tradeData.map(trade => ({
@@ -42,10 +44,10 @@ export default function CalendarPage() {
       }
     }
     
-    if (effectiveUserId) {
+    if (effectiveUserId && !accountLoading) {
       loadTrades();
     }
-  }, [effectiveUserId]);
+  }, [effectiveUserId, currentAccount, accountLoading]);
 
   // Group trades by date
   const tradesByDate = useMemo(() => {

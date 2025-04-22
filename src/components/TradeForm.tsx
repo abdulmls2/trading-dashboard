@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Trade } from '../types';
 import { createTrade, updateTrade, checkTradeAgainstRules, createTradeViolation, getUserTradingRules } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
+import { useAccount } from '../contexts/AccountContext';
 import { Clipboard, AlertTriangle, Upload } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -119,6 +120,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false, ta
   );
 
   const { user } = useAuth();
+  const { currentAccount } = useAccount();
   const [error, setError] = React.useState('');
   const [loading, setLoading] = React.useState(false);
   const [ruleViolations, setRuleViolations] = useState<Array<{
@@ -233,49 +235,46 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false, ta
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user && !targetUserId) return;
     
-    setLoading(true);
-    setError('');
+    if (loading) return; // Prevent multiple submissions
+    
+    // Validate form fields (This could be expanded)
+    if (!formData.date || !formData.pair || !formData.entryTime) {
+      setError('Please fill in all required fields.');
+      return;
+    }
+    
+    // Check for rule violations if any exist and user hasn't acknowledged them
+    if (ruleViolations.length > 0 && !acknowledgedViolations) {
+      setShowViolationWarning(true);
+      return;
+    }
     
     try {
-      if (formData.profitLoss === undefined) {
-        formData.profitLoss = parseFloat(profitLossInput) || 0;
-      }
+      setLoading(true);
       
-      // Check if record has rule violations after full form entry
-      if (ruleViolations.length > 0 && !acknowledgedViolations) {
-        setShowViolationWarning(true);
-        setLoading(false);
-        return;
-      }
-
-      // Ensure the 'time' field has a value before submitting
-      // Use entryTime if time is empty
-      if (!formData.time || formData.time.trim() === '') {
-        formData.time = formData.entryTime || new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
-      }
-
-      // Determine the user ID to use
-      const userId = targetUserId || (user ? user.id : null);
-      if (!userId) {
-        setError('No user identified for this operation');
-        setLoading(false);
-        return;
-      }
+      // Calculate true P/L in pips
+      const updatedFormData = {
+        ...formData,
+        profitLoss: parseFloat(profitLossInput) || formData.profitLoss, // Use the input if parsed successfully
+      };
       
       if (existingTrade) {
-        await updateTrade(existingTrade.id, formData);
+        // Updating an existing trade
+        await updateTrade(existingTrade.id, updatedFormData);
       } else {
-        const newTrade = await createTrade(formData, userId);
+        // Creating a new trade
+        // Use the currentAccount.id when creating the trade
+        const newTrade = await createTrade(updatedFormData, targetUserId, currentAccount?.id || null);
         
-        // If there were acknowledged violations, record them
-        if (ruleViolations.length > 0 && acknowledgedViolations) {
+        // If there are rule violations and we've gotten here, the user has acknowledged them
+        // Let's record these violations
+        if (ruleViolations.length > 0) {
           for (const violation of ruleViolations) {
             await createTradeViolation({
               tradeId: newTrade.id,
-              userId: userId,
-              ruleType: violation.ruleType as "pair" | "day" | "lot" | "action_direction",
+              userId: targetUserId || user?.id || '',
+              ruleType: violation.ruleType,
               violatedValue: violation.violatedValue,
               allowedValues: violation.allowedValues,
               acknowledged: true
@@ -287,7 +286,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false, ta
       onClose();
     } catch (err) {
       console.error('Error saving trade:', err);
-      setError(err instanceof Error ? err.message : 'Failed to save trade');
+      setError('Failed to save trade. Please try again.');
     } finally {
       setLoading(false);
     }

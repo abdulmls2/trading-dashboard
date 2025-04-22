@@ -11,6 +11,7 @@ import TradeTimeHeatmap from '../components/TradeTimeHeatmap';
 import { PlusCircle, MessageSquare, LineChart, BarChart, PieChart } from 'lucide-react';
 import { Trade, PerformanceMetrics as Metrics } from '../types';
 import { getTrades, getTradeViolations, getPerformanceMetrics, updatePerformanceMetrics, useEffectiveUserId } from '../lib/api';
+import { useAccount } from '../contexts/AccountContext';
 
 // Default empty calculated metrics
 const emptyCalculatedMetrics = {
@@ -51,6 +52,8 @@ const getAvailableYears = () => {
 export default function UserPerformanceView() { // Renamed component
   // Get the effective user ID (which will be the impersonated user ID if admin is impersonating)
   const effectiveUserId = useEffectiveUserId();
+  // Get the current account
+  const { currentAccount, isLoading: accountLoading } = useAccount();
   
   const [showTradeForm, setShowTradeForm] = useState(false);
   const [showChat, setShowChat] = useState(false);
@@ -153,8 +156,8 @@ export default function UserPerformanceView() { // Renamed component
     
     setLoadingMetrics(true);
     try {
-      console.log(`Fetching performance metrics for month ${monthStr} and user ${effectiveUserId}`);
-      const data = await getPerformanceMetrics(monthStr, effectiveUserId);
+      console.log(`Fetching performance metrics for month ${monthStr}, user ${effectiveUserId}, and account ${currentAccount?.id || 'default'}`);
+      const data = await getPerformanceMetrics(monthStr, effectiveUserId, currentAccount?.id || null);
       setMonthlyDbMetrics(data);
     } catch (err) {
       console.error("Failed to load monthly metrics:", err);
@@ -163,7 +166,7 @@ export default function UserPerformanceView() { // Renamed component
     } finally {
       setLoadingMetrics(false);
     }
-  }, [getMonthString, effectiveUserId]);
+  }, [getMonthString, effectiveUserId, currentAccount]);
 
   // Filter trades whenever trades, selectedMonth, or selectedYear changes
   const filterTrades = useCallback(() => {
@@ -210,10 +213,10 @@ export default function UserPerformanceView() { // Renamed component
     
     try {
       setLoading(true);
-      console.log(`Loading trades and violations for user ${effectiveUserId}`);
+      console.log(`Loading trades and violations for user ${effectiveUserId} and account ${currentAccount?.id || 'all'}`);
       const [tradeData, violationData] = await Promise.all([
-        getTrades(effectiveUserId),
-        getTradeViolations(effectiveUserId)
+        getTrades(effectiveUserId, currentAccount?.id || null),
+        getTradeViolations(effectiveUserId, currentAccount?.id || null)
       ]);
       
       console.log(`Loaded ${tradeData.length} trades for user ${effectiveUserId}`);
@@ -227,14 +230,14 @@ export default function UserPerformanceView() { // Renamed component
     } finally {
       setLoading(false);
     }
-  }, [effectiveUserId]);
+  }, [effectiveUserId, currentAccount]);
 
   // Load initial data and set up filtering
   useEffect(() => {
-    if (effectiveUserId) {
+    if (effectiveUserId && !accountLoading) {
       loadInitialData();
     }
-  }, [loadInitialData, effectiveUserId]);
+  }, [loadInitialData, effectiveUserId, accountLoading, currentAccount]);
   
   // Whenever trades, month, or year changes, update filtered trades
   useEffect(() => {
@@ -258,13 +261,16 @@ export default function UserPerformanceView() { // Renamed component
         ...currentMetrics, // Include existing fields 
         ...updates,      // Apply updates
         month: monthStr, // Ensure month is included
-      });
+      }, 
+      effectiveUserId || undefined, 
+      currentAccount?.id || null);
+      
       setMonthlyDbMetrics(updatedData); // Update local state with response
     } catch (err) {
       console.error("Failed to update monthly metrics:", err);
       setError(err instanceof Error ? err.message : 'Failed to update metrics');
     }
-  }, [selectedYear, selectedMonth, monthlyDbMetrics, getMonthString]);
+  }, [selectedYear, selectedMonth, monthlyDbMetrics, getMonthString, effectiveUserId, currentAccount]);
 
   // Update month selection handler
   const handleMonthChange = (e: React.ChangeEvent<HTMLSelectElement>) => {

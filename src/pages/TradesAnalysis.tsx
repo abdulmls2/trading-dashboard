@@ -3,6 +3,7 @@ import { getTrades, useEffectiveUserId } from '../lib/api';
 import { Trade } from '../types';
 import TradeChatBox from '../components/TradeChatBox';
 import { useAccount } from '../contexts/AccountContext';
+import { useAuth } from '../contexts/AuthContext'; // Import useAuth
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -56,6 +57,7 @@ const confluenceLabels = ['Pivots', 'Banking Level', 'MA', 'Fib', 'Balance Confl
 export default function TradesAnalysis() {
   const effectiveUserId = useEffectiveUserId();
   const { currentAccount, isLoading: accountLoading } = useAccount();
+  const { user } = useAuth(); // Get actual user
   const [trades, setTrades] = useState<Trade[]>([]);
   const [filteredTrades, setFilteredTrades] = useState<Trade[]>([]);
   const [selectedMonth, setSelectedMonth] = useState("All Trades");
@@ -82,16 +84,20 @@ export default function TradesAnalysis() {
   // Load trades
   useEffect(() => {
     async function loadTrades() {
-      if (!effectiveUserId) {
-        console.warn("No effectiveUserId available, cannot load trades for analysis");
+      if (!effectiveUserId || !user) { // Check for user
+        console.warn("No effectiveUserId or user available, cannot load trades for analysis");
+        setLoading(false);
         return;
       }
       
+      const isImpersonatingView = user.id !== effectiveUserId;
+      const accountIdToFetch = isImpersonatingView ? null : currentAccount?.id || null;
+      
       try {
         setLoading(true);
-        console.log(`TradesAnalysis: Loading trades for user ${effectiveUserId} and account ${currentAccount?.id || 'all'}`);
-        const data = await getTrades(effectiveUserId, currentAccount?.id || null);
-        console.log(`TradesAnalysis: Loaded ${data.length} trades for user ${effectiveUserId} and account ${currentAccount?.name || 'all'}`);
+        console.log(`TradesAnalysis: Loading trades for user ${effectiveUserId} and account ${accountIdToFetch || 'all'}`);
+        const data = await getTrades(effectiveUserId, accountIdToFetch);
+        console.log(`TradesAnalysis: Loaded ${data.length} trades for user ${effectiveUserId} and account ${accountIdToFetch || 'all'}`);
         
         // Format the trades properly
         const formattedTrades = data.map(trade => ({
@@ -121,10 +127,10 @@ export default function TradesAnalysis() {
       }
     }
 
-    if (effectiveUserId && !accountLoading) {
+    if (effectiveUserId && !accountLoading && user) { // Check for user
       loadTrades();
     }
-  }, [effectiveUserId, currentAccount, accountLoading]);
+  }, [effectiveUserId, currentAccount, accountLoading, user]); // Add user dependency
 
   // Filter trades by selected month and year
   const filterTrades = () => {

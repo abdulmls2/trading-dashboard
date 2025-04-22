@@ -12,6 +12,7 @@ import { PlusCircle, MessageSquare, LineChart, BarChart, PieChart } from 'lucide
 import { Trade, PerformanceMetrics as Metrics } from '../types';
 import { getTrades, getTradeViolations, getPerformanceMetrics, updatePerformanceMetrics, useEffectiveUserId } from '../lib/api';
 import { useAccount } from '../contexts/AccountContext';
+import { useAuth } from '../contexts/AuthContext'; // Import useAuth
 
 // Default empty calculated metrics
 const emptyCalculatedMetrics = {
@@ -54,6 +55,7 @@ export default function UserPerformanceView() { // Renamed component
   const effectiveUserId = useEffectiveUserId();
   // Get the current account
   const { currentAccount, isLoading: accountLoading } = useAccount();
+  const { user } = useAuth(); // Get the actual logged-in user
   
   const [showTradeForm, setShowTradeForm] = useState(false);
   const [showChat, setShowChat] = useState(false);
@@ -143,30 +145,33 @@ export default function UserPerformanceView() { // Renamed component
 
   // Function to fetch metrics for a given month/year
   const fetchMonthlyMetrics = useCallback(async (year: number, monthName: string) => {
-    if (!effectiveUserId) {
-      console.warn("No effectiveUserId available, cannot fetch monthly metrics");
+    if (!effectiveUserId || !user) { 
+      console.warn("No effectiveUserId or user available, cannot fetch monthly metrics");
       return;
     }
     
     const monthStr = getMonthString(year, monthName);
     if (!monthStr) {
-      setMonthlyDbMetrics(null); // Reset if month/year is invalid or "All"
+      setMonthlyDbMetrics(null); 
       return;
     }
     
+    // Always use the currentAccount from context
+    const accountIdToFetch = currentAccount?.id || null;
+    
     setLoadingMetrics(true);
     try {
-      console.log(`Fetching performance metrics for month ${monthStr}, user ${effectiveUserId}, and account ${currentAccount?.id || 'default'}`);
-      const data = await getPerformanceMetrics(monthStr, effectiveUserId, currentAccount?.id || null);
+      console.log(`Fetching performance metrics for month ${monthStr}, user ${effectiveUserId}, and account ${accountIdToFetch || 'all'}`);
+      const data = await getPerformanceMetrics(monthStr, effectiveUserId, accountIdToFetch);
       setMonthlyDbMetrics(data);
     } catch (err) {
       console.error("Failed to load monthly metrics:", err);
       setError(err instanceof Error ? err.message : 'Failed to load monthly metrics');
-      setMonthlyDbMetrics(null); // Reset on error
+      setMonthlyDbMetrics(null); 
     } finally {
       setLoadingMetrics(false);
     }
-  }, [getMonthString, effectiveUserId, currentAccount]);
+  }, [getMonthString, effectiveUserId, currentAccount, user]); 
 
   // Filter trades whenever trades, selectedMonth, or selectedYear changes
   const filterTrades = useCallback(() => {
@@ -206,21 +211,24 @@ export default function UserPerformanceView() { // Renamed component
 
   // Initial data load for trades and violations
   const loadInitialData = useCallback(async () => {
-    if (!effectiveUserId) {
-      console.warn("No effectiveUserId available, cannot load initial data");
+    if (!effectiveUserId || !user) { 
+      console.warn("No effectiveUserId or user available, cannot load initial data");
+      setLoading(false);
       return;
     }
     
+    // Always use the currentAccount from context
+    const accountIdToFetch = currentAccount?.id || null;
+    
     try {
       setLoading(true);
-      console.log(`Loading trades and violations for user ${effectiveUserId} and account ${currentAccount?.id || 'all'}`);
+      console.log(`Loading trades and violations for user ${effectiveUserId} and account ${accountIdToFetch || 'all'}`);
       const [tradeData, violationData] = await Promise.all([
-        getTrades(effectiveUserId, currentAccount?.id || null),
-        getTradeViolations(effectiveUserId, currentAccount?.id || null)
+        getTrades(effectiveUserId, accountIdToFetch),
+        getTradeViolations(effectiveUserId, accountIdToFetch) 
       ]);
       
       console.log(`Loaded ${tradeData.length} trades for user ${effectiveUserId}`);
-      // Format trades to add the time property needed by the Trade type
       const formattedTrades = tradeData.map(trade => ({ ...trade, time: trade.entryTime }));
       setTrades(formattedTrades);
       setViolations(violationData);
@@ -230,14 +238,14 @@ export default function UserPerformanceView() { // Renamed component
     } finally {
       setLoading(false);
     }
-  }, [effectiveUserId, currentAccount]);
+  }, [effectiveUserId, currentAccount, user]); 
 
   // Load initial data and set up filtering
   useEffect(() => {
-    if (effectiveUserId && !accountLoading) {
+    if (effectiveUserId && !accountLoading && user) { 
       loadInitialData();
     }
-  }, [loadInitialData, effectiveUserId, accountLoading, currentAccount]);
+  }, [loadInitialData, effectiveUserId, accountLoading, currentAccount, user]);
   
   // Whenever trades, month, or year changes, update filtered trades
   useEffect(() => {

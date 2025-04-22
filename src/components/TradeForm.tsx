@@ -242,14 +242,14 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false, ta
     if (!formData.date || !formData.pair || !formData.entryTime) {
       setError('Please fill in all required fields.');
       return;
-    }
-    
+      }
+      
     // Check for rule violations if any exist and user hasn't acknowledged them
-    if (ruleViolations.length > 0 && !acknowledgedViolations) {
-      setShowViolationWarning(true);
-      return;
-    }
-    
+      if (ruleViolations.length > 0 && !acknowledgedViolations) {
+        setShowViolationWarning(true);
+        return;
+      }
+
     try {
       setLoading(true);
       

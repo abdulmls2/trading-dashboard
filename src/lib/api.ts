@@ -325,28 +325,28 @@ export async function updatePerformanceMetrics(metrics: Partial<Omit<Performance
     }
 
     // Fallback to just user_id and month (this will work even if account_id column doesn't exist yet)
-    const { data, error } = await supabase
-      .from('performance_metrics')
-      .upsert([upsertData], { onConflict: 'user_id, month' })
-      .select()
-      .single();
+  const { data, error } = await supabase
+    .from('performance_metrics')
+    .upsert([upsertData], { onConflict: 'user_id, month' })
+    .select()
+    .single();
 
-    if (error) throw error;
-    
-    return {
-      id: data.id,
-      userId: data.user_id,
-      totalTrades: data.total_trades,
-      winRate: data.win_rate,
-      averageRRR: data.average_rrr,
-      totalProfitLoss: data.total_profit_loss,
-      month: data.month,
-      createdAt: data.created_at,
-      updatedAt: data.updated_at,
-      monthlyPipTarget: data.monthly_pip_target,
+  if (error) throw error;
+  
+  return {
+    id: data.id,
+    userId: data.user_id,
+    totalTrades: data.total_trades,
+    winRate: data.win_rate,
+    averageRRR: data.average_rrr,
+    totalProfitLoss: data.total_profit_loss,
+    month: data.month,
+    createdAt: data.created_at,
+    updatedAt: data.updated_at,
+    monthlyPipTarget: data.monthly_pip_target,
       capital: data.capital,
       accountId: data.account_id
-    };
+  };
   } catch (error) {
     console.error("Error updating performance metrics:", error);
     throw error;
@@ -721,7 +721,7 @@ export async function getTradeViolations(userId?: string, accountId?: string | n
   }
   
   if (filteredViolations.length === 0) return [];
-
+  
   // Extract unique user IDs from the final filtered violations
   const userIds = [...new Set(filteredViolations.map(v => v.user_id))];
   
@@ -758,14 +758,14 @@ export async function getTradeViolations(userId?: string, accountId?: string | n
     const tradeData = Array.isArray(violation.trades) ? violation.trades[0] : violation.trades;
     
     return {
-      id: violation.id,
-      tradeId: violation.trade_id,
-      userId: violation.user_id,
-      ruleType: violation.rule_type,
-      violatedValue: violation.violated_value,
-      allowedValues: violation.allowed_values,
-      acknowledged: violation.acknowledged,
-      createdAt: violation.created_at,
+    id: violation.id,
+    tradeId: violation.trade_id,
+    userId: violation.user_id,
+    ruleType: violation.rule_type,
+    violatedValue: violation.violated_value,
+    allowedValues: violation.allowed_values,
+    acknowledged: violation.acknowledged,
+    createdAt: violation.created_at,
       trade: tradeData ? {
         id: tradeData.id,
         date: tradeData.date,
@@ -773,8 +773,8 @@ export async function getTradeViolations(userId?: string, accountId?: string | n
         action: tradeData.action,
         profitLoss: tradeData.profit_loss,
         accountId: tradeData.account_id
-      } : null,
-      user: profileMap[violation.user_id] || null
+    } : null,
+    user: profileMap[violation.user_id] || null
     };
   });
 }
@@ -1014,15 +1014,23 @@ export async function updateTradingAccount(accountId: string, updates: { name?: 
   if (updates.name !== undefined) updateData.name = updates.name;
   if (updates.description !== undefined) updateData.description = updates.description;
   if (updates.isDefault !== undefined) {
-    // If setting as default, first unset any existing default accounts
+    // If setting as default, first unset any existing default accounts for the CORRECT user
     if (updates.isDefault) {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
+      // Get the user_id associated with this accountId
+      const { data: accountData, error: fetchError } = await supabase
+        .from('trading_accounts')
+        .select('user_id')
+        .eq('id', accountId)
+        .single();
+        
+      if (fetchError) throw new Error('Could not find account to update.');
+      if (!accountData?.user_id) throw new Error('Account has no associated user.');
       
+      // Unset default for the specific user owning the account
       await supabase
         .from('trading_accounts')
         .update({ is_default: false })
-        .eq('user_id', user.id);
+        .eq('user_id', accountData.user_id);
     }
     
     updateData.is_default = updates.isDefault;

@@ -7,10 +7,12 @@ import { Trade, TradeCalendarDay } from '../types';
 import { getTrades, useEffectiveUserId } from '../lib/api';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { useAccount } from '../contexts/AccountContext';
+import { useAuth } from '../contexts/AuthContext'; // Import useAuth
 
 export default function CalendarPage() {
   const effectiveUserId = useEffectiveUserId();
   const { currentAccount, isLoading: accountLoading } = useAccount();
+  const { user } = useAuth(); // Get actual user
   const [value, setValue] = useState<Date>(new Date());
   const [trades, setTrades] = useState<Trade[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -19,18 +21,21 @@ export default function CalendarPage() {
 
   useEffect(() => {
     async function loadTrades() {
-      if (!effectiveUserId) {
-        console.warn("No effectiveUserId available, cannot load trades for calendar");
+      if (!effectiveUserId || !user) {
+        console.warn("No effectiveUserId or user available, cannot load trades for calendar");
+        setLoading(false);
         return;
       }
-      
+
+      // Always use the currentAccount from context
+      const accountIdToFetch = currentAccount?.id || null;
+
       try {
         setLoading(true);
-        console.log(`Calendar: Loading trades for user ${effectiveUserId} and account ${currentAccount?.id || 'all'}`);
-        const tradeData = await getTrades(effectiveUserId, currentAccount?.id || null);
-        console.log(`Calendar: Loaded ${tradeData.length} trades for user ${effectiveUserId} and account ${currentAccount?.name || 'all'}`);
-        
-        // Add the time property required by the Trade interface
+        console.log(`Calendar: Loading trades for user ${effectiveUserId} and account ${accountIdToFetch || 'all'}`);
+        const tradeData = await getTrades(effectiveUserId, accountIdToFetch);
+        console.log(`Calendar: Loaded ${tradeData.length} trades for user ${effectiveUserId} and account ${accountIdToFetch || 'all'}`);
+
         const formattedTrades = tradeData.map(trade => ({
           ...trade,
           time: trade.entryTime
@@ -43,15 +48,15 @@ export default function CalendarPage() {
         setLoading(false);
       }
     }
-    
-    if (effectiveUserId && !accountLoading) {
+
+    if (effectiveUserId && !accountLoading && user) {
       loadTrades();
     }
-  }, [effectiveUserId, currentAccount, accountLoading]);
+  }, [effectiveUserId, currentAccount, accountLoading, user]);
 
   // Group trades by date
   const tradesByDate = useMemo(() => {
-    const groupedTrades: Record<string, TradeCalendarDay> = {};
+    const grouped: Record<string, TradeCalendarDay> = {};
     
     trades.forEach(trade => {
       const dateStr = trade.date;
@@ -60,8 +65,8 @@ export default function CalendarPage() {
       if (isValid(date)) {
         const dateKey = format(date, 'yyyy-MM-dd');
         
-        if (!groupedTrades[dateKey]) {
-          groupedTrades[dateKey] = {
+        if (!grouped[dateKey]) {
+          grouped[dateKey] = {
             date,
             trades: [],
             totalProfitLoss: 0,
@@ -71,20 +76,20 @@ export default function CalendarPage() {
           };
         }
         
-        groupedTrades[dateKey].trades.push(trade);
-        groupedTrades[dateKey].totalProfitLoss += trade.profitLoss;
+        grouped[dateKey].trades.push(trade);
+        grouped[dateKey].totalProfitLoss += trade.profitLoss;
         
         if (trade.profitLoss > 0) {
-          groupedTrades[dateKey].winCount += 1;
+          grouped[dateKey].winCount += 1;
         } else if (trade.profitLoss < 0) {
-          groupedTrades[dateKey].lossCount += 1;
+          grouped[dateKey].lossCount += 1;
         } else {
-          groupedTrades[dateKey].breakEvenCount += 1;
+          grouped[dateKey].breakEvenCount += 1;
         }
       }
     });
     
-    return groupedTrades;
+    return grouped;
   }, [trades]);
 
   // Calendar event handlers

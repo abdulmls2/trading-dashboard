@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { getUserTradingAccounts, createTradingAccount, setDefaultTradingAccount, updateTradingAccount, deleteTradingAccount } from '../lib/api';
 import { useAuth } from './AuthContext';
+import { useEffectiveUserId } from '../lib/api';
 
 interface TradingAccount {
   id: string;
@@ -28,12 +29,13 @@ const AccountContext = createContext<AccountContextType | undefined>(undefined);
 
 export const AccountProvider: React.FC<{children: ReactNode}> = ({ children }) => {
   const { user } = useAuth();
+  const effectiveUserId = useEffectiveUserId();
   const [accounts, setAccounts] = useState<TradingAccount[]>([]);
   const [currentAccount, setCurrentAccount] = useState<TradingAccount | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const loadAccounts = async () => {
-    if (!user) {
+    if (!effectiveUserId) {
       setAccounts([]);
       setCurrentAccount(null);
       setIsLoading(false);
@@ -42,28 +44,36 @@ export const AccountProvider: React.FC<{children: ReactNode}> = ({ children }) =
 
     try {
       setIsLoading(true);
-      const accountsData = await getUserTradingAccounts();
+      const accountsData = await getUserTradingAccounts(effectiveUserId);
       setAccounts(accountsData);
 
-      // If no accounts exist, create a default one
       if (accountsData.length === 0) {
-        const defaultAccount = await createTradingAccount('Default Account', 'My primary trading account', true);
+        const defaultAccount = await createTradingAccount(
+          'Default Account', 
+          'Primary trading account', 
+          true, 
+          effectiveUserId
+        );
         setAccounts([defaultAccount]);
         setCurrentAccount(defaultAccount);
       } else {
-        // Find the default account or use the first one
         const defaultAccount = accountsData.find(account => account.is_default) || accountsData[0];
-        setCurrentAccount(defaultAccount);
+        if (!currentAccount || currentAccount.id !== defaultAccount.id || currentAccount.user_id !== effectiveUserId) {
+             setCurrentAccount(defaultAccount);
+        }
       }
     } catch (error) {
       console.error('Error loading trading accounts:', error);
+      setAccounts([]);
+      setCurrentAccount(null);
     } finally {
       setIsLoading(false);
     }
   };
 
   const createAccount = async (name: string, description: string, isDefault: boolean) => {
-    const newAccount = await createTradingAccount(name, description, isDefault);
+    if (!effectiveUserId) throw new Error("Cannot create account without effective user ID");
+    const newAccount = await createTradingAccount(name, description, isDefault, effectiveUserId);
     await loadAccounts();
     return newAccount;
   };
@@ -72,7 +82,8 @@ export const AccountProvider: React.FC<{children: ReactNode}> = ({ children }) =
     const updatedAccount = await updateTradingAccount(id, updates);
     await loadAccounts();
     if (currentAccount && currentAccount.id === id) {
-      setCurrentAccount(updatedAccount);
+      const reloadedAccount = accounts.find(acc => acc.id === id) || updatedAccount;
+      setCurrentAccount(reloadedAccount);
     }
     return updatedAccount;
   };
@@ -83,17 +94,16 @@ export const AccountProvider: React.FC<{children: ReactNode}> = ({ children }) =
   };
 
   const setDefaultAccount = async (id: string) => {
-    const defaultAccount = await setDefaultTradingAccount(id);
+    if (!effectiveUserId) throw new Error("Cannot set default account without effective user ID");
+    const defaultAccount = await setDefaultTradingAccount(id, effectiveUserId);
     await loadAccounts();
     setCurrentAccount(defaultAccount);
     return defaultAccount;
   };
 
   useEffect(() => {
-    if (user) {
-      loadAccounts();
-    }
-  }, [user]);
+    loadAccounts();
+  }, [effectiveUserId]);
 
   const value = {
     accounts,

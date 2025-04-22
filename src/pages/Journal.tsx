@@ -5,6 +5,7 @@ import { getTrades, deleteTrade, useEffectiveUserId } from '../lib/api';
 import TradeForm from '../components/TradeForm';
 import { PlusCircle } from 'lucide-react';
 import { useAccount } from '../contexts/AccountContext';
+import { useAuth } from '../contexts/AuthContext';
 
 // Copied from PerformanceOverview
 const months = [
@@ -36,6 +37,7 @@ const getSavedCurrency = () => {
 export default function Journal() {
   const effectiveUserId = useEffectiveUserId();
   const { currentAccount, isLoading: accountLoading } = useAccount();
+  const { user } = useAuth();
   const [trades, setTrades] = useState<Trade[]>([]);
   const [filteredTrades, setFilteredTrades] = useState<Trade[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,17 +52,23 @@ export default function Journal() {
   const loadTrades = useCallback(async () => {
     console.log("Journal: Loading trades for effectiveUserId:", effectiveUserId);
     
-    if (!effectiveUserId) {
-      console.warn("No effectiveUserId available, cannot load trades");
+    if (!effectiveUserId || !user) { 
+      console.warn("No effectiveUserId or user available, cannot load trades");
+      setLoading(false);
       return;
     }
+    
+    // Determine the account ID to fetch based *only* on the currentAccount context state
+    const accountIdToFetch = currentAccount?.id || null;
+    
+    console.log(`Journal: Fetching for accountId: ${accountIdToFetch}`);
     
     setLoading(true);
     setError(null);
     try {
-      // Pass the effectiveUserId and currentAccount.id to getTrades
-      const tradeData = await getTrades(effectiveUserId, currentAccount?.id || null);
-      console.log(`Journal: Loaded ${tradeData.length} trades for user ID ${effectiveUserId} and account ${currentAccount?.name || 'all'}`);
+      // Pass the effectiveUserId and the determined accountIdToFetch
+      const tradeData = await getTrades(effectiveUserId, accountIdToFetch);
+      console.log(`Journal: Loaded ${tradeData.length} trades for user ID ${effectiveUserId} and account ${accountIdToFetch || 'all'}`);
       
       const formattedTrades = tradeData.map(trade => ({ ...trade, time: trade.entryTime }));
       setTrades(formattedTrades);
@@ -70,7 +78,7 @@ export default function Journal() {
     } finally {
       setLoading(false);
     }
-  }, [effectiveUserId, currentAccount]);
+  }, [effectiveUserId, currentAccount, user]);
 
   // Filter trades whenever the main list or filters change
   useEffect(() => {
@@ -98,9 +106,9 @@ export default function Journal() {
     setFilteredTrades(filtered);
   }, [trades, selectedMonth, selectedYear]);
 
-  // Load initial trades and currency on mount or when account changes
+  // Load initial trades and currency on mount or when account/user/effectiveUserId changes
   useEffect(() => {
-    if (effectiveUserId && !accountLoading) {
+    if (effectiveUserId && !accountLoading && user) {
       loadTrades();
     }
     
@@ -112,7 +120,7 @@ export default function Journal() {
     return () => {
       window.removeEventListener('storage', handleStorageChange);
     };
-  }, [loadTrades, effectiveUserId, accountLoading, currentAccount]);
+  }, [loadTrades, effectiveUserId, accountLoading, currentAccount, user]);
 
   // Handler for deleting trades
   const handleDeleteTrades = async (tradeIds: string[]) => {

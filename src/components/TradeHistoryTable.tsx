@@ -84,7 +84,7 @@ const prepareExportData = (trades: Trade[]) => {
 
   // Create headers with all relevant fields
   const headers = [
-    ['Trade Details', '', '', '', '', '', 'Entry/Exit Details', '', '', 'Risk Management', '', '', '', 'Analysis', '', '', '', '', '', '', 'Additional Information', '', '', '', ''],
+    ['Trade Details', '', '', '', '', '', 'Entry/Exit Details', '', '', 'Risk Management', '', '', '', 'Analysis', '', '', '', '', '', '', '', 'Additional Information', '', '', '', ''],
     [
       'Date',
       'Day',
@@ -105,6 +105,7 @@ const prepareExportData = (trades: Trade[]) => {
       'MA',
       'FIB',
       'Gap',
+      'Balance Confluences',
       'Additional Confluences',
       'True Reward',
       'True TP/SL',
@@ -135,6 +136,7 @@ const prepareExportData = (trades: Trade[]) => {
     trade.ma,
     trade.fib,
     trade.gap,
+    trade.top_bob_fv,
     trade.additional_confluences,
     trade.trueReward,
     trade.true_tp_sl,
@@ -344,6 +346,7 @@ export default function TradeHistoryTable({
     { key: 'ma', display: 'MA' },
     { key: 'fib', display: 'FIB' },
     { key: 'gap', display: 'Gap' },
+    { key: 'top_bob_fv', display: 'Balance Confluences' },
     { key: 'additional_confluences', display: 'Additional Confluences' },
     { key: 'trueReward', display: 'True Reward' },
     { key: 'true_tp_sl', display: 'True TP/SL' },

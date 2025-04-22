@@ -178,23 +178,12 @@ export default function Sidebar() {
           
           {currentAccount && (
             <div className="mt-1 flex items-center justify-between">
-              <div>
-                <p className="font-medium text-sm">{currentAccount.name}</p>
+              <div className="flex items-center space-x-2">
+                <p className="font-medium text-sm truncate">{currentAccount.name}</p>
                 {currentAccount.is_default && (
-                  <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">Default</span>
+                  <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full whitespace-nowrap">Default</span>
                 )}
               </div>
-              <button
-                onClick={() => {
-                  setAccountFormData({ name: '', description: '', isDefault: false });
-                  setEditingAccount(null);
-                  setShowAccountForm(true);
-                }}
-                className="text-gray-500 hover:text-gray-700"
-                title="Create new account"
-              >
-                <Plus size={16} />
-              </button>
             </div>
           )}
           

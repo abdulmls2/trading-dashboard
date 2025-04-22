@@ -19,6 +19,7 @@ interface UserProfile {
   role: string;
   created_at: string;
   last_trade_date?: string;
+  discord_username?: string | null;
 }
 
 // Interface for database trade records
@@ -50,6 +51,8 @@ interface DbTrade {
   mindset?: string;
   trade_link?: string;
   additional_confluences?: string;
+  pips_gained?: number;
+  pip_value?: number;
 }
 
 export default function AdminDashboard() {
@@ -76,8 +79,311 @@ export default function AdminDashboard() {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [showRulesModal, setShowRulesModal] = useState(false);
   const [showViolationsModal, setShowViolationsModal] = useState(false);
-  const [activeTab, setActiveTab] = useState<'users' | 'violations'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'violations' | 'summary'>('users');
   const [editMode, setEditMode] = useState(false);
+  const [selectedYear, setSelectedYear] = useState<number | 'all'>(new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState<number | 'all'>(new Date().getMonth()); // 0-11
+  
+  // Available years for selection (current year and 5 years back)
+  const availableYears = Array.from(
+    { length: 6 }, 
+    (_, i) => new Date().getFullYear() - i
+  );
+  
+  // Month names for display
+  const monthNames = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+  ];
+  const [summaryData, setSummaryData] = useState<any>(null);
+  const [loadingSummary, setLoadingSummary] = useState(false);
+
+  // Helper function to determine the best display name for a user
+  const getUserDisplayName = (user: any) => {
+    // Try full name first
+    if (user.fullName && user.fullName.trim() !== '' && user.fullName !== 'Unknown') {
+      return user.fullName;
+    }
+    
+    // Then try username
+    if (user.username && user.username.trim() !== '') {
+      return user.username;
+    }
+    
+    // Then try discord username with indicator
+    if (user.discordUsername && user.discordUsername.trim() !== '') {
+      return `${user.discordUsername} (Discord)`;
+    }
+    
+    // Finally fall back to email
+    if (user.email && user.email.trim() !== '') {
+      return user.email;
+    }
+    
+    // Absolute last resort
+    return `User ${user.userId.slice(0, 6)}...`;
+  };
+
+  // Function to fetch summary report data
+  const fetchSummaryData = async () => {
+    setLoadingSummary(true);
+    
+    try {
+      let query = supabase.from('trades').select('*');
+      
+      // Calculate date range based on selections
+      let startDate: string, endDate: string;
+      let periodLabel: string;
+      
+      if (selectedYear === 'all' && selectedMonth === 'all') {
+        // All time - use very old start date and future end date
+        const oldestDate = new Date(2000, 0, 1); // January 1, 2000
+        const futureDate = new Date(2100, 11, 31); // December 31, 2100
+        
+        startDate = oldestDate.toISOString().split('T')[0];
+        endDate = futureDate.toISOString().split('T')[0];
+        
+        periodLabel = "All Time";
+        console.log("Generating report for all time with date range:", startDate, "to", endDate);
+      } 
+      else if (selectedYear === 'all') {
+        // All years for specific month
+        const currentYear = new Date().getFullYear();
+        // Go back 5 years as a reasonable limit
+        const oldestYear = currentYear - 5;
+        
+        // Use month from all years
+        startDate = new Date(oldestYear, selectedMonth as number, 1).toISOString().split('T')[0];
+        // Current year's month as end date
+        endDate = new Date(currentYear, (selectedMonth as number) + 1, 0).toISOString().split('T')[0];
+        
+        query = query.gte('date', startDate).lte('date', endDate);
+        periodLabel = `${monthNames[selectedMonth as number]} (All Years)`;
+        console.log("Generating report for month across years:", startDate, "to", endDate);
+      } 
+      else if (selectedMonth === 'all') {
+        // All months for specific year
+        startDate = new Date(selectedYear as number, 0, 1).toISOString().split('T')[0];
+        endDate = new Date(selectedYear as number, 11, 31).toISOString().split('T')[0];
+        
+        query = query.gte('date', startDate).lte('date', endDate);
+        periodLabel = `${selectedYear} (All Months)`;
+        console.log("Generating report for all months in year:", startDate, "to", endDate);
+      } 
+      else {
+        // Specific year and month
+        startDate = new Date(selectedYear as number, selectedMonth as number, 1).toISOString().split('T')[0];
+        endDate = new Date(selectedYear as number, (selectedMonth as number) + 1, 0).toISOString().split('T')[0];
+        
+        query = query.gte('date', startDate).lte('date', endDate);
+        periodLabel = `${monthNames[selectedMonth as number]} ${selectedYear}`;
+        console.log("Generating report for specific month/year:", startDate, "to", endDate);
+      }
+      
+      // Execute the query with proper date filters
+      const { data: trades, error: tradesError } = await query.order('date', { ascending: false });
+      
+      if (tradesError) throw tradesError;
+      
+      // Get all users for mapping - fetch more complete profile data
+      const { data: allProfiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('*');
+        
+      if (profilesError) throw profilesError;
+      
+      console.log("Fetched profiles:", allProfiles); // Debug log to see profile data
+      
+      // Get all rule violations for the period
+      let violationsQuery = supabase.from('trade_violations').select('*');
+      
+      // Only add date filters if we have valid dates
+      if (startDate) {
+        violationsQuery = violationsQuery.gte('created_at', new Date(startDate).toISOString());
+      }
+      
+      if (endDate) {
+        // Add time component to make it end of day
+        const endDateTime = new Date(endDate);
+        endDateTime.setHours(23, 59, 59, 999);
+        violationsQuery = violationsQuery.lte('created_at', endDateTime.toISOString());
+      }
+      
+      const { data: violations, error: violationsError } = await violationsQuery;
+      
+      if (violationsError) throw violationsError;
+      
+      // Calculate overall metrics
+      const totalTrades = trades.length;
+      const totalProfit = trades.reduce((sum: number, trade: DbTrade) => sum + (trade.profit_loss || 0), 0);
+      
+      // Correct calculation for total pips using true_tp_sl field
+      const totalPips = trades.reduce((sum: number, trade: DbTrade) => {
+        // Use the true_tp_sl field as the source of pip data
+        if (trade.true_tp_sl && trade.true_tp_sl.trim() !== '') {
+          try {
+            // Parse the numeric value from the true_tp_sl field
+            // It might be formatted like "+45 pips" or "-12 pips" so we need to extract the number
+            const pipMatch = trade.true_tp_sl.match(/-?\d+(\.\d+)?/);
+            if (pipMatch && pipMatch[0]) {
+              return sum + parseFloat(pipMatch[0]);
+            }
+          } catch (e) {
+            console.error("Error parsing true_tp_sl value:", trade.true_tp_sl);
+          }
+        }
+        
+        return sum;
+      }, 0);
+      
+      // Update win rate calculation to exclude breakeven trades
+      const profitableTrades = trades.filter((trade: DbTrade) => (trade.profit_loss || 0) > 0);
+      const breakevenTrades = trades.filter((trade: DbTrade) => (trade.profit_loss || 0) === 0);
+      const lossTrades = trades.filter((trade: DbTrade) => (trade.profit_loss || 0) < 0);
+      
+      // Calculate win rate excluding breakeven trades
+      const tradesExcludingBreakeven = totalTrades - breakevenTrades.length;
+      const winRate = tradesExcludingBreakeven > 0 
+        ? (profitableTrades.length / tradesExcludingBreakeven) * 100 
+        : 0;
+      
+      // Group trades by user
+      const userTradeMap = trades.reduce((acc: Record<string, DbTrade[]>, trade: DbTrade) => {
+        const userId = trade.user_id || '';
+        if (!acc[userId]) {
+          acc[userId] = [];
+        }
+        acc[userId].push(trade);
+        return acc;
+      }, {});
+      
+      // Calculate per-user metrics
+      const userMetrics = Object.keys(userTradeMap).map(userId => {
+        const userTrades = userTradeMap[userId];
+        const userProfile = allProfiles.find(p => p.user_id === userId);
+        const userViolations = violations.filter(v => v.user_id === userId);
+        
+        // Debug log for each user
+        console.log(`User ${userId} profile:`, userProfile);
+        
+        // Calculate user's total pips using true_tp_sl
+        const userTotalPips = userTrades.reduce((sum: number, trade: DbTrade) => {
+          // Use the true_tp_sl field as the source of pip data
+          if (trade.true_tp_sl && trade.true_tp_sl.trim() !== '') {
+            try {
+              // Parse the numeric value from the true_tp_sl field
+              const pipMatch = trade.true_tp_sl.match(/-?\d+(\.\d+)?/);
+              if (pipMatch && pipMatch[0]) {
+                return sum + parseFloat(pipMatch[0]);
+              }
+            } catch (e) {
+              console.error("Error parsing user trade true_tp_sl value:", trade.true_tp_sl);
+            }
+          }
+          
+          return sum;
+        }, 0);
+        
+        // Calculate win rate excluding breakeven trades
+        const userProfitableTrades = userTrades.filter((t: DbTrade) => (t.profit_loss || 0) > 0);
+        const userBreakevenTrades = userTrades.filter((t: DbTrade) => (t.profit_loss || 0) === 0);
+        const tradesExcludingBreakeven = userTrades.length - userBreakevenTrades.length;
+        
+        const userWinRate = tradesExcludingBreakeven > 0 
+          ? (userProfitableTrades.length / tradesExcludingBreakeven) * 100 
+          : 0;
+        
+        return {
+          userId,
+          email: userProfile?.email || '',
+          fullName: userProfile?.full_name || '',
+          username: userProfile?.username || '',
+          discordUsername: userProfile?.discord_username || '',
+          tradeCount: userTrades.length,
+          profit: userTrades.reduce((sum: number, trade: DbTrade) => sum + (trade.profit_loss || 0), 0),
+          winRate: userWinRate,
+          totalPips: userTotalPips,
+          violationCount: userViolations.length
+        };
+      }).sort((a, b) => b.profit - a.profit);
+      
+      // Calculate trading pairs statistics
+      const pairStats = trades.reduce((acc: Record<string, any>, trade: DbTrade) => {
+        const pair = trade.pair || 'Unknown';
+        if (!acc[pair]) {
+          acc[pair] = {
+            pair,
+            count: 0,
+            profit: 0,
+            wins: 0,
+            pips: 0
+          };
+        }
+        
+        // Calculate pips for this pair using true_tp_sl
+        let pipsForTrade = 0;
+        if (trade.true_tp_sl && trade.true_tp_sl.trim() !== '') {
+          try {
+            // Parse the numeric value from the true_tp_sl field
+            const pipMatch = trade.true_tp_sl.match(/-?\d+(\.\d+)?/);
+            if (pipMatch && pipMatch[0]) {
+              pipsForTrade = parseFloat(pipMatch[0]);
+            }
+          } catch (e) {
+            console.error("Error parsing pair trade true_tp_sl value:", trade.true_tp_sl);
+          }
+        }
+        
+        acc[pair].count++;
+        acc[pair].profit += (trade.profit_loss || 0);
+        acc[pair].pips += pipsForTrade;
+        if ((trade.profit_loss || 0) > 0) {
+          acc[pair].wins++;
+        }
+        
+        return acc;
+      }, {});
+      
+      // Calculate correct win rates for pairs (excluding breakeven trades)
+      Object.values(pairStats).forEach((pairStat: any) => {
+        const breakevenCount = trades
+          .filter(t => t.pair === pairStat.pair && (t.profit_loss || 0) === 0)
+          .length;
+        
+        const tradesExcludingBreakeven = pairStat.count - breakevenCount;
+        
+        pairStat.winRate = tradesExcludingBreakeven > 0 
+          ? (pairStat.wins / tradesExcludingBreakeven) * 100 
+          : 0;
+      });
+      
+      const topPairs = Object.values(pairStats)
+        .sort((a: any, b: any) => b.profit - a.profit)
+        .slice(0, 5);
+      
+      // Compile summary data
+      setSummaryData({
+        period: {
+          monthYear: periodLabel
+        },
+        overall: {
+          totalTrades,
+          totalProfit,
+          totalPips,
+          winRate,
+          totalViolations: violations.length
+        },
+        userMetrics,
+        topPairs
+      });
+      
+    } catch (error) {
+      console.error('Error fetching summary data:', error);
+      setError('Failed to generate summary report');
+    } finally {
+      setLoadingSummary(false);
+    }
+  };
 
   useEffect(() => {
     async function checkAdminAndLoadUsers() {
@@ -310,6 +616,16 @@ export default function AdminDashboard() {
               >
                 All Violations
               </button>
+              <button
+                onClick={() => setActiveTab('summary')}
+                className={`px-4 py-2 rounded-md ${
+                  activeTab === 'summary'
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-white text-gray-600 border border-gray-300'
+                }`}
+              >
+                Summary Report
+              </button>
             </div>
           </div>
 
@@ -415,7 +731,7 @@ export default function AdminDashboard() {
                 </tbody>
               </table>
             </div>
-          ) : (
+          ) : activeTab === 'violations' ? (
             <div className="bg-white shadow overflow-hidden sm:rounded-lg p-4">
               <h2 className="text-xl font-medium text-gray-900 mb-4">All Trading Rule Violations</h2>
               <TradeViolationsTable 
@@ -423,6 +739,191 @@ export default function AdminDashboard() {
                 className="mt-4"
                 showAll={true}
               />
+            </div>
+          ) : (
+            <div className="bg-white shadow overflow-hidden sm:rounded-lg p-4">
+              <h2 className="text-xl font-medium text-gray-900 mb-4">Summary Report</h2>
+              
+              {/* Year and Month selectors */}
+              <div className="flex items-center space-x-4 mb-6">
+                <div>
+                  <label htmlFor="year-select" className="block text-sm font-medium text-gray-700">
+                    Year
+                  </label>
+                  <select
+                    id="year-select"
+                    className="mt-1 block w-32 py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    value={selectedYear}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setSelectedYear(value === 'all' ? 'all' : parseInt(value));
+                    }}
+                  >
+                    <option value="all">All Years</option>
+                    {availableYears.map(year => (
+                      <option key={year} value={year}>{year}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="month-select" className="block text-sm font-medium text-gray-700">
+                    Month
+                  </label>
+                  <select
+                    id="month-select"
+                    className="mt-1 block w-40 py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    value={selectedMonth}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setSelectedMonth(value === 'all' ? 'all' : parseInt(value));
+                    }}
+                  >
+                    <option value="all">All Months</option>
+                    {monthNames.map((month, index) => (
+                      <option key={index} value={index}>{month}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex-1"></div>
+                <button
+                  type="button"
+                  onClick={fetchSummaryData}
+                  className="mt-6 inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                >
+                  Generate Report
+                </button>
+              </div>
+              
+              {loadingSummary ? (
+                <div className="flex justify-center items-center py-10">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600" />
+                </div>
+              ) : summaryData ? (
+                <div className="space-y-8">
+                  {/* Overall Statistics */}
+                  <div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-4">Overall Trading Statistics</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                      <div className="bg-white overflow-hidden shadow rounded-lg">
+                        <div className="px-4 py-5 sm:p-6">
+                          <dt className="text-sm font-medium text-gray-500 truncate">Total Trades</dt>
+                          <dd className="mt-1 text-3xl font-semibold text-gray-900">{summaryData.overall.totalTrades}</dd>
+                        </div>
+                      </div>
+                      <div className="bg-white overflow-hidden shadow rounded-lg">
+                        <div className="px-4 py-5 sm:p-6">
+                          <dt className="text-sm font-medium text-gray-500 truncate">Total Profit/Loss</dt>
+                          <dd className={`mt-1 text-3xl font-semibold ${summaryData.overall.totalProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {summaryData.overall.totalProfit.toFixed(2)}
+                          </dd>
+                        </div>
+                      </div>
+                      <div className="bg-white overflow-hidden shadow rounded-lg">
+                        <div className="px-4 py-5 sm:p-6">
+                          <dt className="text-sm font-medium text-gray-500 truncate">Win Rate</dt>
+                          <dd className="mt-1 text-3xl font-semibold text-gray-900">{summaryData.overall.winRate.toFixed(1)}%</dd>
+                        </div>
+                      </div>
+                      <div className="bg-white overflow-hidden shadow rounded-lg">
+                        <div className="px-4 py-5 sm:p-6">
+                          <dt className="text-sm font-medium text-gray-500 truncate">Total Pips</dt>
+                          <dd className="mt-1 text-3xl font-semibold text-indigo-600">
+                            {summaryData.overall.totalPips.toFixed(1)}
+                          </dd>
+                        </div>
+                      </div>
+                      <div className="bg-white overflow-hidden shadow rounded-lg">
+                        <div className="px-4 py-5 sm:p-6">
+                          <dt className="text-sm font-medium text-gray-500 truncate">Rule Violations</dt>
+                          <dd className="mt-1 text-3xl font-semibold text-orange-500">{summaryData.overall.totalViolations}</dd>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Top Trading Pairs */}
+                  <div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-4">Top Trading Pairs</h3>
+                    <div className="bg-white shadow overflow-hidden sm:rounded-lg">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pair</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Trades</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Win Rate</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Profit/Loss</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {summaryData.topPairs.map((pair: any) => (
+                            <tr key={pair.pair}>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{pair.pair}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{pair.count}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {pair.winRate.toFixed(1)}%
+                              </td>
+                              <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${pair.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                {pair.profit.toFixed(2)}
+                              </td>
+                            </tr>
+                          ))}
+                          {summaryData.topPairs.length === 0 && (
+                            <tr>
+                              <td colSpan={4} className="px-6 py-4 text-center text-sm text-gray-500">No trading pair data available</td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                  
+                  {/* User Performance Rankings */}
+                  <div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-4">User Performance Rankings</h3>
+                    <div className="bg-white shadow overflow-hidden sm:rounded-lg">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trader</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Trades</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Win Rate</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total P/L</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Pips</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Violations</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {summaryData.userMetrics.map((user: any) => (
+                            <tr key={user.userId}>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                {getUserDisplayName(user)}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.tradeCount}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.winRate.toFixed(1)}%</td>
+                              <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${user.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                {user.profit.toFixed(2)}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-indigo-600">
+                                {user.totalPips.toFixed(1)}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.violationCount}</td>
+                            </tr>
+                          ))}
+                          {summaryData.userMetrics.length === 0 && (
+                            <tr>
+                              <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500">No user data available</td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-10 text-gray-500">
+                  Select a date range and click "Generate Report" to view summary data
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -494,6 +995,6 @@ export default function AdminDashboard() {
 
       {/* Add extra padding to account for the admin banner */}
       <div className="pt-12"></div>
-        </div>
+    </div>
   );
 }

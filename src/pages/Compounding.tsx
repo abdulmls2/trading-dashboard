@@ -11,12 +11,54 @@ interface PlanMonth {
   endingCapital: number;
 }
 
+// Form input state type
+interface CompoundingFormState {
+  currencyPair: string;
+  startCapital: number | '';
+  riskPercent: number | '';
+  pipsTarget: number | '';
+  stopLossPips: number | '';
+  durationMonths: number | '';
+}
+
+// Define currency pairs directly in this component
+const currencyPairs = [
+  'GBP/USD',
+  'EUR/USD',
+  'GBP/JPY',
+  'GBP/AUD',
+  'XAU/USD',
+  'USD/JPY',
+  'USD/CHF',
+  'AUD/USD',
+  'USD/CAD',
+  'NZD/USD',
+];
+
 const Compounding: React.FC = () => {
-  const [startCapital, setStartCapital] = useState<number | ''>('');
-  const [riskPercent, setRiskPercent] = useState<number | ''>('');
-  const [pipsTarget, setPipsTarget] = useState<number | ''>('');
-  const [stopLossPips, setStopLossPips] = useState<number | ''>('');
-  const [durationMonths, setDurationMonths] = useState<number | ''>('');
+  // Use a single state object for form inputs
+  const [formState, setFormState] = useState<CompoundingFormState>(() => {
+    // Load initial state from localStorage or use defaults
+    try {
+      const savedFormState = localStorage.getItem('compoundingFormState');
+      if (savedFormState) {
+        return JSON.parse(savedFormState);
+      }
+    } catch (error) {
+      console.error("Error reading compounding form state from localStorage:", error);
+      localStorage.removeItem('compoundingFormState');
+    }
+    // Default initial state
+    return {
+      currencyPair: currencyPairs[0],
+      startCapital: '',
+      riskPercent: '',
+      pipsTarget: '',
+      stopLossPips: '',
+      durationMonths: '',
+    };
+  });
+
   const [plan, setPlan] = useState<PlanMonth[]>([]);
   const [error, setError] = useState<string>('');
   const [selectedCurrency, setSelectedCurrency] = useState('$'); // Default to $
@@ -55,14 +97,70 @@ const Compounding: React.FC = () => {
       if (event.key === 'userCurrency' && event.newValue) {
         setSelectedCurrency(event.newValue);
       }
+      // Also listen for changes to form state if edited in another tab
+      if (event.key === 'compoundingFormState' && event.newValue) {
+        try {
+          setFormState(JSON.parse(event.newValue));
+        } catch (err) {
+          console.error("Error parsing form state update from storage event:", err);
+        }
+      }
     };
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
+  // --- Save Form State to LocalStorage --- 
+  // This effect runs whenever formState changes
+  useEffect(() => {
+    try {
+      localStorage.setItem('compoundingFormState', JSON.stringify(formState));
+    } catch (error) {
+      console.error("Error saving compounding form state to localStorage:", error);
+    }
+  }, [formState]);
+
+  // Generic handler to update form state
+  const handleInputChange = (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = event.target;
+    let processedValue: string | number = value;
+
+    // Handle number inputs, allowing empty string
+    if (event.target.type === 'number') {
+      processedValue = value === '' ? '' : parseFloat(value);
+    }
+
+    setFormState(prevState => ({
+      ...prevState,
+      [name]: processedValue,
+    }));
+  };
+
+  // Function to clear the form inputs
+  const handleClearForm = () => {
+    setFormState({
+      currencyPair: currencyPairs[0],
+      startCapital: '',
+      riskPercent: '',
+      pipsTarget: '',
+      stopLossPips: '',
+      durationMonths: '',
+    });
+    setError(''); // Also clear any existing error messages
+  };
+
   const generatePlan = () => {
     setError('');
-    setPlan([]); // Clear previous plan on new generation
+    setPlan([]);
+
+    // Destructure values from formState for validation and calculation
+    const {
+      startCapital,
+      riskPercent,
+      pipsTarget,
+      stopLossPips,
+      durationMonths,
+    } = formState;
 
     if (
       startCapital === '' || riskPercent === '' || pipsTarget === '' ||
@@ -143,14 +241,33 @@ const Compounding: React.FC = () => {
       <div className="bg-white p-6 rounded-lg shadow mb-6">
         <h2 className="text-xl font-semibold mb-4 text-gray-800">Enter Plan Details</h2>
         <form onSubmit={(e) => { e.preventDefault(); generatePlan(); }} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* Currency Pair */}
+          <div>
+            <label htmlFor="currencyPair" className="block text-sm font-medium text-gray-700 mb-1">Currency Pair</label>
+            <select
+              id="currencyPair"
+              name="currencyPair"
+              value={formState.currencyPair}
+              onChange={handleInputChange}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+            >
+              {currencyPairs.map((pair) => (
+                <option key={pair} value={pair}>
+                  {pair}
+                </option>
+              ))}
+            </select>
+          </div>
+
           {/* Starting Capital */}
           <div>
             <label htmlFor="startCapital" className="block text-sm font-medium text-gray-700 mb-1">Starting Capital ({selectedCurrency})</label>
             <input
               type="number"
               id="startCapital"
-              value={startCapital}
-              onChange={(e) => setStartCapital(e.target.value === '' ? '' : parseFloat(e.target.value))}
+              name="startCapital"
+              value={formState.startCapital}
+              onChange={handleInputChange}
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
               placeholder="e.g., 10000"
               min="0.01" step="any" // Allow decimals
@@ -164,8 +281,9 @@ const Compounding: React.FC = () => {
             <input
               type="number"
               id="riskPercent"
-              value={riskPercent}
-              onChange={(e) => setRiskPercent(e.target.value === '' ? '' : parseFloat(e.target.value))}
+              name="riskPercent"
+              value={formState.riskPercent}
+              onChange={handleInputChange}
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
               placeholder="e.g., 1 or 2"
               min="0.01" max="100" step="any" // Allow decimals
@@ -179,8 +297,9 @@ const Compounding: React.FC = () => {
             <input
               type="number"
               id="pipsTarget"
-              value={pipsTarget}
-              onChange={(e) => setPipsTarget(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
+              name="pipsTarget"
+              value={formState.pipsTarget}
+              onChange={handleInputChange}
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
               placeholder="e.g., 200"
               min="1" step="1"
@@ -194,8 +313,9 @@ const Compounding: React.FC = () => {
             <input
               type="number"
               id="stopLossPips"
-              value={stopLossPips}
-              onChange={(e) => setStopLossPips(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
+              name="stopLossPips"
+              value={formState.stopLossPips}
+              onChange={handleInputChange}
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
               placeholder="e.g., 20"
               min="1" step="1"
@@ -209,8 +329,9 @@ const Compounding: React.FC = () => {
             <input
               type="number"
               id="durationMonths"
-              value={durationMonths}
-              onChange={(e) => setDurationMonths(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
+              name="durationMonths"
+              value={formState.durationMonths}
+              onChange={handleInputChange}
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
               placeholder="e.g., 12"
               min="1" step="1"
@@ -222,6 +343,13 @@ const Compounding: React.FC = () => {
           <div className="sm:col-span-2 lg:col-span-3 flex flex-col sm:flex-row justify-end items-center pt-4 gap-4">
              {error && <p className="text-red-600 text-sm text-center sm:text-right w-full sm:w-auto">{error}</p>}
             <button
+              type="button"
+              onClick={handleClearForm}
+              className="w-full sm:w-auto inline-flex justify-center py-2 px-4 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            >
+              Clear Form
+            </button>
+            <button
               type="submit"
               className="w-full sm:w-auto inline-flex justify-center py-2 px-6 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
             >
@@ -229,6 +357,7 @@ const Compounding: React.FC = () => {
             </button>
           </div>
         </form>
+         <p className="text-xs text-gray-500 mt-4">*Lot size calculated may vary significantly for each currency pair.</p>
       </div>
 
       {/* Results Table Card */}

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Menu, X, ChevronLeft, ChevronRight, LogOut, Settings, User, BarChart2, Calendar, PlusCircle, Shield, Home, BookOpen, MessageSquare, Rocket, Plus, CreditCard, Edit, Trash, Film } from 'lucide-react';
+import { Menu, X, ChevronLeft, ChevronRight, LogOut, Settings, User, BarChart2, Calendar, PlusCircle, Shield, Home, BookOpen, MessageSquare, Rocket, Plus, CreditCard, Edit, Trash, Film, TrendingUp } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useAccount } from '../contexts/AccountContext';
@@ -91,6 +91,7 @@ export default function Sidebar() {
     { path: '/journal', icon: BookOpen, label: 'Journal' },
     { path: '/log-trade', icon: PlusCircle, label: 'Log Trade' },
     { path: '/trades-analysis', icon: BarChart2, label: 'Trades Analysis' },
+    { path: '/compounding', icon: TrendingUp, label: 'Compounding Plan' },
     { path: '/calendar', icon: Calendar, label: 'Calendar' },
     { path: '/pip', icon: MessageSquare, label: 'Chat with PIP' },
     { path: '/webinar', icon: Film, label: 'Webinar' },

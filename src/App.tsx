@@ -16,6 +16,7 @@ import Layout from './components/Layout';
 import PerformanceOverview from './pages/PerformanceOverview';
 import Pip from './pages/Pip';
 import WebinarPage from './pages/WebinarPage';
+import Compounding from './pages/Compounding';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -129,6 +130,14 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <WebinarPage />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/compounding"
+        element={
+          <PrivateRoute>
+            <Compounding />
           </PrivateRoute>
         }
       />

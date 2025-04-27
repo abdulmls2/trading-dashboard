@@ -229,7 +229,6 @@ const Compounding: React.FC = () => {
             </button>
           </div>
         </form>
-         <p className="text-xs text-gray-500 mt-4">*Lot size calculated assuming 1 standard lot = $10 per pip (e.g., for EUR/USD). This may vary significantly for other pairs or assets.</p>
       </div>
 
       {/* Results Table Card */}

@@ -15,6 +15,7 @@ import Journal from './pages/Journal';
 import Layout from './components/Layout';
 import PerformanceOverview from './pages/PerformanceOverview';
 import Pip from './pages/Pip';
+import WebinarPage from './pages/WebinarPage';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -120,6 +121,14 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <Pip />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/webinar"
+        element={
+          <PrivateRoute>
+            <WebinarPage />
           </PrivateRoute>
         }
       />

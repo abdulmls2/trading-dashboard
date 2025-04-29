@@ -37,10 +37,10 @@ const CURRENCY_OPTIONS = [
 const getSavedCurrency = () => {
   try {
     const saved = localStorage.getItem('userCurrency');
-    return saved || '$'; // Default to $ if not found
+    return saved || '£'; // Default to £ if not found
   } catch (error) {
     console.error("Error accessing localStorage:", error);
-    return '$'; // Fallback to $ on error
+    return '£'; // Fallback to £ on error
   }
 };
 

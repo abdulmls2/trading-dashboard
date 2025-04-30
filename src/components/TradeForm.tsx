@@ -482,9 +482,10 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false, ta
       
       // Get entry time - ensure it's a valid time format
       const entryTimeValue = values[2] || '';
-      // Default to current time if empty
-      const validEntryTime = entryTimeValue.trim() || 
-                            new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
+      // Parse and normalize time, including AM/PM formats
+      const validEntryTime = entryTimeValue.trim() 
+        ? parseTimeString(entryTimeValue.trim())  
+        : new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
       
       // Extract profit/loss value
       let profitLossValue = 0;
@@ -715,6 +716,54 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false, ta
     }
   };
 
+  // New helper function to parse time strings including AM/PM format
+  const parseTimeString = (timeStr: string): string => {
+    try {
+      if (!timeStr || typeof timeStr !== 'string') return '';
+      
+      // If already in 24-hour format, return as is
+      if (/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(timeStr)) {
+        return timeStr;
+      }
+      
+      // Handle various time formats with AM/PM
+      // Examples: "5.30pm", "5:30pm", "5.30 pm", "5:30 PM", etc.
+      const timeRegex = /(\d+)(?::|\.|\s)(\d+)?\s*([ap]\.?m\.?)?/i;
+      const match = timeStr.match(timeRegex);
+      
+      if (match) {
+        let hours = parseInt(match[1], 10);
+        const minutes = match[2] ? parseInt(match[2], 10) : 0;
+        const isPM = match[3] && match[3].toLowerCase().startsWith('p');
+        
+        // Convert to 24-hour format
+        if (isPM && hours < 12) {
+          hours += 12;
+        } else if (!isPM && hours === 12) {
+          hours = 0;
+        }
+        
+        return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+      }
+      
+      // If all else fails, try to create a date object and extract time
+      try {
+        const date = new Date(`2000-01-01T${timeStr}`);
+        if (!isNaN(date.getTime())) {
+          return date.toTimeString().substring(0, 5);
+        }
+      } catch (e) {
+        // Ignore errors from this attempt
+      }
+      
+      console.warn('Could not parse time string:', timeStr);
+      return '';
+    } catch (error) {
+      console.error('Error parsing time string:', error, timeStr);
+      return '';
+    }
+  };
+
   // Helper function to handle Excel file upload
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -859,8 +908,13 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false, ta
           }
           
           // Special handling for entryTime (third column)
-          if (index === 2 && typeof cell === 'number') {
-            return convertExcelTimeToHHMM(cell);
+          if (index === 2) {
+            // Handle both numeric Excel time and string time with AM/PM
+            if (typeof cell === 'number') {
+              return convertExcelTimeToHHMM(cell);
+            } else if (typeof cell === 'string') {
+              return parseTimeString(cell);
+            }
           }
           
           return cell.toString().trim();

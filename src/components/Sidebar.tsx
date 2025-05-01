@@ -94,7 +94,7 @@ export default function Sidebar() {
     { path: '/compounding', icon: TrendingUp, label: 'Compounding Plan' },
     { path: '/calendar', icon: Calendar, label: 'Calendar' },
     { path: '/pip', icon: MessageSquare, label: 'Chat with PIP' },
-    { path: '/webinar', icon: Film, label: 'Webinar' },
+    { path: '/webinar', icon: Film, label: 'Webinar Plus' },
     { path: '/live-webinar', icon: Film, label: 'Live Webinar' },
   ];
 

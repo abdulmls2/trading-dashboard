@@ -95,6 +95,7 @@ export default function Sidebar() {
     { path: '/calendar', icon: Calendar, label: 'Calendar' },
     { path: '/pip', icon: MessageSquare, label: 'Chat with PIP' },
     { path: '/webinar', icon: Film, label: 'Webinar' },
+    { path: '/live-webinar', icon: Film, label: 'Live Webinar' },
   ];
 
   const adminItem = { path: '/admin', icon: Shield, label: 'Admin Dashboard' };

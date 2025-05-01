@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { useJitsiControl } from '../contexts/JitsiControlContext';
+import { useNavigate } from 'react-router-dom';
 
 // Define a few style variations for the watermarks
 const watermarkStyles = [
@@ -64,13 +64,34 @@ const Watermarks: React.FC<{
 
 const LiveWebinarPage: React.FC = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [userName, setUserName] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [watermarks, setWatermarks] = useState<WatermarkState[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const { requestJitsiFullscreen } = useJitsiControl();
+  const [isCodeValidated, setIsCodeValidated] = useState(false);
+  
+  // --- Code Validation Effect ---
+  useEffect(() => {
+    // Check if already validated in this session
+    if (sessionStorage.getItem('webinarCodeValidated') === 'true') {
+      setIsCodeValidated(true);
+      return;
+    }
+
+    // Prompt for code if not validated
+    const enteredCode = prompt("Please enter the access code to join the webinar:");
+
+    if (enteredCode === "746pwo") {
+      sessionStorage.setItem('webinarCodeValidated', 'true');
+      setIsCodeValidated(true);
+    } else {
+      alert("Incorrect access code.");
+      navigate('/performance'); // Redirect if code is wrong
+    }
+  }, [navigate]); // Dependency array includes navigate
   
   // Initialize watermarks with fixed positions and initial styles
   useEffect(() => {
@@ -172,18 +193,19 @@ const LiveWebinarPage: React.FC = () => {
     return () => clearInterval(intervalId);
   }, [watermarks]); // Re-run effect if watermarks array itself changes (e.g., initialization)
 
-  // --- Fullscreen Logic (for our custom button to control Jitsi) ---
+  // --- Fullscreen Logic (for our custom button - targets entire document) ---
   const handleFullscreenToggle = () => {
-    // Request fullscreen on the Jitsi container via context function
     if (!document.fullscreenElement) {
-      requestJitsiFullscreen(); 
+      document.documentElement.requestFullscreen().catch(err => {
+        console.error(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
+      });
     } else {
-       // Exit fullscreen is always global
-      document.exitFullscreen(); 
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
     }
   };
 
-  // Listener for ANY fullscreen change to update state for watermarks
   useEffect(() => {
     const handleFullscreenChange = () => {
       const isFullscreenMode = !!document.fullscreenElement;
@@ -196,6 +218,13 @@ const LiveWebinarPage: React.FC = () => {
     };
   }, []);
 
+  // --- Conditional Rendering Based on Code Validation ---
+  // Don't render anything until the code is validated
+  if (!isCodeValidated) {
+    return null; // Or a loading indicator like <div className="p-4">Checking access...</div>
+  }
+
+  // Proceed with rendering only if code is validated
   if (loading) {
     return <div className="p-4">Loading user information...</div>;
   }
@@ -204,21 +233,22 @@ const LiveWebinarPage: React.FC = () => {
     return <div className="p-4">Please log in to view this page.</div>;
   }
 
+  // --- Render Page Content (only if validated) ---
   return (
     <>
-      {/* Main page content container - No longer handles fullscreen style changes */}
+      {/* Main page content container - Jitsi container is rendered in App.tsx */}
+      {/* This div now just holds the title, height is determined by content or layout */}
       <div 
         ref={containerRef} 
-        className="relative w-full overflow-hidden p-4 bg-gray-900 h-[calc(100vh-50px)]" // Fixed height
-        style={{ backgroundColor: '#f9fafb' }} 
+        className="relative w-full p-4"
       >
-        <h1 className={`text-2xl font-bold mb-4 text-center text-gray-900`}>Live Webinar Session</h1>
+        <h1 className={`text-2xl font-bold mb-4 text-center ${isFullscreen ? 'text-white' : 'text-gray-900'}`}>Live Webinar Session</h1>
         
-        {/* Watermarks component - Rendered inside, uses fixed positioning */}
+        {/* Watermarks component - Fixed position, high z-index */}
         {watermarks.length > 0 && <Watermarks watermarks={watermarks} isFullscreen={isFullscreen} />}
       </div>
 
-      {/* Fullscreen Toggle Button */}
+      {/* Fullscreen Toggle Button remains fixed */}
       <button 
         onClick={handleFullscreenToggle}
         className={`fixed bottom-1 right-4 z-20 p-2 rounded ${isFullscreen ? 'bg-gray-700 text-white' : 'bg-blue-500 text-white'} hover:bg-blue-600 transition-colors`}

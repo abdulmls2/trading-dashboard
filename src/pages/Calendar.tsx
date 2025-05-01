@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
-import { format, isValid, parseISO } from 'date-fns';
+import { format, isValid, parseISO, startOfMonth, endOfMonth } from 'date-fns';
 // import Header from '../components/Header'; // Ensure this is removed or commented out
 import { Trade, TradeCalendarDay } from '../types';
 import { getTrades, useEffectiveUserId } from '../lib/api';
@@ -46,6 +46,8 @@ export default function CalendarPage() {
   const [editingMarketData, setEditingMarketData] = useState<MarketData | null>(null);
   // State for trading day data
   const [tradingDayData, setTradingDayData] = useState<Record<string, MarketData>>({});
+  // State to track the currently viewed month on the calendar
+  const [activeStartDate, setActiveStartDate] = useState<Date>(new Date());
 
   useEffect(() => {
     // Check if user is admin by looking at the user's role in the Profiles table
@@ -74,6 +76,7 @@ export default function CalendarPage() {
   }, [user]);
 
   useEffect(() => {
+    // Load trades based on effective user and account
     async function loadTrades() {
       if (!effectiveUserId || !user) {
         console.warn("No effectiveUserId or user available, cannot load trades for calendar");
@@ -108,19 +111,21 @@ export default function CalendarPage() {
     }
   }, [effectiveUserId, currentAccount, accountLoading, user]);
 
-  // Function to load trading day data from Supabase
-  const loadTradingDayData = async () => {
+  // Function to load trading day data from Supabase for the specified month
+  const loadTradingDayData = async (dateForMonth: Date) => {
     try {
       setLoadingMarketData(true);
+      setMarketDataError(''); // Clear previous errors
       
-      // Get current month boundaries
-      const currentDate = new Date();
-      const startDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-      const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+      // Get month boundaries based on the provided date
+      const firstDayOfMonth = startOfMonth(dateForMonth);
+      const lastDayOfMonth = endOfMonth(dateForMonth);
       
       // Format dates for query
-      const startDateStr = format(startDate, 'yyyy-MM-dd');
-      const endDateStr = format(endDate, 'yyyy-MM-dd');
+      const startDateStr = format(firstDayOfMonth, 'yyyy-MM-dd');
+      const endDateStr = format(lastDayOfMonth, 'yyyy-MM-dd');
+      
+      console.log(`Loading market data for range: ${startDateStr} to ${endDateStr}`);
       
       // Query the trading_day_data table
       const { data, error } = await supabase
@@ -132,6 +137,7 @@ export default function CalendarPage() {
       if (error) {
         console.error('Error loading trading day data:', error);
         setMarketDataError(error.message);
+        setTradingDayData({}); // Clear data on error
         return;
       }
       
@@ -139,39 +145,46 @@ export default function CalendarPage() {
       const formattedData: Record<string, MarketData> = {};
       
       data.forEach(item => {
-        const dateKey = format(parseISO(item.date), 'yyyy-MM-dd');
-        formattedData[dateKey] = {
-          id: item.id,
-          date: parseISO(item.date),
-          marketCondition: item.market_condition || '',
-          apm: item.apm || '',
-          gap: item.gap || '',
-          pivots: item.pivots || '',
-          balance: item.balance || '',
-          currencyIndex: item.currency_index || '',
-          currentPrice: item.current_price || '',
-          news: item.news || '',
-          created_at: item.created_at,
-          updated_at: item.updated_at
-        };
+        // Ensure date parsing is correct
+        try {
+          const date = parseISO(item.date);
+          const dateKey = format(date, 'yyyy-MM-dd');
+          formattedData[dateKey] = {
+            id: item.id,
+            date: date,
+            marketCondition: item.market_condition || '',
+            apm: item.apm || '',
+            gap: item.gap || '',
+            pivots: item.pivots || '',
+            balance: item.balance || '',
+            currencyIndex: item.currency_index || '',
+            currentPrice: item.current_price || '',
+            news: item.news || '',
+            created_at: item.created_at,
+            updated_at: item.updated_at
+          };
+        } catch (parseError) {
+          console.error(`Failed to parse date: ${item.date}`, parseError);
+        }
       });
       
       setTradingDayData(formattedData);
-      console.log(`Loaded ${Object.keys(formattedData).length} trading day data records`);
+      console.log(`Loaded ${Object.keys(formattedData).length} trading day data records for the month`);
     } catch (err) {
       console.error('Failed to load trading day data:', err);
       setMarketDataError(err instanceof Error ? err.message : 'Failed to load market data');
+      setTradingDayData({}); // Clear data on error
     } finally {
       setLoadingMarketData(false);
     }
   };
 
-  // Load market data when component mounts
+  // Load market data when the active month changes
   useEffect(() => {
     if (user) {
-      loadTradingDayData();
+      loadTradingDayData(activeStartDate);
     }
-  }, [user]);
+  }, [user, activeStartDate]); // Reload when activeStartDate changes
 
   // Group trades by date
   const tradesByDate = useMemo(() => {
@@ -215,6 +228,13 @@ export default function CalendarPage() {
   const handleDateClick = (date: Date) => {
     setValue(date);
     setSelectedDate(date);
+  };
+
+  // Update active start date when user navigates months
+  const handleActiveStartDateChange = ({ activeStartDate }: { activeStartDate: Date | null }) => {
+    if (activeStartDate) {
+      setActiveStartDate(activeStartDate);
+    }
   };
 
   const tileClassName = ({ date, view }: { date: Date; view: string }) => {
@@ -350,7 +370,9 @@ export default function CalendarPage() {
         result = await supabase
           .from('trading_day_data')
           .update(dataToSave)
-          .eq('id', editingMarketData.id);
+          .eq('id', editingMarketData.id)
+          .select('*') // Ensure we get the updated data back
+          .single();
       } else {
         // Insert new record
         result = await supabase
@@ -363,9 +385,29 @@ export default function CalendarPage() {
       if (result.error) {
         throw result.error;
       }
-      
-      // Reload the trading day data
-      await loadTradingDayData();
+
+      // Update the local state immediately with the saved/updated data
+      if (result.data) {
+        const savedItem = result.data;
+        const updatedDateKey = format(parseISO(savedItem.date), 'yyyy-MM-dd');
+        setTradingDayData(prevData => ({
+          ...prevData,
+          [updatedDateKey]: {
+            id: savedItem.id,
+            date: parseISO(savedItem.date),
+            marketCondition: savedItem.market_condition || '',
+            apm: savedItem.apm || '',
+            gap: savedItem.gap || '',
+            pivots: savedItem.pivots || '',
+            balance: savedItem.balance || '',
+            currencyIndex: savedItem.currency_index || '',
+            currentPrice: savedItem.current_price || '',
+            news: savedItem.news || '',
+            created_at: savedItem.created_at,
+            updated_at: savedItem.updated_at
+          }
+        }));
+      }
       
       // Close the modal
       closeEditModal();
@@ -442,6 +484,8 @@ export default function CalendarPage() {
                     prevLabel={<ArrowLeft className="w-5 h-5" />}
                     nextLabel={<ArrowRight className="w-5 h-5" />}
                     className="custom-calendar"
+                    activeStartDate={activeStartDate} // Control the viewed month
+                    onActiveStartDateChange={handleActiveStartDateChange} // Handle month navigation
                   />
                 </div>
                 <div className="mt-6 flex flex-wrap gap-6 justify-center text-sm">

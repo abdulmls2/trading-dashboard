@@ -48,15 +48,12 @@ const formatDate = (dateString: string) => {
   if (!dateString) return '';
   
   try {
-    // Add time component to prevent timezone shifts (using noon to avoid any daylight saving issues)
-    const dateWithTime = `${dateString}T12:00:00Z`;
-    const date = new Date(dateWithTime);
-    
+    const date = new Date(dateString);
     if (isNaN(date.getTime())) return dateString; // Return original if invalid
     
-    const day = date.getUTCDate().toString().padStart(2, '0');
-    const month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
-    const year = date.getUTCFullYear();
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const year = date.getFullYear();
     
     return `${day}-${month}-${year}`;
   } catch (error) {

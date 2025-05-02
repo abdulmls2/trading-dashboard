@@ -87,19 +87,31 @@ export default function Journal() {
 
     if (selectedYear && selectedYear !== "All Years") {
       yearToFilter = parseInt(selectedYear);
-      filtered = filtered.filter(trade => new Date(trade.date).getFullYear() === yearToFilter);
+      filtered = filtered.filter(trade => {
+        // Use UTC-safe approach to get year
+        const dateStr = `${trade.date}T12:00:00Z`;
+        const date = new Date(dateStr);
+        return date.getUTCFullYear() === yearToFilter;
+      });
     }
 
     if (selectedMonth && selectedMonth !== "All Trades" && yearToFilter !== null) {
       const monthIndex = months.indexOf(selectedMonth);
-      filtered = filtered.filter(trade => new Date(trade.date).getMonth() === monthIndex);
+      filtered = filtered.filter(trade => {
+        // Use UTC-safe approach to get month
+        const dateStr = `${trade.date}T12:00:00Z`;
+        const date = new Date(dateStr);
+        return date.getUTCMonth() === monthIndex;
+      });
     } else if (selectedMonth && selectedMonth !== "All Trades") {
         // If only month is selected (implicitly current year if year isn't set)
         yearToFilter = yearToFilter || new Date().getFullYear();
         const monthIndex = months.indexOf(selectedMonth);
         filtered = trades.filter(trade => {
-            const tradeDate = new Date(trade.date);
-            return tradeDate.getMonth() === monthIndex && tradeDate.getFullYear() === yearToFilter;
+            // Use UTC-safe approach
+            const dateStr = `${trade.date}T12:00:00Z`;
+            const date = new Date(dateStr);
+            return date.getUTCMonth() === monthIndex && date.getUTCFullYear() === yearToFilter;
         });
     }
 

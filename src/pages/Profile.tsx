@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { useEffectiveUserId } from '../lib/api';
+import { Clock } from 'lucide-react';
 
 interface ProfileData {
   full_name: string;
@@ -20,6 +21,35 @@ export default function Profile() {
     username: '',
     level: null,
   });
+  
+  // State for current time
+  const [dateTime, setDateTime] = useState(new Date());
+
+  // Update date and time every second
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setDateTime(new Date());
+    }, 1000);
+    
+    return () => clearInterval(timer);
+  }, []);
+
+  // Format date and time for display
+  const formattedDate = dateTime.toLocaleDateString(undefined, {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+  
+  const formattedTime = dateTime.toLocaleTimeString();
+  
+  // Get timezone information
+  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const timezoneOffset = dateTime.getTimezoneOffset();
+  const offsetHours = Math.abs(Math.floor(timezoneOffset / 60));
+  const offsetMinutes = Math.abs(timezoneOffset % 60);
+  const offsetFormatted = `${timezoneOffset <= 0 ? '+' : '-'}${offsetHours.toString().padStart(2, '0')}:${offsetMinutes.toString().padStart(2, '0')}`;
 
   const fetchProfile = useCallback(async () => {
     if (!effectiveUserId) return;
@@ -127,6 +157,29 @@ export default function Profile() {
                 )}
               </h3>
             </div>
+            
+            {/* Time and Date Information */}
+            <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+              <div className="flex items-center space-x-2">
+                <Clock className="h-5 w-5 text-indigo-500" />
+                <span className="text-sm font-medium text-gray-700">Your Local Time:</span>
+              </div>
+              <div className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-white p-3 rounded-md border border-gray-200 shadow-sm">
+                  <div className="text-xs text-gray-500 mb-1">Date</div>
+                  <div className="text-sm font-medium">{formattedDate}</div>
+                </div>
+                <div className="bg-white p-3 rounded-md border border-gray-200 shadow-sm">
+                  <div className="text-xs text-gray-500 mb-1">Time</div>
+                  <div className="text-sm font-medium">{formattedTime}</div>
+                </div>
+                <div className="bg-white p-3 rounded-md border border-gray-200 shadow-sm">
+                  <div className="text-xs text-gray-500 mb-1">Timezone</div>
+                  <div className="text-sm font-medium">{timezone} (UTC{offsetFormatted})</div>
+                </div>
+              </div>
+            </div>
+            
             <div className="px-6 py-5">
               {message && (
                 <div 

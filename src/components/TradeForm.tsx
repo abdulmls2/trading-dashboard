@@ -89,7 +89,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false, ta
   );
   const [formData, setFormData] = React.useState<TradeFormData>(
     existingTrade || {
-      date: new Date().toISOString().split('T')[0],
+      date: new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0], // Correctly get local date in YYYY-MM-DD format
       pair: 'GBP/USD',
       action: 'Buy',
       entryTime: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }),

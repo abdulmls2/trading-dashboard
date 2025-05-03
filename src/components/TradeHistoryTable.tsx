@@ -48,15 +48,18 @@ const formatDate = (dateString: string) => {
   if (!dateString) return '';
   
   try {
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return dateString; // Return original if invalid
+    // Always handle date strings carefully to avoid timezone issues
+    const parts = dateString.split('-');
+    if (parts.length !== 3) return dateString; // Not in YYYY-MM-DD format
     
-    const day = date.getDate().toString().padStart(2, '0');
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const year = date.getFullYear();
+    const year = parts[0];
+    const month = parts[1];
+    const day = parts[2];
     
+    // Return in DD-MM-YYYY format
     return `${day}-${month}-${year}`;
   } catch (error) {
+    console.error('Error formatting date:', error, dateString);
     return dateString; // Return original if any error occurs
   }
 };

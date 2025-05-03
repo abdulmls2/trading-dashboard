@@ -3,7 +3,7 @@ import { Trade } from '../types';
 import { createTrade, updateTrade, checkTradeAgainstRules, createTradeViolation, getUserTradingRules } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useAccount } from '../contexts/AccountContext';
-import { Clipboard, AlertTriangle, Upload } from 'lucide-react';
+import { Clipboard, AlertTriangle, Upload, Clock } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 // Make the Trade interface work with both create and update operations
@@ -30,7 +30,9 @@ const tradingDays = [
   'Tuesday',
   'Wednesday',
   'Thursday',
-  'Friday'
+  'Friday',
+  'Saturday',
+  'Sunday'
 ];
 
 const directionOptions = [
@@ -89,10 +91,10 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false, ta
   );
   const [formData, setFormData] = React.useState<TradeFormData>(
     existingTrade || {
-      date: new Date().toISOString().split('T')[0],
+      date: '', // Empty field for date
       pair: 'GBP/USD',
       action: 'Buy',
-      entryTime: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }),
+      entryTime: '', // Empty field for entry time
       exitTime: '',
       lots: 0.01,
       pipStopLoss: 15,
@@ -102,7 +104,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false, ta
       bankingLevel: '',
       riskRatio: 5,
       comments: '',
-      day: new Date().toLocaleDateString('en-US', { weekday: 'long' }),
+      day: '', // Empty field for day
       direction: directionOptions[0],
       orderType: '',
       marketCondition: '',
@@ -114,10 +116,113 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false, ta
       trueReward: '',
       true_tp_sl: '',
       additional_confluences: '',
-      time: '', // Adding required time field with empty string default
+      time: '',
       top_bob_fv: '',
     }
   );
+
+  // State for current time
+  const [dateTime, setDateTime] = useState(new Date());
+
+  // Update date and time every second
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setDateTime(new Date());
+    }, 1000);
+    
+    return () => clearInterval(timer);
+  }, []);
+
+  // Format date and time for display and for use in other parts of the app
+  const dayOfWeek = dateTime.toLocaleDateString(undefined, {
+    weekday: 'long'
+  });
+  
+  const formattedDate = dateTime.toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+  
+  const formattedTime = dateTime.toLocaleTimeString();
+  
+  // Get timezone information
+  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const timezoneOffset = dateTime.getTimezoneOffset();
+  const offsetHours = Math.abs(Math.floor(timezoneOffset / 60));
+  const offsetMinutes = Math.abs(timezoneOffset % 60);
+  const offsetFormatted = `${timezoneOffset <= 0 ? '+' : '-'}${offsetHours.toString().padStart(2, '0')}:${offsetMinutes.toString().padStart(2, '0')}`;
+  
+  // Create reusable date and time information objects
+  const dateInfo = {
+    raw: dateTime,
+    day: dayOfWeek,
+    date: formattedDate,
+    time: formattedTime,
+    timezone: timezone,
+    offset: offsetFormatted,
+    iso: dateTime.toISOString(),
+    // Format as YYYY-MM-DD for database storage and date input using LOCAL timezone
+    dbDate: `${dateTime.getFullYear()}-${String(dateTime.getMonth() + 1).padStart(2, '0')}-${String(dateTime.getDate()).padStart(2, '0')}`,
+    // Display format DD/MM/YYYY for UI consistency using LOCAL timezone
+    displayDate: `${String(dateTime.getDate()).padStart(2, '0')}/${String(dateTime.getMonth() + 1).padStart(2, '0')}/${dateTime.getFullYear()}`,
+    // Format as HH:MM for time input
+    dbTime: dateTime.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }),
+    timestamp: dateTime.getTime()
+  };
+  
+  // Auto-populate date, day, and time fields when form is opened for new trades
+  useEffect(() => {
+    // Only auto-populate for new trades (not when editing existing ones)
+    if (!existingTrade && !readOnly) {
+      // console.log('Auto-populating date and time for new trade');
+      
+      setFormData(prevData => ({
+        ...prevData,
+        date: dateInfo.dbDate,           // YYYY-MM-DD format
+        day: dateInfo.day,               // Full day name
+        entryTime: dateInfo.dbTime,      // HH:MM format
+        time: dateInfo.dbTime            // Also set the time field
+      }));
+    }
+  }, []);  // Empty dependency array ensures this runs only once when the component mounts
+  
+  // Log the date information whenever it changes (every second)
+  useEffect(() => {
+    /* 
+    console.log('Current date/time information:', dateInfo);
+    console.log('Date formats for debugging:');
+    console.log('- ISO (UTC):', dateInfo.iso);
+    console.log('- DB Date (YYYY-MM-DD in LOCAL timezone):', dateInfo.dbDate);
+    console.log('- Display Date (DD/MM/YYYY in LOCAL timezone):', dateInfo.displayDate);
+    console.log('- Local Date Components:', {
+      year: dateTime.getFullYear(),
+      month: dateTime.getMonth() + 1, // 0-indexed, so +1
+      day: dateTime.getDate(),
+      hours: dateTime.getHours(),
+      minutes: dateTime.getMinutes()
+    });
+    */
+  }, [dateTime]);
+  
+  // Function to use the date information in other parts of the app
+  const populateCurrentDateTime = () => {
+    // Use the YYYY-MM-DD format for the date input field (standard HTML date input format)
+    const formattedDateForInput = dateInfo.dbDate;
+    // console.log('Setting date to (YYYY-MM-DD):', formattedDateForInput);
+    
+    // Format the time as HH:MM for the time input field
+    const formattedTimeForInput = dateInfo.dbTime;
+    // console.log('Setting time to:', formattedTimeForInput);
+    
+    setFormData(prevData => ({
+      ...prevData,
+      date: formattedDateForInput,
+      day: dayOfWeek,
+      entryTime: formattedTimeForInput,
+      time: formattedTimeForInput
+    }));
+  };
 
   const { user } = useAuth();
   const { currentAccount } = useAccount();
@@ -151,19 +256,6 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false, ta
   const [availableSheets, setAvailableSheets] = useState<string[]>([]);
   const [selectedSheet, setSelectedSheet] = useState<string>('');
   const [hasHeaderRow, setHasHeaderRow] = useState<boolean>(true);
-
-  // Update day when date changes, but only if the user hasn't manually changed it
-  useEffect(() => {
-    if (formData.date) {
-      const selectedDate = new Date(formData.date);
-      const dayOfWeek = selectedDate.toLocaleDateString('en-US', { weekday: 'long' });
-      
-      // Only update if the day is one of the trading days (Mon-Fri)
-      if (tradingDays.includes(dayOfWeek)) {
-        setFormData(prevData => ({ ...prevData, day: dayOfWeek }));
-      }
-    }
-  }, [formData.date]);
 
   // Check for rule violations when key fields change
   useEffect(() => {
@@ -242,22 +334,37 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false, ta
     if (!formData.date || !formData.pair || !formData.entryTime) {
       setError('Please fill in all required fields.');
       return;
-      }
-      
+    }
+    
+    // Ensure date is in the correct format (YYYY-MM-DD) for database storage
+    let validatedFormData = { 
+      ...formData,
+      date: formatDateForDB(formData.date)
+    };
+    
+    console.log('Original date:', formData.date);
+    console.log('Formatted date for DB:', validatedFormData.date);
+    
+    // Log form data before submission for debugging
+    console.log('Submitting form data:', validatedFormData);
+    
     // Check for rule violations if any exist and user hasn't acknowledged them
-      if (ruleViolations.length > 0 && !acknowledgedViolations) {
-        setShowViolationWarning(true);
-        return;
-      }
+    if (ruleViolations.length > 0 && !acknowledgedViolations) {
+      setShowViolationWarning(true);
+      return;
+    }
 
     try {
       setLoading(true);
       
       // Calculate true P/L in pips
       const updatedFormData = {
-        ...formData,
+        ...validatedFormData,
         profitLoss: parseFloat(profitLossInput) || formData.profitLoss, // Use the input if parsed successfully
       };
+      
+      // Log the final data being sent to the database
+      console.log('Final data for database:', updatedFormData);
       
       if (existingTrade) {
         // Updating an existing trade
@@ -293,12 +400,11 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false, ta
   };
 
   const handleReset = () => {
-    const today = new Date();
     setFormData({
-      date: today.toISOString().split('T')[0],
+      date: '', // Empty field for date
       pair: 'EUR/USD',
       action: 'Buy',
-      entryTime: today.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }),
+      entryTime: '', // Empty field for entry time
       exitTime: '',
       lots: 0.01,
       pipStopLoss: 15,
@@ -308,7 +414,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false, ta
       bankingLevel: '',
       riskRatio: 5,
       comments: '',
-      day: today.toLocaleDateString('en-US', { weekday: 'long' }),
+      day: '', // Empty field for day
       direction: directionOptions[0],
       orderType: '',
       marketCondition: '',
@@ -1125,6 +1231,49 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false, ta
     }
   };
 
+  // Helper function to ensure consistent date format 
+  const formatDateForDB = (dateStr: string): string => {
+    // If empty, return empty
+    if (!dateStr) return '';
+    
+    try {
+      // Check if it looks like DD/MM/YYYY format
+      const ddmmyyyy = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
+      const match = dateStr.match(ddmmyyyy);
+      
+      if (match) {
+        // Convert from DD/MM/YYYY to YYYY-MM-DD
+        const day = match[1].padStart(2, '0');
+        const month = match[2].padStart(2, '0');
+        const year = match[3];
+        return `${year}-${month}-${day}`;
+      }
+      
+      // If it's already in YYYY-MM-DD format, return as is
+      const yyyymmdd = /^\d{4}-\d{2}-\d{2}$/;
+      if (yyyymmdd.test(dateStr)) {
+        return dateStr;
+      }
+      
+      // If we get here, try to parse the date and format it with local timezone
+      try {
+        const date = new Date(dateStr);
+        if (!isNaN(date.getTime())) {
+          // Use local timezone components rather than UTC
+          return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+        }
+      } catch (e) {
+        console.warn('Failed to parse date string:', dateStr);
+      }
+      
+      // If all else fails, return the original string
+      return dateStr;
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return dateStr;
+    }
+  };
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6 bg-white rounded-lg shadow-sm border border-gray-100 p-6">
       {readOnly && (
@@ -1143,6 +1292,44 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false, ta
           </div>
         </div>
       )}
+
+      {/* Time and Date Information - commented out since we auto-apply the current date/time
+      <div className="px-4 py-3 mb-2 border-b border-gray-200 bg-gray-50 rounded-md">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <Clock className="h-5 w-5 text-indigo-500" />
+            <span className="text-sm font-medium text-gray-700">Local Time:</span>
+          </div>
+          {!readOnly && (
+            <button
+              type="button"
+              onClick={populateCurrentDateTime}
+              className="text-xs px-2 py-1 bg-indigo-100 text-indigo-700 rounded hover:bg-indigo-200 transition-colors"
+            >
+              Use Current Date/Time
+            </button>
+          )}
+        </div>
+        <div className="mt-2 grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="bg-white p-2 rounded-md border border-gray-200 shadow-sm">
+            <div className="text-xs text-gray-500 mb-1">Day</div>
+            <div className="text-sm font-medium">{dateInfo.day}</div>
+          </div>
+          <div className="bg-white p-2 rounded-md border border-gray-200 shadow-sm">
+            <div className="text-xs text-gray-500 mb-1">Date</div>
+            <div className="text-sm font-medium">{dateInfo.date}</div>
+          </div>
+          <div className="bg-white p-2 rounded-md border border-gray-200 shadow-sm">
+            <div className="text-xs text-gray-500 mb-1">Time</div>
+            <div className="text-sm font-medium">{dateInfo.time}</div>
+          </div>
+          <div className="bg-white p-2 rounded-md border border-gray-200 shadow-sm">
+            <div className="text-xs text-gray-500 mb-1">Timezone</div>
+            <div className="text-sm font-medium">{dateInfo.timezone} (UTC{dateInfo.offset})</div>
+          </div>
+        </div>
+      </div>
+      */}
 
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md text-sm">

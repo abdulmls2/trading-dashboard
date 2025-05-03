@@ -186,38 +186,49 @@ export default function CalendarPage() {
     }
   }, [user, activeStartDate]); // Reload when activeStartDate changes
 
-  // Group trades by date
+  // Modify the trade grouping logic to prevent timezone issues
   const tradesByDate = useMemo(() => {
     const grouped: Record<string, TradeCalendarDay> = {};
     
     trades.forEach(trade => {
-      const dateStr = trade.date;
-      const date = new Date(dateStr);
+      // Handle the date string directly without timezone conversion
+      if (!trade.date) return;
       
-      if (isValid(date)) {
-        const dateKey = format(date, 'yyyy-MM-dd');
+      // Use the date string directly without creating a new Date object
+      // This prevents timezone shifts
+      const dateKey = trade.date; // Already in YYYY-MM-DD format from the database
+      
+      if (!grouped[dateKey]) {
+        // Create a date object only for display purposes
+        const dateParts = dateKey.split('-');
+        if (dateParts.length !== 3) return;
         
-        if (!grouped[dateKey]) {
-          grouped[dateKey] = {
-            date,
-            trades: [],
-            totalProfitLoss: 0,
-            winCount: 0,
-            lossCount: 0,
-            breakEvenCount: 0
-          };
-        }
+        const year = parseInt(dateParts[0]);
+        const month = parseInt(dateParts[1]) - 1; // JavaScript months are 0-indexed
+        const day = parseInt(dateParts[2]);
         
-        grouped[dateKey].trades.push(trade);
-        grouped[dateKey].totalProfitLoss += trade.profitLoss;
+        // Create date with a specific time to avoid timezone issues
+        const date = new Date(year, month, day, 12, 0, 0);
         
-        if (trade.profitLoss > 0) {
-          grouped[dateKey].winCount += 1;
-        } else if (trade.profitLoss < 0) {
-          grouped[dateKey].lossCount += 1;
-        } else {
-          grouped[dateKey].breakEvenCount += 1;
-        }
+        grouped[dateKey] = {
+          date,
+          trades: [],
+          totalProfitLoss: 0,
+          winCount: 0,
+          lossCount: 0,
+          breakEvenCount: 0
+        };
+      }
+      
+      grouped[dateKey].trades.push(trade);
+      grouped[dateKey].totalProfitLoss += trade.profitLoss;
+      
+      if (trade.profitLoss > 0) {
+        grouped[dateKey].winCount += 1;
+      } else if (trade.profitLoss < 0) {
+        grouped[dateKey].lossCount += 1;
+      } else {
+        grouped[dateKey].breakEvenCount += 1;
       }
     });
     
@@ -237,11 +248,16 @@ export default function CalendarPage() {
     }
   };
 
+  // Also update the tileClassName and tileContent functions to use the same date format
   const tileClassName = ({ date, view }: { date: Date; view: string }) => {
     // Only apply custom classes to month view
     if (view !== 'month') return null;
 
-    const dateKey = format(date, 'yyyy-MM-dd');
+    // Convert to YYYY-MM-DD format without timezone issues
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const dateKey = `${year}-${month}-${day}`;
     
     // Only style calendar boxes in trades view
     if (calendarView === 'trades') {
@@ -266,7 +282,11 @@ export default function CalendarPage() {
     // Only add content in month view
     if (view !== 'month') return null;
 
-    const dateKey = format(date, 'yyyy-MM-dd');
+    // Convert to YYYY-MM-DD format without timezone issues
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const dateKey = `${year}-${month}-${day}`;
     
     if (calendarView === 'trades') {
       const dayData = tradesByDate[dateKey];
@@ -293,10 +313,16 @@ export default function CalendarPage() {
     }
   };
 
+  // Fix the selectedDateDetails logic to use consistent date format
   const selectedDateDetails = useMemo(() => {
     if (!selectedDate) return null;
     
-    const dateKey = format(selectedDate, 'yyyy-MM-dd');
+    // Convert to YYYY-MM-DD format without timezone issues
+    const year = selectedDate.getFullYear();
+    const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+    const day = String(selectedDate.getDate()).padStart(2, '0');
+    const dateKey = `${year}-${month}-${day}`;
+    
     if (calendarView === 'trades') {
       return tradesByDate[dateKey] || null;
     } else {

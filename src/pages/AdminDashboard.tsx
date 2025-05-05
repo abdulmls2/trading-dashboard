@@ -12,6 +12,7 @@ import { BarChart2, User, Calendar, BookOpen, Activity, Settings, AlertTriangle,
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import UserSummaryReport from '../components/UserSummaryReport';
+import GlobalTradesAnalysis from './GlobalTradesAnalysis';
 
 interface UserProfile {
   id: string;
@@ -83,7 +84,7 @@ export default function AdminDashboard() {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [showRulesModal, setShowRulesModal] = useState(false);
   const [showViolationsModal, setShowViolationsModal] = useState(false);
-  const [activeTab, setActiveTab] = useState<'users' | 'violations' | 'summary'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'violations' | 'summary' | 'globalAnalysis'>('users');
   const [editMode, setEditMode] = useState(false);
   const [selectedYear, setSelectedYear] = useState<number | 'all'>(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState<number | 'all'>(new Date().getMonth()); // 0-11
@@ -750,6 +751,16 @@ export default function AdminDashboard() {
               >
                 Summary Report
               </button>
+              <button
+                onClick={() => setActiveTab('globalAnalysis')}
+                className={`px-4 py-2 rounded-md ${
+                  activeTab === 'globalAnalysis'
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-white text-gray-600 border border-gray-300'
+                }`}
+              >
+                Global Analysis
+              </button>
             </div>
           </div>
 
@@ -921,6 +932,8 @@ export default function AdminDashboard() {
                 showAll={true}
               />
             </div>
+          ) : activeTab === 'globalAnalysis' ? (
+            <GlobalTradesAnalysis />
           ) : (
             <div className="bg-white shadow overflow-hidden sm:rounded-lg p-4">
               <h2 className="text-xl font-medium text-gray-900 mb-4">Summary Report</h2>

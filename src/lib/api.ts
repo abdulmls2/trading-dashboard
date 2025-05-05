@@ -1065,3 +1065,124 @@ export async function updateTradingAccount(accountId: string, updates: { name?: 
   if (error) throw error;
   return data;
 }
+
+// Helper function to determine date range from month/year filters
+const getGlobalDateRange = (month: string | 'all', year: string | 'all'): { startDate: string | null; endDate: string | null } => {
+  let startDate: string | null = null;
+  let endDate: string | null = null;
+
+  if (year !== 'all') {
+    const numericYear = parseInt(year);
+    if (month !== 'all') {
+      // Specific month and year
+      const monthIndex = parseInt(month); // Assuming month is 0-11 index if numeric, or find index if string
+      const monthIdx = isNaN(monthIndex) ? ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].indexOf(month) : monthIndex;
+      if (monthIdx !== -1) {
+        startDate = new Date(numericYear, monthIdx, 1).toISOString().split('T')[0];
+        endDate = new Date(numericYear, monthIdx + 1, 0).toISOString().split('T')[0];
+      }
+    } else {
+      // All months for a specific year
+      startDate = new Date(numericYear, 0, 1).toISOString().split('T')[0];
+      endDate = new Date(numericYear, 11, 31).toISOString().split('T')[0];
+    }
+  } else if (month !== 'all') {
+      // Specific month across all available years (e.g., last 6 years) - More complex, might need adjustment
+      // For simplicity, let's default to all time if year is 'all' for now,
+      // or adjust based on specific requirements later.
+      // For now, treating 'All Years' but specific month as 'All Time'
+      startDate = null; // Or a very early date
+      endDate = null; // Or today's date
+  }
+  // If both are 'all', startDate and endDate remain null (or handle as needed in SQL)
+
+  console.log(`[getGlobalDateRange] Month: ${month}, Year: ${year} -> Start: ${startDate}, End: ${endDate}`);
+  return { startDate, endDate };
+};
+
+
+// --- Global Analysis API Functions ---
+
+export async function getGlobalMarketConditionAnalysis(month: string | 'all', year: string | 'all') {
+  const { startDate, endDate } = getGlobalDateRange(month, year);
+  const { data, error } = await supabase.rpc('analyze_market_conditions_global', {
+    p_start_date: startDate,
+    p_end_date: endDate
+  });
+
+  if (error) {
+    console.error('Error fetching global market condition analysis:', error);
+    throw error;
+  }
+  console.log("[API] Global Market Condition Data:", data);
+  return data || []; // Ensure return is always an array
+}
+
+export async function getGlobalDayOfWeekAnalysis(month: string | 'all', year: string | 'all') {
+  const { startDate, endDate } = getGlobalDateRange(month, year);
+  const { data, error } = await supabase.rpc('analyze_day_of_week_global', {
+    p_start_date: startDate,
+    p_end_date: endDate
+  });
+
+  if (error) {
+    console.error('Error fetching global day of week analysis:', error);
+    throw error;
+  }
+   console.log("[API] Global Day of Week Data:", data);
+  return data || [];
+}
+
+export async function getGlobalTrendAnalysis(month: string | 'all', year: string | 'all') {
+  const { startDate, endDate } = getGlobalDateRange(month, year);
+  const { data, error } = await supabase.rpc('analyze_trend_global', {
+    p_start_date: startDate,
+    p_end_date: endDate
+  });
+
+  if (error) {
+    console.error('Error fetching global trend analysis:', error);
+    throw error;
+  }
+  console.log("[API] Global Trend Data:", data);
+  return data || [];
+}
+
+export async function getGlobalConfluenceCountAnalysis(month: string | 'all', year: string | 'all') {
+  const { startDate, endDate } = getGlobalDateRange(month, year);
+  const { data, error } = await supabase.rpc('analyze_confluence_count_global', {
+    p_start_date: startDate,
+    p_end_date: endDate
+  });
+
+  if (error) {
+    console.error('Error fetching global confluence count analysis:', error);
+    throw error;
+  }
+  console.log("[API] Global Confluence Count Data:", data);
+  return data || [];
+}
+
+export async function getGlobalConfluenceGroupAnalysis(
+  month: string | 'all',
+  year: string | 'all',
+  includeMarketCondition: boolean,
+  selectedMarketCondition: string
+) {
+  const { startDate, endDate } = getGlobalDateRange(month, year);
+  const { data, error } = await supabase.rpc('analyze_confluence_group_global', {
+    p_start_date: startDate,
+    p_end_date: endDate,
+    p_include_market_condition: includeMarketCondition,
+    p_selected_market_condition: selectedMarketCondition === 'All' ? null : selectedMarketCondition
+  });
+
+  if (error) {
+    console.error('Error fetching global confluence group analysis:', error);
+    throw error;
+  }
+  console.log("[API] Global Confluence Group Data:", data);
+  return data || [];
+}
+
+// --- End Global Analysis API Functions ---

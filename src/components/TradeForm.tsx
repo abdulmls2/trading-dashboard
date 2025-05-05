@@ -1693,7 +1693,11 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false, ta
                 type="text"
                 value={formData.trueReward}
                 onChange={(e) => setFormData({ ...formData, trueReward: e.target.value })}
-                className={inputClassName}
+                className={`${inputClassName} ${
+                  formData.trueReward && !isNaN(parseFloat(formData.trueReward))
+                    ? parseFloat(formData.trueReward) >= 0 ? 'text-green-600' : 'text-red-600'
+                    : ''
+                } font-medium`}
                 disabled={readOnly}
               />
             </div>
@@ -1704,7 +1708,11 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false, ta
                 type="text"
                 value={formData.true_tp_sl}
                 onChange={(e) => setFormData({ ...formData, true_tp_sl: e.target.value })}
-                className={inputClassName}
+                className={`${inputClassName} ${
+                  formData.true_tp_sl && !isNaN(parseFloat(formData.true_tp_sl))
+                    ? parseFloat(formData.true_tp_sl) >= 0 ? 'text-green-600' : 'text-red-600'
+                    : ''
+                } font-medium`}
                 disabled={readOnly}
               />
             </div>

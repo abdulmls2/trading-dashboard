@@ -1333,7 +1333,15 @@ export default function TradeHistoryTable({
                         key={column.key} 
                         className={`px-6 py-4 whitespace-nowrap text-sm text-gray-900 ${
                           column.fixed ? 'sticky left-0 z-10 bg-white group-hover:bg-blue-50' : ''
-                        } ${isSelected ? 'bg-blue-50' : ''}`}
+                        } ${isSelected ? 'bg-blue-50' : ''} ${
+                          // Add conditional styling for specific numeric columns
+                          (column.key === 'trueReward' || column.key === 'true_tp_sl') && 
+                          trade[column.key as keyof Trade] !== null && 
+                          trade[column.key as keyof Trade] !== undefined && 
+                          !isNaN(Number(trade[column.key as keyof Trade])) 
+                            ? Number(trade[column.key as keyof Trade]) >= 0 ? 'text-green-600 font-medium' : 'text-red-600 font-medium'
+                            : ''
+                        }`}
                         style={cellStyle}
                         onClick={(e) => {
                           if (isDeleteMode) {

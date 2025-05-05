@@ -9,6 +9,8 @@ import Performance from './pages/Performance';
 import AdminDashboard from './pages/AdminDashboard';
 import Profile from './pages/Profile';
 import Auth from './pages/Auth';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import TradesAnalysis from './pages/TradesAnalysis';
 import Calendar from './pages/Calendar';
 import Journal from './pages/Journal';
@@ -45,6 +47,14 @@ function AppRoutes() {
       <Route
         path="/auth"
         element={user ? <Navigate to="/performance" /> : <Auth />}
+      />
+      <Route
+        path="/forgot-password"
+        element={user ? <Navigate to="/performance" /> : <ForgotPassword />}
+      />
+      <Route
+        path="/reset-password"
+        element={<ResetPassword />}
       />
       <Route
         path="/"

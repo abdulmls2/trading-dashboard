@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { Link } from 'react-router-dom';
 
 export default function Auth() {
   const [isSignUp, setIsSignUp] = useState(true); // Default to sign up since we need to create a user first
@@ -169,6 +170,13 @@ export default function Auth() {
                   className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                 />
               </div>
+              {!isSignUp && (
+                <div className="text-right mt-1">
+                  <Link to="/forgot-password" className="text-sm text-indigo-600 hover:text-indigo-500">
+                    Forgot your password?
+                  </Link>
+                </div>
+              )}
             </div>
 
             <div>

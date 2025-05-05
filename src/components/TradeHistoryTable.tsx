@@ -354,6 +354,7 @@ export default function TradeHistoryTable({
     { key: 'trueReward', display: 'True Reward' },
     { key: 'true_tp_sl', display: 'True TP/SL' },
     { key: 'profitLoss', display: 'Profit/Loss' },
+    { key: 'drawdown', display: 'Drawdown' },
     { key: 'mindset', display: 'Mindset' },
     { key: 'tradeLink', display: 'Trade Link' },
     { key: 'comments', display: 'Comments' }
@@ -1299,6 +1300,30 @@ export default function TradeHistoryTable({
                           }}
                         >
                           {selectedCurrency}{trade.profitLoss?.toFixed(2) ?? 'N/A'}
+                        </td>
+                      );
+                    }
+                    
+                    if (column.key === 'drawdown') {
+                      return (
+                        <td 
+                          key={column.key} 
+                          className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${
+                            column.fixed ? 'sticky left-0 z-10 bg-white group-hover:bg-blue-50' : ''
+                          } ${isSelected ? 'bg-blue-50' : ''}`}
+                          style={cellStyle}
+                          onClick={(e) => {
+                            if (isDeleteMode) {
+                              handleRowCheckboxClick(e, trade.id);
+                            } else if (isCustomizing) {
+                              handleCellClick(e, trade.id, column.key);
+                            }
+                          }}
+                        >
+                          {/* Display drawdown value if it exists, otherwise empty string */}
+                          {trade.drawdown !== null && trade.drawdown !== undefined 
+                            ? trade.drawdown.toFixed(2) 
+                            : ''}
                         </td>
                       );
                     }

@@ -7,9 +7,10 @@ import { Clipboard, AlertTriangle, Upload, Clock } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 // Make the Trade interface work with both create and update operations
-interface TradeFormData extends Omit<Trade, 'id'> {
+interface TradeFormData extends Omit<Trade, 'id' | 'top_bob_fv' | 'drawdown'> {
   id?: string;
   top_bob_fv?: string;
+  drawdown?: number;
 }
 
 const currencyPairs = [
@@ -100,6 +101,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false, ta
       pipStopLoss: 15,
       pipTakeProfit: 75,
       profitLoss: 0,
+      drawdown: undefined,
       pivots: '',
       bankingLevel: '',
       riskRatio: 5,
@@ -381,7 +383,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false, ta
             await createTradeViolation({
               tradeId: newTrade.id,
               userId: targetUserId || user?.id || '',
-              ruleType: violation.ruleType,
+              ruleType: violation.ruleType as "pair" | "day" | "lot" | "action_direction",
               violatedValue: violation.violatedValue,
               allowedValues: violation.allowedValues,
               acknowledged: true
@@ -410,6 +412,7 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false, ta
       pipStopLoss: 15,
       pipTakeProfit: 75,
       profitLoss: 0,
+      drawdown: undefined,
       pivots: '',
       bankingLevel: '',
       riskRatio: 5,
@@ -1728,6 +1731,24 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false, ta
                 disabled={readOnly}
               />
             </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Drawdown</label>
+              <input
+                type="number"
+                value={formData.drawdown === undefined ? '' : formData.drawdown}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  // If empty string, set to undefined, otherwise parse as number
+                  setFormData({ 
+                    ...formData, 
+                    drawdown: value === '' ? undefined : parseFloat(value) 
+                  });
+                }}
+                className={inputClassName}
+                disabled={readOnly}
+              />
+            </div>
           </div>
         )}
 
@@ -1972,10 +1993,6 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false, ta
                       <p className="text-sm">{importPreview.bankingLevel}</p>
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-500">Balance Confluences:</p>
-                      <p className="text-sm">{importPreview.top_bob_fv}</p>
-                    </div>
-                    <div>
                       <p className="text-sm font-medium text-gray-500">Additional Confluences:</p>
                       <p className="text-xs text-gray-900 truncate">{importPreview.additional_confluences}</p>
                     </div>
@@ -2195,10 +2212,6 @@ export default function TradeForm({ onClose, existingTrade, readOnly = false, ta
                         <div>
                           <p className="text-xs font-medium text-gray-500">Banking Level:</p>
                           <p className="text-xs">{multipleTradesPreview[selectedPreviewIndex].bankingLevel}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs font-medium text-gray-500">Balance Confluences:</p>
-                          <p className="text-xs">{multipleTradesPreview[selectedPreviewIndex].top_bob_fv}</p>
                         </div>
                         <div>
                           <p className="text-xs font-medium text-gray-500">Additional Confluences:</p>

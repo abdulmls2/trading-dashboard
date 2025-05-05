@@ -11,7 +11,7 @@ export function useEffectiveUserId() {
   return effectiveUserId;
 }
 
-export async function createTrade(trade: Omit<Trade, 'id' | 'time'>, targetUserId?: string | null, accountId?: string | null) {
+export async function createTrade(trade: Omit<Trade, 'id' | 'time' | 'top_bob_fv' | 'drawdown'> & { top_bob_fv?: string; drawdown?: number }, targetUserId?: string | null, accountId?: string | null) {
   // If targetUserId is provided and not null, use it (for admin impersonation)
   // Otherwise, get the current user
   let userId: string;
@@ -38,9 +38,8 @@ export async function createTrade(trade: Omit<Trade, 'id' | 'time'>, targetUserI
     }
   }
   
-  const { data, error } = await supabase
-    .from('trades')
-    .insert([{
+  // Use Record<string, any> to allow adding dynamic properties
+  const tradeData: Record<string, any> = {
       user_id: userId,
       account_id: accountId,
       date: trade.date,
@@ -69,7 +68,16 @@ export async function createTrade(trade: Omit<Trade, 'id' | 'time'>, targetUserI
       true_tp_sl: trade.true_tp_sl,
       additional_confluences: trade.additional_confluences,
       top_bob_fv: trade.top_bob_fv
-    }])
+  };
+  
+  // Only add drawdown if it's defined
+  if (trade.drawdown !== undefined) {
+    tradeData.drawdown = trade.drawdown;
+  }
+
+  const { data, error } = await supabase
+    .from('trades')
+    .insert([tradeData])
     .select()
     .single();
 
@@ -80,32 +88,37 @@ export async function createTrade(trade: Omit<Trade, 'id' | 'time'>, targetUserI
 export async function updateTrade(id: string, trade: Partial<Omit<Trade, 'time'>>) {
   const updates: Record<string, any> = {};
   
-  if (trade.date) updates.date = trade.date;
-  if (trade.pair) updates.pair = trade.pair;
-  if (trade.action) updates.action = trade.action;
-  if (trade.entryTime) updates.entry_time = trade.entryTime;
+  // Check each field and add to updates if it exists in the partial trade object
+  if (trade.date !== undefined) updates.date = trade.date;
+  if (trade.pair !== undefined) updates.pair = trade.pair;
+  if (trade.action !== undefined) updates.action = trade.action;
+  if (trade.entryTime !== undefined) updates.entry_time = trade.entryTime;
   if (trade.exitTime !== undefined) updates.exit_time = trade.exitTime === '' ? null : trade.exitTime;
-  if (trade.lots) updates.lots = trade.lots;
-  if (trade.pipStopLoss) updates.pip_stop_loss = trade.pipStopLoss;
-  if (trade.pipTakeProfit) updates.pip_take_profit = trade.pipTakeProfit;
-  if (trade.profitLoss) updates.profit_loss = trade.profitLoss;
-  if (trade.pivots) updates.pivots = trade.pivots;
-  if (trade.bankingLevel) updates.banking_level = trade.bankingLevel;
-  if (trade.riskRatio) updates.risk_ratio = trade.riskRatio;
-  if (trade.comments) updates.comments = trade.comments;
-  if (trade.day) updates.day = trade.day;
-  if (trade.direction) updates.direction = trade.direction;
-  if (trade.orderType) updates.order_type = trade.orderType;
-  if (trade.marketCondition) updates.market_condition = trade.marketCondition;
-  if (trade.ma) updates.ma = trade.ma;
-  if (trade.fib) updates.fib = trade.fib;
-  if (trade.gap) updates.gap = trade.gap;
-  if (trade.mindset) updates.mindset = trade.mindset;
+  if (trade.lots !== undefined) updates.lots = trade.lots;
+  if (trade.pipStopLoss !== undefined) updates.pip_stop_loss = trade.pipStopLoss;
+  if (trade.pipTakeProfit !== undefined) updates.pip_take_profit = trade.pipTakeProfit;
+  if (trade.profitLoss !== undefined) updates.profit_loss = trade.profitLoss;
+  // Explicitly handle drawdown: set to value if defined, set to NULL if undefined
+  if ('drawdown' in trade) {
+    updates.drawdown = trade.drawdown === undefined ? null : trade.drawdown;
+  }
+  if (trade.pivots !== undefined) updates.pivots = trade.pivots;
+  if (trade.bankingLevel !== undefined) updates.banking_level = trade.bankingLevel;
+  if (trade.riskRatio !== undefined) updates.risk_ratio = trade.riskRatio;
+  if (trade.comments !== undefined) updates.comments = trade.comments;
+  if (trade.day !== undefined) updates.day = trade.day;
+  if (trade.direction !== undefined) updates.direction = trade.direction;
+  if (trade.orderType !== undefined) updates.order_type = trade.orderType;
+  if (trade.marketCondition !== undefined) updates.market_condition = trade.marketCondition;
+  if (trade.ma !== undefined) updates.ma = trade.ma;
+  if (trade.fib !== undefined) updates.fib = trade.fib;
+  if (trade.gap !== undefined) updates.gap = trade.gap;
+  if (trade.mindset !== undefined) updates.mindset = trade.mindset;
   if (trade.tradeLink !== undefined) updates.trade_link = trade.tradeLink === '' ? null : trade.tradeLink;
-  if (trade.trueReward) updates.true_reward = trade.trueReward;
-  if (trade.true_tp_sl) updates.true_tp_sl = trade.true_tp_sl;
-  if (trade.additional_confluences) updates.additional_confluences = trade.additional_confluences;
-  if (trade.top_bob_fv) updates.top_bob_fv = trade.top_bob_fv;
+  if (trade.trueReward !== undefined) updates.true_reward = trade.trueReward;
+  if (trade.true_tp_sl !== undefined) updates.true_tp_sl = trade.true_tp_sl;
+  if (trade.additional_confluences !== undefined) updates.additional_confluences = trade.additional_confluences;
+  if (trade.top_bob_fv !== undefined) updates.top_bob_fv = trade.top_bob_fv;
 
   const { data, error } = await supabase
     .from('trades')
@@ -156,6 +169,7 @@ export async function getTrades(targetUserId?: string | null, accountId?: string
       pip_stop_loss,
       pip_take_profit,
       profit_loss,
+      drawdown,
       pivots,
       banking_level,
       risk_ratio,
@@ -201,6 +215,7 @@ export async function getTrades(targetUserId?: string | null, accountId?: string
     pipStopLoss: trade.pip_stop_loss,
     pipTakeProfit: trade.pip_take_profit,
     profitLoss: trade.profit_loss,
+    drawdown: trade.drawdown,
     pivots: trade.pivots,
     bankingLevel: trade.banking_level,
     riskRatio: trade.risk_ratio,
@@ -551,6 +566,7 @@ export async function getAllTrades() {
       pip_stop_loss,
       pip_take_profit,
       profit_loss,
+      drawdown,
       pivots,
       banking_level,
       risk_ratio,
@@ -587,6 +603,7 @@ export async function getAllTrades() {
     pipStopLoss: trade.pip_stop_loss,
     pipTakeProfit: trade.pip_take_profit,
     profitLoss: trade.profit_loss,
+    drawdown: trade.drawdown,
     pivots: trade.pivots,
     bankingLevel: trade.banking_level,
     riskRatio: trade.risk_ratio,

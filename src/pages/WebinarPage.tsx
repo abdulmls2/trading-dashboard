@@ -4,11 +4,11 @@ import { supabase } from '../lib/supabase';
 
 // Define a few style variations for the watermarks
 const watermarkStyles = [
-  { opacity: 0.25, fontSize: '1.5rem', color: '#A0AEC0' }, // Light gray
-  { opacity: 0.35, fontSize: '1.3rem', color: '#718096' }, // Darker gray
-  { opacity: 0.30, fontSize: '1.4rem', color: '#4A5568' }, // Dark gray
-  { opacity: 0.28, fontSize: '1.25rem', color: '#2D3748' }, // Very dark gray
-  { opacity: 0.22, fontSize: '1.6rem', color: '#1A202C' }, // Almost black
+  { opacity: 0.45, fontSize: '1.3rem', color: '#A0AEC0' }, // Light gray
+  { opacity: 0.55, fontSize: '1.1rem', color: '#718096' }, // Darker gray
+  { opacity: 0.50, fontSize: '1.2rem', color: '#4A5568' }, // Dark gray
+  { opacity: 0.48, fontSize: '1.0rem', color: '#2D3748' }, // Very dark gray
+  { opacity: 0.40, fontSize: '1.25rem', color: '#1A202C' }, // Almost black
 ];
 
 // Define the structure for each watermark's state
@@ -18,6 +18,7 @@ interface WatermarkState {
   y: number;
   rotation: number; // Fixed rotation
   text: string;
+  email: string; // Add email field
   styleIndex: number; // Index for watermarkStyles array
 }
 
@@ -36,8 +37,6 @@ declare global {
   }
 }
 
-const TARGET_CODE = "44775494"; // Define the target code
-
 const WebinarPage: React.FC = () => {
   const { user } = useAuth();
   const [userName, setUserName] = useState<string | null>(null);
@@ -46,15 +45,13 @@ const WebinarPage: React.FC = () => {
   const [watermarks, setWatermarks] = useState<WatermarkState[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [inputCode, setInputCode] = useState<string>(''); // State for user input
-  const [isVerified, setIsVerified] = useState<boolean>(false); // State for code verification
-  const [error, setError] = useState<string>(''); // State for error message
-
+  
   // Initialize watermarks with fixed positions and initial styles
   useEffect(() => {
     if (userName && userEmail) {
-      // Create watermark text with both name and email
-      const watermarkText = `${userName} | ${userEmail}`;
+      // Create watermark with email underneath name instead of beside it
+      const watermarkText = userName;
+      const watermarkEmail = userEmail;
       
       // First create the corner watermarks
       const cornerWatermarks: WatermarkState[] = [
@@ -65,6 +62,7 @@ const WebinarPage: React.FC = () => {
           y: 3,
           rotation: 0,
           text: watermarkText,
+          email: watermarkEmail,
           styleIndex: 0
         },
         // Top-right corner
@@ -74,6 +72,7 @@ const WebinarPage: React.FC = () => {
           y: 5, 
           rotation: 0,
           text: watermarkText,
+          email: watermarkEmail,
           styleIndex: 1
         },
         // Bottom-left corner
@@ -83,6 +82,7 @@ const WebinarPage: React.FC = () => {
           y: 85,
           rotation: 0,
           text: watermarkText,
+          email: watermarkEmail,
           styleIndex: 2
         },
         // Bottom-right corner
@@ -92,6 +92,7 @@ const WebinarPage: React.FC = () => {
           y: 87,
           rotation: 0,
           text: watermarkText,
+          email: watermarkEmail,
           styleIndex: 3
         }
       ];
@@ -114,6 +115,7 @@ const WebinarPage: React.FC = () => {
           y: zone.yMin + Math.random() * (zone.yMax - zone.yMin),
           rotation: 0, // No rotation - all text straight
           text: watermarkText,
+          email: watermarkEmail,
           styleIndex: Math.floor(Math.random() * watermarkStyles.length),
         };
       });
@@ -201,17 +203,6 @@ const WebinarPage: React.FC = () => {
   }, []);
   // --- End Fullscreen Logic ---
 
-  const handleCodeSubmit = (event: React.FormEvent) => {
-    event.preventDefault();
-    if (inputCode === TARGET_CODE) {
-      setIsVerified(true);
-      setError(''); // Clear error on success
-    } else {
-      setError('Invalid code. Please try again.');
-      setInputCode(''); // Clear input on failure
-    }
-  };
-
   if (loading) {
     return <div className="p-4">Loading user information...</div>;
   }
@@ -220,33 +211,7 @@ const WebinarPage: React.FC = () => {
     return <div className="p-4">Please log in to view this page.</div>;
   }
 
-  // --- Render Code Input Form if not verified --- 
-  if (!isVerified) {
-    return (
-      <div className="flex flex-col items-center justify-center h-screen bg-gray-100 p-4">
-        <h1 className="text-2xl font-bold mb-6">Enter Access Code</h1>
-        <form onSubmit={handleCodeSubmit} className="bg-white p-6 rounded shadow-md">
-          <input 
-            type="password" // Use password type to hide input
-            value={inputCode}
-            onChange={(e) => setInputCode(e.target.value)}
-            className="border p-2 w-full mb-4 rounded"
-            placeholder="Enter code"
-            aria-label="Access Code"
-          />
-          {error && <p className="text-red-500 text-sm mb-4">{error}</p>} 
-          <button 
-            type="submit"
-            className="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600 transition-colors"
-          >
-            Submit
-          </button>
-        </form>
-      </div>
-    );
-  }
-
-  // --- Render Webinar Content if verified --- 
+  // --- Render Webinar Content ---
   return (
     <div 
       ref={containerRef} 
@@ -269,7 +234,7 @@ const WebinarPage: React.FC = () => {
         style={{ zIndex: 0 }} 
       > 
         <mux-player
-          playback-id="YwmcgalZj02BlW5RjKp16IdSRwCil76SXPG6RZmHxcA00"
+          playback-id="iM5rmPFPMM5s1He7DTn4GTai9LVu2XkyVI6NXQw00oU4"
           metadata-video-title="Your Video Title" 
           metadata-viewer-user-id={user.id} // Use the actual user ID
           style={{
@@ -300,7 +265,8 @@ const WebinarPage: React.FC = () => {
                filter: isFullscreen ? 'brightness(1.1)' : 'none' 
              }}
            >
-             {wm.text}
+             <div>{wm.text}</div>
+             <div style={{ fontSize: '0.85em' }}>{wm.email}</div>
            </span>
          );
       })}

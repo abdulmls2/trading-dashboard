@@ -10,9 +10,44 @@ import ProfitLossProgressChart from '../components/ProfitLossProgressChart';
 import TradeTimeHeatmap from '../components/TradeTimeHeatmap';
 import { PlusCircle, MessageSquare, LineChart, BarChart, PieChart } from 'lucide-react';
 import { Trade, PerformanceMetrics as Metrics } from '../types';
-import { getTrades, getTradeViolations, getPerformanceMetrics, updatePerformanceMetrics, useEffectiveUserId } from '../lib/api';
+import { getTrades, getTradeViolations, getPerformanceMetrics, updatePerformanceMetrics, useEffectiveUserId, getPerformanceOverviewTrades } from '../lib/api';
 import { useAccount } from '../contexts/AccountContext';
 import { useAuth } from '../contexts/AuthContext'; // Import useAuth
+
+/**
+ * PERFORMANCE OVERVIEW DATA FLOW:
+ * 
+ * 1. User selects month and year filters from dropdowns
+ * 2. The loadInitialData function is triggered by useEffect when filters change
+ * 3. The API function getPerformanceOverviewTrades is called with the filters:
+ *    - Only fetches minimal set of fields needed by this page
+ *    - Only fetches trades for the selected month/year
+ *    - Returns trades already filtered to the right time period
+ * 4. The component converts these minimal trade objects to full Trade objects by adding default values
+ * 5. Both the trades and filteredTrades state are set to these values (no client-side filtering needed)
+ * 6. If specific month/year are selected, we fetch the stored performance metrics
+ * 7. The calculatedPerformanceMetrics are derived from filteredTrades via useMemo
+ * 8. All charts and metrics displays use the pre-filtered data
+ * 
+ * This approach is efficient because:
+ *   - It only transfers the minimal data needed over the network
+ *   - It only fetches trades matching the selected time period
+ *   - It fetches additional metrics only when a specific month/year are selected
+ */
+
+// Define an interface for the minimal trade data returned by getPerformanceOverviewTrades
+interface MinimalTrade {
+  id: string;
+  userId: string;
+  accountId: string;
+  date: string;
+  pair: string;
+  entryTime: string;
+  time: string;
+  profitLoss: number;
+  trueReward: string;
+  true_tp_sl: string;
+}
 
 // Default empty calculated metrics
 const emptyCalculatedMetrics = {
@@ -173,41 +208,18 @@ export default function UserPerformanceView() { // Renamed component
     }
   }, [getMonthString, effectiveUserId, currentAccount, user]); 
 
-  // Filter trades whenever trades, selectedMonth, or selectedYear changes
+  // This function can be simplified since we're now fetching pre-filtered data
   const filterTrades = useCallback(() => {
-    let filtered = [...trades];
-    let yearToFilter: number | null = null;
-    let monthToFilter: string | null = null;
+    // The trades are already filtered by month/year when they come from the API
+    // So we just set filteredTrades to the current trades
+    setFilteredTrades(trades);
+  }, [trades]);
 
-    if (selectedYear && selectedYear !== "All Years") {
-      yearToFilter = parseInt(selectedYear);
-      filtered = filtered.filter(trade => new Date(trade.date).getFullYear() === yearToFilter);
-    }
-
-    if (selectedMonth && selectedMonth !== "All Trades" && yearToFilter !== null) {
-      monthToFilter = selectedMonth;
-      const monthIndex = months.indexOf(selectedMonth);
-      filtered = filtered.filter(trade => new Date(trade.date).getMonth() === monthIndex);
-    } else if (selectedMonth && selectedMonth !== "All Trades") {
-        // If only month is selected (implicitly current year)
-        yearToFilter = new Date().getFullYear(); 
-        monthToFilter = selectedMonth;
-        const monthIndex = months.indexOf(selectedMonth);
-        filtered = trades.filter(trade => {
-            const tradeDate = new Date(trade.date);
-            return tradeDate.getMonth() === monthIndex && tradeDate.getFullYear() === yearToFilter;
-        });
-    }
-
-    setFilteredTrades(filtered);
-
-    // Fetch metrics for the selected period if a specific month and year are chosen
-    if (monthToFilter && yearToFilter) {
-      fetchMonthlyMetrics(yearToFilter, monthToFilter);
-    } else {
-      setMonthlyDbMetrics(null); // Clear metrics if showing "All"
-    }
-  }, [trades, selectedMonth, selectedYear, fetchMonthlyMetrics]);
+  // We can change this useEffect to only run when trades changes,
+  // as the filtering by month/year happens at the API level now
+  useEffect(() => {
+    filterTrades();
+  }, [filterTrades]);
 
   // Initial data load for trades and violations
   const loadInitialData = useCallback(async () => {
@@ -222,36 +234,79 @@ export default function UserPerformanceView() { // Renamed component
     
     try {
       setLoading(true);
-      console.log(`Loading trades and violations for user ${effectiveUserId} and account ${accountIdToFetch || 'all'}`);
-      const [tradeData, violationData] = await Promise.all([
-        getTrades(effectiveUserId, accountIdToFetch),
+      console.log(`Loading trades and violations for user ${effectiveUserId} and account ${accountIdToFetch || 'all'}, filters: Month=${selectedMonth}, Year=${selectedYear}`);
+      
+      // Use the optimized function that fetches only required fields, with month/year filtering
+      const [tradeResponse, violationData] = await Promise.all([
+        getPerformanceOverviewTrades(
+          effectiveUserId, 
+          accountIdToFetch,
+          selectedMonth,
+          selectedYear
+        ),
         getTradeViolations(effectiveUserId, accountIdToFetch) 
       ]);
       
-      console.log(`Loaded ${tradeData.length} trades for user ${effectiveUserId}`);
-      const formattedTrades = tradeData.map(trade => ({ ...trade, time: trade.entryTime }));
-      setTrades(formattedTrades);
+      // Access the trades property from the response
+      const minimalTrades = tradeResponse.trades as MinimalTrade[];
+      
+      console.log(`Loaded ${minimalTrades.length} trades for user ${effectiveUserId} with filters Month=${selectedMonth}, Year=${selectedYear}`);
+      
+      // Convert MinimalTrade objects to full Trade objects with default values for missing properties
+      const completeTrades: Trade[] = minimalTrades.map(minimalTrade => ({
+        ...minimalTrade,
+        // Add missing Trade properties with default values
+        action: 'Buy' as 'Buy' | 'Sell', // Ensure correct union type
+        exitTime: '',
+        lots: 0,
+        pipStopLoss: 0,
+        pipTakeProfit: 0,
+        drawdown: 0,
+        pivots: '',
+        bankingLevel: '',
+        riskRatio: 0,
+        comments: '',
+        day: '',
+        direction: '',
+        orderType: '',
+        marketCondition: '',
+        ma: '',
+        fib: '',
+        gap: '',
+        mindset: '',
+        tradeLink: '',
+        additional_confluences: '',
+        top_bob_fv: ''
+      }));
+      
+      // Since we're now getting pre-filtered trades from the API,
+      // we can set both trades and filteredTrades to the same value
+      setTrades(completeTrades);
+      setFilteredTrades(completeTrades);
       setViolations(violationData);
+      
+      // If a specific month and year are selected, fetch the stored metrics
+      if (selectedMonth !== "All Trades" && selectedYear !== "All Years") {
+        const yearNum = parseInt(selectedYear);
+        fetchMonthlyMetrics(yearNum, selectedMonth);
+      } else {
+        setMonthlyDbMetrics(null);
+      }
     } catch (err) {
       console.error("Failed to load initial data:", err);
       setError(err instanceof Error ? err.message : 'Failed to load data');
     } finally {
       setLoading(false);
     }
-  }, [effectiveUserId, currentAccount, user]); 
+  }, [effectiveUserId, currentAccount, user, selectedMonth, selectedYear, fetchMonthlyMetrics]);
 
-  // Load initial data and set up filtering
+  // Load initial data when filters change
   useEffect(() => {
     if (effectiveUserId && !accountLoading && user) { 
       loadInitialData();
     }
-  }, [loadInitialData, effectiveUserId, accountLoading, currentAccount, user]);
+  }, [loadInitialData, effectiveUserId, accountLoading, currentAccount, user, selectedMonth, selectedYear]);
   
-  // Whenever trades, month, or year changes, update filtered trades
-  useEffect(() => {
-    filterTrades();
-  }, [filterTrades]);
-
   // Handler to update monthly metrics in DB
   const handleUpdateMonthlyMetrics = useCallback(async (updates: Partial<Metrics>) => {
     const year = selectedYear === 'All Years' ? new Date().getFullYear() : parseInt(selectedYear);
@@ -283,13 +338,15 @@ export default function UserPerformanceView() { // Renamed component
   // Update month selection handler
   const handleMonthChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedMonth(e.target.value);
-    // filterTrades will be called by the useEffect dependency change
+    // Since we're using selectedMonth to fetch data, we need to reload when it changes
+    // loadInitialData will be called via the useEffect dependency
   };
 
   // Update year selection handler
   const handleYearChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedYear(e.target.value);
-    // filterTrades will be called by the useEffect dependency change
+    // Since we're using selectedYear to fetch data, we need to reload when it changes
+    // loadInitialData will be called via the useEffect dependency
   };
 
   const handleSelectTrade = (trade: Trade) => {

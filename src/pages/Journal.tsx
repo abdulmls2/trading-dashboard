@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import TradeHistoryTable from '../components/TradeHistoryTable';
 import { Trade } from '../types';
-import { getTrades, deleteTrade, useEffectiveUserId } from '../lib/api';
+import { getTrades, deleteTrade, useEffectiveUserId, clearCacheForMonthOnDeletion } from '../lib/api';
 import TradeForm from '../components/TradeForm';
 import { PlusCircle } from 'lucide-react';
 import { useAccount } from '../contexts/AccountContext';
@@ -39,7 +39,6 @@ export default function Journal() {
   const { currentAccount, isLoading: accountLoading } = useAccount();
   const { user } = useAuth();
   const [trades, setTrades] = useState<Trade[]>([]);
-  const [filteredTrades, setFilteredTrades] = useState<Trade[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showTradeForm, setShowTradeForm] = useState(false);
@@ -47,72 +46,67 @@ export default function Journal() {
   const [selectedMonth, setSelectedMonth] = useState(months[new Date().getMonth()]);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
   const [selectedCurrency, setSelectedCurrency] = useState(getSavedCurrency());
+  const [page, setPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [isFullScreen, setIsFullScreen] = useState(false);
 
-  // Function to load ALL trades
-  const loadTrades = useCallback(async () => {
-    console.log("Journal: Loading trades for effectiveUserId:", effectiveUserId);
+  const itemsPerPage = 30; // Always fetch 30 trades per page
+  const totalPages = Math.ceil(totalCount / itemsPerPage);
+
+  // Function to load trades for the current page with filters
+  const loadTrades = useCallback(async (currentPageToLoad = page) => {
+    console.log("Journal: loadTrades called. EffectiveUserId:", effectiveUserId, 
+      "Page:", currentPageToLoad, 
+      "Month:", selectedMonth, 
+      "Year:", selectedYear, 
+      "Account:", currentAccount?.id,
+      "itemsPerPage:", itemsPerPage);
     
     if (!effectiveUserId || !user) { 
-      console.warn("No effectiveUserId or user available, cannot load trades");
+      console.warn("Journal: No effectiveUserId or user available, cannot load trades");
       setLoading(false);
       return;
     }
     
-    // Determine the account ID to fetch based *only* on the currentAccount context state
     const accountIdToFetch = currentAccount?.id || null;
     
-    console.log(`Journal: Fetching for accountId: ${accountIdToFetch}`);
+    console.log(`Journal: Fetching data for accountId: ${accountIdToFetch}, page: ${currentPageToLoad}, perPage: ${itemsPerPage}, month: ${selectedMonth}, year: ${selectedYear}`);
     
     setLoading(true);
     setError(null);
     try {
-      // Pass the effectiveUserId and the determined accountIdToFetch
-      const tradeData = await getTrades(effectiveUserId, accountIdToFetch);
-      console.log(`Journal: Loaded ${tradeData.length} trades for user ID ${effectiveUserId} and account ${accountIdToFetch || 'all'}`);
+      const { trades: tradeData, totalCount: count } = await getTrades(
+        effectiveUserId, 
+        accountIdToFetch,
+        currentPageToLoad,
+        itemsPerPage,
+        selectedMonth,
+        selectedYear
+      );
+      
+      console.log(`Journal: Loaded ${tradeData.length} trades. User ID: ${effectiveUserId}, Account: ${accountIdToFetch || 'all'}, Total returned: ${count}`);
       
       const formattedTrades = tradeData.map(trade => ({ ...trade, time: trade.entryTime }));
       setTrades(formattedTrades);
+      setTotalCount(count);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load trades');
-      console.error("Failed to load trades:", err);
+      console.error("Journal: Failed to load trades:", err);
     } finally {
       setLoading(false);
     }
-  }, [effectiveUserId, currentAccount, user]);
+  }, [effectiveUserId, currentAccount, user, itemsPerPage, selectedMonth, selectedYear]);
 
-  // Filter trades whenever the main list or filters change
+  // useEffect for loading trades. Runs when critical parameters change.
   useEffect(() => {
-    let filtered = [...trades];
-    let yearToFilter: number | null = null;
-
-    if (selectedYear && selectedYear !== "All Years") {
-      yearToFilter = parseInt(selectedYear);
-      filtered = filtered.filter(trade => new Date(trade.date).getFullYear() === yearToFilter);
-    }
-
-    if (selectedMonth && selectedMonth !== "All Trades" && yearToFilter !== null) {
-      const monthIndex = months.indexOf(selectedMonth);
-      filtered = filtered.filter(trade => new Date(trade.date).getMonth() === monthIndex);
-    } else if (selectedMonth && selectedMonth !== "All Trades") {
-        // If only month is selected (implicitly current year if year isn't set)
-        yearToFilter = yearToFilter || new Date().getFullYear();
-        const monthIndex = months.indexOf(selectedMonth);
-        filtered = trades.filter(trade => {
-            const tradeDate = new Date(trade.date);
-            return tradeDate.getMonth() === monthIndex && tradeDate.getFullYear() === yearToFilter;
-        });
-    }
-
-    setFilteredTrades(filtered);
-  }, [trades, selectedMonth, selectedYear]);
-
-  // Load initial trades and currency on mount or when account/user/effectiveUserId changes
-  useEffect(() => {
+    console.log(`Journal: Data loading useEffect triggered. Page: ${page}, itemsPerPage: ${itemsPerPage}, Filters: M=${selectedMonth} Y=${selectedYear}, Account: ${currentAccount?.id}`);
     if (effectiveUserId && !accountLoading && user) {
-      loadTrades();
+      loadTrades(page);
     }
-    
-    // Update currency if it changes in another tab/window
+  }, [page, itemsPerPage, selectedMonth, selectedYear, currentAccount, effectiveUserId, accountLoading, user, loadTrades]);
+
+  // Update currency if it changes in another tab/window
+  useEffect(() => {
     const handleStorageChange = () => {
       setSelectedCurrency(getSavedCurrency());
     };
@@ -120,23 +114,30 @@ export default function Journal() {
     return () => {
       window.removeEventListener('storage', handleStorageChange);
     };
-  }, [loadTrades, effectiveUserId, accountLoading, currentAccount, user]);
+  }, []);
 
   // Handler for deleting trades
   const handleDeleteTrades = async (tradeIds: string[]) => {
     try {
+      // Clear cache for the current view *before* deleting and reloading
+      if (effectiveUserId && selectedMonth !== 'All Trades' && selectedYear !== 'All Years') {
+        console.log(`[Journal] Clearing cache for month: ${selectedMonth}, year: ${selectedYear}, user: ${effectiveUserId}, account: ${currentAccount?.id || 'all_accounts'} before deleting trades.`);
+        clearCacheForMonthOnDeletion(effectiveUserId, currentAccount?.id || null, selectedYear, selectedMonth);
+      }
+
       await Promise.all(tradeIds.map(id => deleteTrade(id)));
-      await loadTrades(); // Refresh main list
+      await loadTrades(page); // Refresh current page
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete trades');
-      console.error('Failed to delete trades:', err);
-      await loadTrades(); // Refresh even on error
+      console.error('Journal: Failed to delete trades:', err);
+      // Attempt to refresh even on error, which might fetch from cache if clearing failed or not applicable
+      await loadTrades(page); 
     }
   };
 
-  // Updated handler for selecting a trade
+  // Handler for selecting a trade
   const handleSelectTrade = (trade: Trade) => {
-    setSelectedTrade(trade); // Set trade for form editing
+    setSelectedTrade(trade);
     setShowTradeForm(true);
   };
 
@@ -144,16 +145,36 @@ export default function Journal() {
   const handleTradeFormClose = async () => {
     setShowTradeForm(false);
     setSelectedTrade(null);
-    await loadTrades(); // Refresh main list
+    await loadTrades(page); // Refresh current page
+  };
+
+  // Renamed from handleFullScreenChange to be more specific as a toggle handler
+  const handleToggleFullScreenLayout = () => {
+    const newFSState = !isFullScreen;
+    console.log(`Journal: handleToggleFullScreenLayout. Old state: ${isFullScreen}, New state: ${newFSState}`);
+    setIsFullScreen(newFSState);
+    // Reset to page 1 when fullscreen mode changes, because itemsPerPage changes.
+    // The main data loading useEffect will pick up both isFullScreen (via itemsPerPage) and page changes.
+    if (page !== 1) {
+        setPage(1); 
+    }
   };
 
   // Handlers for dropdown changes
   const handleMonthChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedMonth(e.target.value);
+    setPage(1); // Reset to page 1 when filter changes
   };
 
   const handleYearChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedYear(e.target.value);
+    setPage(1); // Reset to page 1 when filter changes
+  };
+
+  // Handle page change
+  const handlePageChange = (newPage: number) => {
+    console.log(`Journal: Page change requested to ${newPage}, current page: ${page}`);
+    setPage(newPage);
   };
 
   return (
@@ -168,7 +189,7 @@ export default function Journal() {
             >
               <option value="All Years">All Years</option>
               {getAvailableYears().map((year) => (
-                <option key={year} value={year}>{year}</option>
+                <option key={year} value={year.toString()}>{year}</option>
               ))}
             </select>
             <select
@@ -197,23 +218,32 @@ export default function Journal() {
       {error && (
         <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
           Error: {error}
-          <button onClick={loadTrades} className="ml-4 px-2 py-1 bg-red-500 text-white rounded">Retry</button>
+          <button onClick={() => loadTrades(page)} className="ml-4 px-2 py-1 bg-red-500 text-white rounded">Retry</button>
         </div>
       )}
 
       <div className={`flex-grow flex`}>
         <div className={`flex flex-col w-full`}>
           {loading ? (
-            <div className="flex-grow flex items-center justify-center">
+            <div className={`
+              flex items-center justify-center 
+              ${isFullScreen ? 'fixed inset-0 z-40 bg-white' : 'flex-grow'}
+            `}>
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600" />
             </div>
           ) : (
             <div className="flex-grow">
               <TradeHistoryTable
-                trades={filteredTrades}
+                trades={trades}
                 onSelectTrade={handleSelectTrade}
                 onDeleteTrades={handleDeleteTrades}
                 selectedCurrency={selectedCurrency}
+                isFullScreenLayout={isFullScreen}
+                onToggleFullScreenLayout={handleToggleFullScreenLayout}
+                currentPage={page}
+                totalPages={totalPages}
+                onPageChange={handlePageChange}
+                actualItemsPerPage={itemsPerPage}
               />
             </div>
           )}

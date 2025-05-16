@@ -11,6 +11,166 @@ export function useEffectiveUserId() {
   return effectiveUserId;
 }
 
+// --- localStorage Caching for Trades ---
+
+interface CachedTradesData {
+  trades: Trade[];
+  totalCount: number;
+  timestamp: number;
+}
+
+const CACHE_PREFIX = 'trades';
+const CACHE_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours for general cache validity
+
+function getMonthName(monthIndex: number): string {
+  return ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][monthIndex];
+}
+
+function getMonthIndex(monthName: string): number {
+  return ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].indexOf(monthName);
+}
+
+// Helper function to format a Date object to 'YYYY-MM-DD' string
+function formatDateToYYYYMMDD(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0'); // getMonth() is 0-indexed
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function generateCacheKey(userId: string, accountId: string | null, year: string, month: string): string {
+  const accountSuffix = accountId || 'all_accounts';
+  return `${CACHE_PREFIX}-${userId}-${accountSuffix}-${year}-${month}`;
+}
+
+function getMonthlyCachedTrades(userId: string, accountId: string | null, year: string, month: string): CachedTradesData | null {
+  if (typeof window === 'undefined') return null;
+
+  const today = new Date();
+  const currentCalendarYear = today.getFullYear().toString();
+  const currentCalendarMonthName = getMonthName(today.getMonth());
+
+  // Only retrieve from cache if the request is for the *actual current calendar month*
+  if (year !== currentCalendarYear || month !== currentCalendarMonthName) {
+    // console.log(`[Cache] Not attempting to get cache for ${year}-${month} as it's not the current calendar month (${currentCalendarYear}-${currentCalendarMonthName})`);
+    return null;
+  }
+
+  const key = generateCacheKey(userId, accountId, year, month);
+  try {
+    const cached = localStorage.getItem(key);
+    if (cached) {
+      const parsed: CachedTradesData = JSON.parse(cached);
+      // Basic expiry check, though main logic is to clear other months when a new one is set
+      if (Date.now() - parsed.timestamp < CACHE_EXPIRY_MS) {
+        console.log(`[Cache] HIT for ${key}`);
+        return parsed;
+      } else {
+        console.log(`[Cache] EXPIRED for ${key}`);
+        localStorage.removeItem(key);
+      }
+    }
+  } catch (error) {
+    console.error(`[Cache] Error reading cache for ${key}:`, error);
+    localStorage.removeItem(key); // Clear corrupted cache
+  }
+  console.log(`[Cache] MISS for ${key}`);
+  return null;
+}
+
+function setMonthlyCachedTrades(userId: string, accountId: string | null, year: string, month: string, trades: Trade[], totalCount: number): void {
+  if (typeof window === 'undefined') return;
+
+  const today = new Date();
+  const currentCalendarYear = today.getFullYear().toString();
+  const currentCalendarMonthName = getMonthName(today.getMonth());
+
+  // Only set cache if the data being saved is for the *actual current calendar month*
+  if (year !== currentCalendarYear || month !== currentCalendarMonthName) {
+    // console.log(`[Cache] Not setting cache for ${year}-${month} as it's not the current calendar month (${currentCalendarYear}-${currentCalendarMonthName})`);
+    return;
+  }
+
+  const currentKey = generateCacheKey(userId, accountId, year, month);
+  const dataToCache: CachedTradesData = { trades, totalCount, timestamp: Date.now() };
+
+  try {
+    // Clear other months' cache for the same user and account
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith(`${CACHE_PREFIX}-${userId}-${accountId || 'all_accounts'}-`) && key !== currentKey) {
+        console.log(`[Cache] Clearing old month's cache: ${key} due to new cache for ${currentKey}`);
+        localStorage.removeItem(key);
+      }
+    }
+    localStorage.setItem(currentKey, JSON.stringify(dataToCache));
+    console.log(`[Cache] SET for ${currentKey}`, { itemCount: trades.length, totalCount });
+  } catch (error) {
+    console.error(`[Cache] Error setting cache for ${currentKey}:`, error);
+    // If quota is exceeded, we might need a more sophisticated cleanup
+    if (error instanceof DOMException && error.name === 'QuotaExceededError') {
+        console.warn("[Cache] QuotaExceededError. Consider implementing a more robust cleanup strategy if this persists.");
+        // Simple strategy: remove the oldest cache entry for this user to make space
+        let oldestKey: string | null = null;
+        let oldestTimestamp = Infinity;
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith(`${CACHE_PREFIX}-${userId}-`)) {
+                try {
+                    const item = localStorage.getItem(key);
+                    if (item) {
+                        const parsedItem: CachedTradesData = JSON.parse(item);
+                        if (parsedItem.timestamp < oldestTimestamp) {
+                            oldestTimestamp = parsedItem.timestamp;
+                            oldestKey = key;
+                        }
+                    }
+                } catch (e) { /* ignore parse error for other items */ }
+            }
+        }
+        if (oldestKey) {
+            console.log(`[Cache] Quota exceeded, removing oldest cache item: ${oldestKey}`);
+            localStorage.removeItem(oldestKey);
+            // Try setting again
+            try {
+                localStorage.setItem(currentKey, JSON.stringify(dataToCache));
+            } catch (retryError) {
+                console.error(`[Cache] Error setting cache for ${currentKey} even after cleanup:`, retryError);
+            }
+        }
+    }
+  }
+}
+
+function clearMonthlyCache(userId: string, accountId: string | null, year: string, month: string): void {
+  if (typeof window === 'undefined') return;
+
+  const today = new Date();
+  const currentCalendarYear = today.getFullYear().toString();
+  const currentCalendarMonthName = getMonthName(today.getMonth());
+
+  // Only clear cache if the request is for the *actual current calendar month*
+  // This effectively means we are only ever clearing the current month's cache.
+  if (year !== currentCalendarYear || month !== currentCalendarMonthName) {
+    // console.log(`[Cache] Not attempting to clear cache for ${year}-${month} as it's not the current calendar month (${currentCalendarYear}-${currentCalendarMonthName})`);
+    return;
+  }
+
+  const key = generateCacheKey(userId, accountId, year, month);
+  try {
+    localStorage.removeItem(key);
+    console.log(`[Cache] CLEARED for ${key}`);
+  } catch (error) {
+    console.error(`[Cache] Error clearing cache for ${key}:`, error);
+  }
+}
+
+export function clearCacheForMonthOnDeletion(userId: string, accountId: string | null, year: string, month: string): void {
+    clearMonthlyCache(userId, accountId, year, month);
+}
+
+// --- End localStorage Caching ---
+
 export async function createTrade(trade: Omit<Trade, 'id' | 'time' | 'top_bob_fv' | 'drawdown'> & { top_bob_fv?: string; drawdown?: number }, targetUserId?: string | null, accountId?: string | null) {
   // If targetUserId is provided and not null, use it (for admin impersonation)
   // Otherwise, get the current user
@@ -82,6 +242,27 @@ export async function createTrade(trade: Omit<Trade, 'id' | 'time' | 'top_bob_fv
     .single();
 
   if (error) throw error;
+
+  // Cache invalidation
+  if (data && data.date) {
+    const tradeDate = new Date(data.date);
+    const tradeYear = tradeDate.getFullYear().toString();
+    const tradeMonth = getMonthName(tradeDate.getMonth());
+    const userIdToClear = targetUserId || (await supabase.auth.getUser()).data.user?.id;
+
+    // Clear cache only if the modified trade falls into the *actual current calendar month*
+    const today = new Date();
+    const currentCalendarYear = today.getFullYear().toString();
+    const currentCalendarMonthName = getMonthName(today.getMonth());
+
+    if (userIdToClear && tradeYear === currentCalendarYear && tradeMonth === currentCalendarMonthName) {
+        console.log(`[Cache Invalidation] createTrade: Trade modified in current month. Clearing ${tradeYear}-${tradeMonth} for user ${userIdToClear}, account ${data.account_id || 'all_accounts'}`);
+        clearMonthlyCache(userIdToClear, data.account_id || null, tradeYear, tradeMonth);
+    } else {
+        console.log(`[Cache Invalidation] createTrade: Trade modified in ${tradeYear}-${tradeMonth}, not the current calendar month. Cache not affected.`);
+    }
+  }
+
   return data;
 }
 
@@ -128,6 +309,26 @@ export async function updateTrade(id: string, trade: Partial<Omit<Trade, 'time'>
     .single();
 
   if (error) throw error;
+
+  // Cache invalidation
+  if (data && data.date) {
+    const tradeDate = new Date(data.date);
+    const tradeYear = tradeDate.getFullYear().toString();
+    const tradeMonth = getMonthName(tradeDate.getMonth());
+    const userIdToClear = data.user_id; 
+
+    const today = new Date();
+    const currentCalendarYear = today.getFullYear().toString();
+    const currentCalendarMonthName = getMonthName(today.getMonth());
+
+    if (userIdToClear && tradeYear === currentCalendarYear && tradeMonth === currentCalendarMonthName) {
+        console.log(`[Cache Invalidation] updateTrade: Trade modified in current month. Clearing ${tradeYear}-${tradeMonth} for user ${userIdToClear}, account ${data.account_id || 'all_accounts'}`);
+        clearMonthlyCache(userIdToClear, data.account_id || null, tradeYear, tradeMonth);
+    } else {
+        console.log(`[Cache Invalidation] updateTrade: Trade modified in ${tradeYear}-${tradeMonth}, not the current calendar month. Cache not affected.`);
+    }
+  }
+
   return data;
 }
 
@@ -140,69 +341,134 @@ export async function deleteTrade(id: string) {
   if (error) throw error;
 }
 
-export async function getTrades(targetUserId?: string | null, accountId?: string | null) {
-  // If targetUserId is provided and not null, use it (for admin impersonation)
-  // Otherwise, get the current user
+export async function getTrades(
+  targetUserId?: string | null, 
+  accountId?: string | null, 
+  page: number = 1, 
+  perPage: number = 10,
+  month?: string | null,
+  year?: string | null
+) {
   let userId: string;
-  
   if (targetUserId) {
     userId = targetUserId;
   } else {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('User not authenticated');
+    if (!user) {
+      console.error("[API GetTrades] User not authenticated");
+      return { trades: [], totalCount: 0 }; // Return empty if not authenticated
+    }
     userId = user.id;
   }
 
-  // Start building the query
-  let query = supabase
+  // Determine if the request is for the *actual current calendar month*
+  const today = new Date();
+  const currentCalendarYear = today.getFullYear().toString();
+  const currentCalendarMonthName = getMonthName(today.getMonth());
+  
+  const isRequestForCurrentCalendarMonth = year === currentCalendarYear && month === currentCalendarMonthName;
+
+  // Only attempt to use cache if the request is for the current calendar month
+  if (isRequestForCurrentCalendarMonth) {
+    const cachedData = getMonthlyCachedTrades(userId, accountId || null, year as string, month as string);
+    if (cachedData) {
+      const from = (page - 1) * perPage;
+      const to = from + perPage;
+      const paginatedTrades = cachedData.trades.slice(from, to);
+      console.log(`[API GetTrades] Cache HIT. User: ${userId}, Account: ${accountId}, Month: ${month}, Year: ${year}. Returning page ${page} from cache.`);
+      return {
+        trades: paginatedTrades,
+        totalCount: cachedData.totalCount
+      };
+    }
+  }
+
+  // Cache miss or not cacheable (e.g., "All Trades"), proceed to fetch from Supabase
+  console.log(`[API GetTrades] Cache MISS or not cacheable. User: ${userId}, Account: ${accountId}, Month: ${month}, Year: ${year}. Fetching from Supabase.`);
+
+  // --- Database Fetch Logic ---
+  // For count query, always apply filters
+  let countQueryBuilder = supabase
+    .from('trades')
+    .select('id', { count: 'exact', head: true }) // Use head:true for count only
+    .eq('user_id', userId);
+
+  if (accountId) {
+    countQueryBuilder = countQueryBuilder.eq('account_id', accountId);
+  }
+
+  let startDateStr: string | null = null;
+  let endDateStr: string | null = null;
+
+  if (month && month !== 'All Trades' && year && year !== 'All Years') {
+    const monthIndex = getMonthIndex(month);
+    if (monthIndex !== -1) {
+      startDateStr = formatDateToYYYYMMDD(new Date(parseInt(year), monthIndex, 1));
+      endDateStr = formatDateToYYYYMMDD(new Date(parseInt(year), monthIndex + 1, 0));
+      countQueryBuilder = countQueryBuilder.gte('date', startDateStr).lte('date', endDateStr);
+    }
+  } else if (year && year !== 'All Years') {
+    startDateStr = formatDateToYYYYMMDD(new Date(parseInt(year), 0, 1));
+    endDateStr = formatDateToYYYYMMDD(new Date(parseInt(year), 11, 31));
+    countQueryBuilder = countQueryBuilder.gte('date', startDateStr).lte('date', endDateStr);
+  } else if (month && month !== 'All Trades') { // Month specified, but year is "All Years"
+    const currentDbYear = new Date().getFullYear();
+    const monthIndex = getMonthIndex(month);
+    if (monthIndex !== -1) {
+        startDateStr = formatDateToYYYYMMDD(new Date(currentDbYear, monthIndex, 1));
+        endDateStr = formatDateToYYYYMMDD(new Date(currentDbYear, monthIndex + 1, 0));
+        countQueryBuilder = countQueryBuilder.gte('date', startDateStr).lte('date', endDateStr);
+    }
+  }
+  
+  const { count, error: countError } = await countQueryBuilder;
+
+  if (countError) {
+    console.error("[API GetTrades] Error fetching count:", countError);
+    throw countError;
+  }
+  const totalCount = count || 0;
+
+  // For data query
+  let dataQueryBuilder = supabase
     .from('trades')
     .select(`
-      id,
-      user_id,
-      account_id,
-      date,
-      pair,
-      action,
-      entry_time,
-      exit_time,
-      lots,
-      pip_stop_loss,
-      pip_take_profit,
-      profit_loss,
-      drawdown,
-      pivots,
-      banking_level,
-      risk_ratio,
-      comments,
-      day,
-      direction,
-      order_type,
-      market_condition,
-      ma,
-      fib,
-      gap,
-      mindset,
-      trade_link,
-      true_reward,
-      true_tp_sl,
-      additional_confluences,
-      top_bob_fv,
-      created_at
+      id, user_id, account_id, date, pair, action, entry_time, exit_time, lots, 
+      pip_stop_loss, pip_take_profit, profit_loss, drawdown, pivots, banking_level, 
+      risk_ratio, comments, day, direction, order_type, market_condition, ma, fib, 
+      gap, mindset, trade_link, true_reward, true_tp_sl, additional_confluences, 
+      top_bob_fv, created_at
     `)
     .eq('user_id', userId);
 
-  // If accountId is provided, filter by it
   if (accountId) {
-    query = query.eq('account_id', accountId);
+    dataQueryBuilder = dataQueryBuilder.eq('account_id', accountId);
   }
 
-  // Execute the query
-  const { data, error } = await query.order('date', { ascending: false });
+  if (startDateStr && endDateStr) {
+    dataQueryBuilder = dataQueryBuilder.gte('date', startDateStr).lte('date', endDateStr);
+  }
+  
+  // If we are caching (specific month and year), fetch ALL trades for that month to populate cache,
+  // then paginate locally. Otherwise, paginate at DB level.
+  if (isRequestForCurrentCalendarMonth) {
+    // Fetch all for the month for caching
+    dataQueryBuilder = dataQueryBuilder.order('date', { ascending: false });
+  } else {
+    // Paginate at DB level if not caching this specific request
+    const from = (page - 1) * perPage;
+    const to = from + perPage - 1;
+    dataQueryBuilder = dataQueryBuilder.order('date', { ascending: false }).range(from, to);
+  }
 
-  if (error) throw error;
+  const { data: dbTrades, error: dbError } = await dataQueryBuilder;
 
-  // Convert snake_case to camelCase
-  return data.map(trade => ({
+  if (dbError) {
+    console.error("[API GetTrades] Error fetching trades:", dbError);
+    throw dbError;
+  }
+
+  const allFetchedTrades = (dbTrades || []).map(trade => ({
     id: trade.id,
     userId: trade.user_id,
     accountId: trade.account_id,
@@ -234,7 +500,29 @@ export async function getTrades(targetUserId?: string | null, accountId?: string
     additional_confluences: trade.additional_confluences,
     top_bob_fv: trade.top_bob_fv,
     created_at: trade.created_at
-  }));
+  })) as Trade[];
+
+  // Only cache if the fetched data is for the *actual current calendar month*
+  if (isRequestForCurrentCalendarMonth && year && month) { 
+    setMonthlyCachedTrades(userId, accountId || null, year, month, allFetchedTrades, totalCount);
+    
+    const from = (page - 1) * perPage;
+    const to = from + perPage;
+    const paginatedTrades = allFetchedTrades.slice(from, to);
+    
+    console.log(`[API GetTrades] Fetched from DB, cached, and paginated locally. User: ${userId}, Account: ${accountId}, Month: ${month}, Year: ${year}. Page ${page}.`);
+    return {
+      trades: paginatedTrades,
+      totalCount: totalCount // totalCount is for the filtered month
+    };
+  }
+
+  // If not caching (e.g. "All Trades"), allFetchedTrades is already paginated by DB
+  console.log(`[API GetTrades] Fetched from DB (no caching for this request type or already paginated by DB). User: ${userId}, Account: ${accountId}, Month: ${month}, Year: ${year}.`);
+  return {
+    trades: allFetchedTrades,
+    totalCount: totalCount
+  };
 }
 
 export async function getPerformanceMetrics(month: string, targetUserId?: string | null, accountId?: string | null) {
@@ -1074,27 +1362,29 @@ const getGlobalDateRange = (month: string | 'all', year: string | 'all'): { star
   if (year !== 'all') {
     const numericYear = parseInt(year);
     if (month !== 'all') {
-      // Specific month and year
-      const monthIndex = parseInt(month); // Assuming month is 0-11 index if numeric, or find index if string
-      const monthIdx = isNaN(monthIndex) ? ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].indexOf(month) : monthIndex;
-      if (monthIdx !== -1) {
-        startDate = new Date(numericYear, monthIdx, 1).toISOString().split('T')[0];
-        endDate = new Date(numericYear, monthIdx + 1, 0).toISOString().split('T')[0];
+      let effectiveMonthIndex = -1;
+      if (typeof month === 'string' && /^\\d+$/.test(month)) {
+          const tempMonthIndex = parseInt(month, 10);
+          if (tempMonthIndex >= 0 && tempMonthIndex <= 11) {
+              effectiveMonthIndex = tempMonthIndex;
+          }
+      }
+      if (effectiveMonthIndex === -1 && typeof month === 'string') { 
+          effectiveMonthIndex = getMonthIndex(month);
+      }
+
+      if (effectiveMonthIndex !== -1) {
+        startDate = formatDateToYYYYMMDD(new Date(numericYear, effectiveMonthIndex, 1));
+        endDate = formatDateToYYYYMMDD(new Date(numericYear, effectiveMonthIndex + 1, 0));
       }
     } else {
-      // All months for a specific year
-      startDate = new Date(numericYear, 0, 1).toISOString().split('T')[0];
-      endDate = new Date(numericYear, 11, 31).toISOString().split('T')[0];
+      startDate = formatDateToYYYYMMDD(new Date(numericYear, 0, 1));
+      endDate = formatDateToYYYYMMDD(new Date(numericYear, 11, 31));
     }
   } else if (month !== 'all') {
-      // Specific month across all available years (e.g., last 6 years) - More complex, might need adjustment
-      // For simplicity, let's default to all time if year is 'all' for now,
-      // or adjust based on specific requirements later.
-      // For now, treating 'All Years' but specific month as 'All Time'
-      startDate = null; // Or a very early date
-      endDate = null; // Or today's date
+      startDate = null;
+      endDate = null;
   }
-  // If both are 'all', startDate and endDate remain null (or handle as needed in SQL)
 
   console.log(`[getGlobalDateRange] Month: ${month}, Year: ${year} -> Start: ${startDate}, End: ${endDate}`);
   return { startDate, endDate };
@@ -1186,3 +1476,288 @@ export async function getGlobalConfluenceGroupAnalysis(
 }
 
 // --- End Global Analysis API Functions ---
+
+export async function getPerformanceOverviewTrades(
+  targetUserId?: string | null, 
+  accountId?: string | null,
+  month?: string | null,
+  year?: string | null
+) {
+  let userId: string;
+  if (targetUserId) {
+    userId = targetUserId;
+  } else {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      console.error("[API getPerformanceOverviewTrades] User not authenticated");
+      return { trades: [], totalCount: 0 }; // Return empty if not authenticated
+    }
+    userId = user.id;
+  }
+  
+  // No caching for performance overview - we always fetch from database
+  console.log(`[API getPerformanceOverviewTrades] Fetching for User: ${userId}, Account: ${accountId || 'all'}, Month: ${month || 'All'}, Year: ${year || 'All'}`);
+
+  // For count query
+  let countQueryBuilder = supabase
+    .from('trades')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId);
+
+  if (accountId) {
+    countQueryBuilder = countQueryBuilder.eq('account_id', accountId);
+  }
+  
+  // Apply date filters if month and year are specified
+  let startDateStr: string | null = null;
+  let endDateStr: string | null = null;
+
+  if (month && month !== 'All Trades' && year && year !== 'All Years') {
+    const monthIndex = getMonthIndex(month);
+    if (monthIndex !== -1) {
+      startDateStr = formatDateToYYYYMMDD(new Date(parseInt(year), monthIndex, 1));
+      endDateStr = formatDateToYYYYMMDD(new Date(parseInt(year), monthIndex + 1, 0));
+      countQueryBuilder = countQueryBuilder.gte('date', startDateStr).lte('date', endDateStr);
+    }
+  } else if (year && year !== 'All Years') {
+    startDateStr = formatDateToYYYYMMDD(new Date(parseInt(year), 0, 1));
+    endDateStr = formatDateToYYYYMMDD(new Date(parseInt(year), 11, 31));
+    countQueryBuilder = countQueryBuilder.gte('date', startDateStr).lte('date', endDateStr);
+  } else if (month && month !== 'All Trades') { // Month specified, but year is "All Years"
+    const currentDbYear = new Date().getFullYear();
+    const monthIndex = getMonthIndex(month);
+    if (monthIndex !== -1) {
+        startDateStr = formatDateToYYYYMMDD(new Date(currentDbYear, monthIndex, 1));
+        endDateStr = formatDateToYYYYMMDD(new Date(currentDbYear, monthIndex + 1, 0));
+        countQueryBuilder = countQueryBuilder.gte('date', startDateStr).lte('date', endDateStr);
+    }
+  }
+  
+  const { count, error: countError } = await countQueryBuilder;
+
+  if (countError) {
+    console.error("[API getPerformanceOverviewTrades] Error fetching count:", countError);
+    throw countError;
+  }
+  const totalCount = count || 0;
+
+  // For data query - select only the ABSOLUTELY NECESSARY fields for performance overview
+  // Based on actual usage in components:
+  // - id (required for unique identification)
+  // - user_id, account_id (required for data integrity)
+  // - date (for filtering and all charts)
+  // - entry_time (for time-based filtering and TradeTimeHeatmap)
+  // - pair (for PairDistributionChart)
+  // - profit_loss (for profit calculation and win rate)
+  // - true_reward (for RRR calculation)
+  // - true_tp_sl (for pips calculation and TradeTimeHeatmap)
+  let dataQueryBuilder = supabase
+    .from('trades')
+    .select(`
+      id, user_id, account_id, date, pair, entry_time,
+      profit_loss, true_reward, true_tp_sl
+    `)
+    .eq('user_id', userId);
+
+  if (accountId) {
+    dataQueryBuilder = dataQueryBuilder.eq('account_id', accountId);
+  }
+  
+  // Apply the same date filters to the data query
+  if (startDateStr && endDateStr) {
+    dataQueryBuilder = dataQueryBuilder.gte('date', startDateStr).lte('date', endDateStr);
+  }
+  
+  // Order by date (most recent first) but don't paginate - get all for performance calcs
+  dataQueryBuilder = dataQueryBuilder.order('date', { ascending: false });
+
+  const { data: dbTrades, error: dbError } = await dataQueryBuilder;
+
+  if (dbError) {
+    console.error("[API getPerformanceOverviewTrades] Error fetching trades:", dbError);
+    throw dbError;
+  }
+
+  // Map the DB fields to only the fields needed for Performance Overview
+  // This creates a minimal subset of the Trade interface with only fields used by the charts
+  const allFetchedTrades = (dbTrades || []).map(trade => ({
+    id: trade.id,
+    userId: trade.user_id,
+    accountId: trade.account_id,
+    date: trade.date,
+    pair: trade.pair || '',
+    entryTime: trade.entry_time || '',
+    time: trade.entry_time || '', // Used for time-based charts
+    profitLoss: trade.profit_loss || 0,
+    trueReward: trade.true_reward || '0',
+    true_tp_sl: trade.true_tp_sl || '0'
+  }));
+
+  console.log(`[API getPerformanceOverviewTrades] Fetched ${allFetchedTrades.length} trades from DB with minimal fields${startDateStr ? ` for period ${startDateStr} to ${endDateStr}` : ''}`);
+  return {
+    trades: allFetchedTrades,
+    totalCount: totalCount
+  };
+}
+
+// Function specifically for the Calendar page that fetches minimal trade data
+export async function getCalendarTrades(
+  targetUserId?: string | null, 
+  accountId?: string | null,
+  month?: number,
+  year?: number
+) {
+  let userId: string;
+  if (targetUserId) {
+    userId = targetUserId;
+  } else {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      console.error("[API getCalendarTrades] User not authenticated");
+      return []; // Return empty if not authenticated
+    }
+    userId = user.id;
+  }
+  
+  // Default to current month if not specified
+  const currentDate = new Date();
+  const targetMonth = month !== undefined ? month : currentDate.getMonth();
+  const targetYear = year !== undefined ? year : currentDate.getFullYear();
+  
+  // Calculate start and end dates for the month
+  const startDate = new Date(targetYear, targetMonth, 1);
+  const endDate = new Date(targetYear, targetMonth + 1, 0); // Last day of the month
+  
+  // Format dates for the query
+  const startDateStr = formatDateToYYYYMMDD(startDate); 
+  const endDateStr = formatDateToYYYYMMDD(endDate);
+  
+  console.log(`[API getCalendarTrades] Fetching minimal trade data for User: ${userId}, Account: ${accountId || 'all'}, Month: ${targetMonth + 1}/${targetYear}, Start: ${startDateStr}, End: ${endDateStr}`);
+
+  // Create optimized query with only the fields needed for calendar
+  let queryBuilder = supabase
+    .from('trades')
+    .select(`
+      id, date, pair, action, entry_time, profit_loss
+    `)
+    .eq('user_id', userId)
+    .gte('date', startDateStr) // Filter to start date of month
+    .lte('date', endDateStr) // Filter to end date of month
+    .order('date', { ascending: false });
+
+  if (accountId) {
+    queryBuilder = queryBuilder.eq('account_id', accountId);
+  }
+
+  const { data: dbTrades, error } = await queryBuilder;
+
+  if (error) {
+    console.error("[API getCalendarTrades] Error fetching trades:", error);
+    throw error;
+  }
+
+  // Map only the minimum required fields
+  const calendarTrades = (dbTrades || []).map(trade => ({
+    id: trade.id,
+    date: trade.date,
+    pair: trade.pair || '',
+    action: trade.action || '',
+    entryTime: trade.entry_time || '',
+    profitLoss: trade.profit_loss || 0,
+    time: trade.entry_time || '' // Adding time field that copies entryTime for compatibility
+  }));
+
+  console.log(`[API getCalendarTrades] Fetched ${calendarTrades.length} trades with minimal fields for ${targetMonth + 1}/${targetYear}`);
+  return calendarTrades;
+}
+
+// Fetch minimal trade data for analysis with server-side filtering
+export async function getTradesForAnalysis(
+  targetUserId?: string | null,
+  accountId?: string | null,
+  month?: string | null,
+  year?: string | null
+) {
+  let userId: string;
+  if (targetUserId) {
+    userId = targetUserId;
+  } else {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      console.error("[API getTradesForAnalysis] User not authenticated");
+      return [];
+    }
+    userId = user.id;
+  }
+
+  // Build date range for filtering
+  let startDateStr: string | null = null;
+  let endDateStr: string | null = null;
+  if (month && month !== 'All Trades' && year && year !== 'All Years') {
+    const monthIndex = getMonthIndex(month);
+    if (monthIndex !== -1) {
+      startDateStr = formatDateToYYYYMMDD(new Date(parseInt(year), monthIndex, 1));
+      endDateStr = formatDateToYYYYMMDD(new Date(parseInt(year), monthIndex + 1, 0));
+    }
+  } else if (year && year !== 'All Years') {
+    startDateStr = formatDateToYYYYMMDD(new Date(parseInt(year), 0, 1));
+    endDateStr = formatDateToYYYYMMDD(new Date(parseInt(year), 11, 31));
+  } else if (month && month !== 'All Trades') {
+    const currentDbYear = new Date().getFullYear();
+    const monthIndex = getMonthIndex(month);
+    if (monthIndex !== -1) {
+      startDateStr = formatDateToYYYYMMDD(new Date(currentDbYear, monthIndex, 1));
+      endDateStr = formatDateToYYYYMMDD(new Date(currentDbYear, monthIndex + 1, 0));
+    }
+  }
+
+  let query = supabase
+    .from('trades')
+    .select(`
+      id, user_id, account_id, date, pair, action, entry_time, exit_time, lots, pip_stop_loss, pip_take_profit, profit_loss, pivots, banking_level, ma, fib, top_bob_fv, day, direction, order_type, market_condition
+    `)
+    .eq('user_id', userId);
+
+  if (accountId) {
+    query = query.eq('account_id', accountId);
+  }
+  if (startDateStr && endDateStr) {
+    query = query.gte('date', startDateStr).lte('date', endDateStr);
+  }
+
+  query = query.order('date', { ascending: false });
+
+  const { data, error } = await query;
+  if (error) {
+    console.error('[API getTradesForAnalysis] Error fetching trades:', error);
+    throw error;
+  }
+  if (!data) return [];
+
+  // Map to only the fields needed for TradesAnalysis
+  return data.map(trade => ({
+    id: trade.id,
+    userId: trade.user_id,
+    accountId: trade.account_id,
+    date: trade.date,
+    pair: trade.pair,
+    action: trade.action,
+    entryTime: trade.entry_time,
+    exitTime: trade.exit_time,
+    lots: trade.lots,
+    pipStopLoss: trade.pip_stop_loss,
+    pipTakeProfit: trade.pip_take_profit,
+    profitLoss: trade.profit_loss,
+    pivots: trade.pivots,
+    bankingLevel: trade.banking_level,
+    ma: trade.ma,
+    fib: trade.fib,
+    top_bob_fv: trade.top_bob_fv,
+    day: trade.day,
+    direction: trade.direction,
+    orderType: trade.order_type,
+    marketCondition: trade.market_condition,
+    // Add time for compatibility
+    time: trade.entry_time || ''
+  }));
+}

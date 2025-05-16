@@ -30,6 +30,10 @@ Admin Dashboard:
 -Trade link clickable -------------------------------
 -trade analysis layout -------------------------------
 -comment field become large vertically , make it large horizontally  -------------------------------
+-Forgot Password field  ----------------------------------
+-Change currency   ---------------------------------------
+-Summary of trades analysis ------------------------------
+-Compounding page  ---------------------------------------
 
 ----------------------------------------------------------------------------------------------------------------------------------
 To fix:
@@ -37,18 +41,38 @@ To fix:
 -group of confluences analysisc chart also show negative win rate
 -fix the buttons size , make it same (history table)
 -fix github, terminal errors (audit fix, vulnerabilties ext, packages update)
-
-New features:
--Forgot Password field
--User own rules
--Change currency 
--Summary of trades analysis 
-
-
-AFTER:
 -Custom notes
--Compounding page
 -better trade selection, be able to select month and multiple trades (maybe within the form a seperate page)
 -fix the manual import trades ( empty fields and coma for numbers ( $1,254) ) 
 -add refresh button on both journals
--search how to optimise database, queries, columns (because we wil have thousands of columns saved to the database)
+
+New features:
+
+
+AFTER:
+
+
+---------------------------------------------------------------------------------------------------------------------
+-search how to optimise database, queries, columns (because we wil have thousands of columns saved to the database) indexes ,pagination ,caching, ...
+
+Redesign:
+Journal:
+-only fetching 30 trades /pagination  
+-caching current months trade
+
+Performance Overview:
+-only fetching data of the selected month
+
+Calendar:
+-Only fetching data of the selected month
+
+Trades Analysis:
+-Only fetching data of the selected month
+
+TODO REDESIGN:
+-Improve speed of server side filtering
+-Because we catch current months trade from journal, we can use this cache data for all other pages for current month
+-Avoid sending requests / refresh each time we leave the tab or go different page within journal
+-Create rpc function or table summary for Performance Overview, because when user selects all months and years we will be sending a lot of data this is not good
+-For Global Analysis do optimisations
+-For any admin dashboard related page do optimisations (reports, ext )

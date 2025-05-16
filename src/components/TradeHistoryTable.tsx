@@ -14,6 +14,12 @@ interface Props {
   onDeleteTrades?: (tradeIds: string[]) => void;
   showChat?: boolean;
   selectedCurrency?: string;
+  currentPage?: number;
+  totalPages?: number;
+  onPageChange?: (page: number) => void;
+  isFullScreenLayout?: boolean;
+  onToggleFullScreenLayout?: () => void;
+  actualItemsPerPage?: number;
 }
 
 // Interface for cell customization - local state
@@ -160,11 +166,20 @@ export default function TradeHistoryTable({
   journalOwnerName,
   onDeleteTrades,
   showChat,
-  selectedCurrency = '$'
+  selectedCurrency = '$',
+  currentPage,
+  totalPages: propsTotalPages,
+  onPageChange,
+  isFullScreenLayout = false,
+  onToggleFullScreenLayout,
+  actualItemsPerPage
 }: Props) {
-  const [page, setPage] = React.useState(1);
+  // Local states NOT including isFullScreen, that's now controlled by parent via isFullScreenLayout prop
+  const [localPage, setLocalPage] = React.useState(1);
+  const page = currentPage !== undefined ? currentPage : localPage;
+  
   const [scale, setScale] = useState(1);
-  const [isFullScreen, setIsFullScreen] = useState(forcedFullScreen);
+  // No local isFullScreen state here anymore for the layout
   const [searchTerm, setSearchTerm] = useState('');
   const [hiddenColumns, setHiddenColumns] = useState<string[]>([]);
   const [showColumnSelector, setShowColumnSelector] = useState(false);
@@ -185,29 +200,26 @@ export default function TradeHistoryTable({
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDeleteMode, setIsDeleteMode] = useState(false);
   
+  const isCustomizing = isCustomizingBackground || isCustomizingText;
+  
   const tableContainerRef = useRef<HTMLDivElement>(null);
   const tableWrapperRef = useRef<HTMLDivElement>(null);
-  const itemsPerPage = isFullScreen || forcedFullScreen ? 30 : 10;
+  
+  // Determine if the UI should be in fullscreen (either forced or via parent prop)
+  const shouldDisplayFullScreenUI = forcedFullScreen || isFullScreenLayout;
+  const localDisplayItemsPerPage = shouldDisplayFullScreenUI ? 30 : 10;
+  const itemsPerPageForNumbering = actualItemsPerPage !== undefined ? actualItemsPerPage : localDisplayItemsPerPage;
 
-  // Update isFullScreen when forcedFullScreen prop changes
-  useEffect(() => {
-    setIsFullScreen(forcedFullScreen);
-  }, [forcedFullScreen]);
-
+  // useEffects for customizations and violations remain the same...
   // Load saved customizations when component mounts or targetUserId changes
   useEffect(() => {
     const fetchCustomizations = async () => {
       setIsLoading(true);
       try {
-        // Pass targetUserId to loadCellCustomizations if provided
         const data = await loadCellCustomizations(targetUserId);
-        
         if (data && data.length > 0) {
-          // Check if current user is admin (this is independent of targetUserId)
           const userIds = [...new Set(data.map((item: CellCustomizationType) => item.userId))];
           setIsAdmin(userIds.length > 1 || (data[0].userId !== undefined && data.length > 0 && !targetUserId));
-          
-          // Convert from API format to local format
           const formattedCustomizations: FormattedCellCustomization[] = data.map((item: CellCustomizationType) => ({
             id: item.id,
             tradeId: item.tradeId,
@@ -218,18 +230,16 @@ export default function TradeHistoryTable({
           }));
           setCustomizations(formattedCustomizations);
         } else {
-          // Reset customizations if no data or targetUserId changes to someone with no customizations
           setCustomizations([]);
-          setIsAdmin(false); // Reset admin status if no data implies not admin or viewing specific user
+          setIsAdmin(false); 
         }
       } catch (error) {
         console.error('Failed to load customizations:', error);
-        setCustomizations([]); // Clear customizations on error
+        setCustomizations([]);
       } finally {
         setIsLoading(false);
       }
     };
-
     fetchCustomizations();
   }, [targetUserId]);
 
@@ -240,7 +250,6 @@ export default function TradeHistoryTable({
       try {
         const data = await getTradeViolations(targetUserId);
         if (data && data.length > 0) {
-          // Format violations for easy lookup
           const formattedViolations = data.map(violation => ({
             id: violation.id,
             tradeId: violation.tradeId,
@@ -260,7 +269,6 @@ export default function TradeHistoryTable({
         setIsLoadingViolations(false);
       }
     };
-
     fetchViolations();
   }, [targetUserId, trades]);
 
@@ -360,66 +368,41 @@ export default function TradeHistoryTable({
     { key: 'comments', display: 'Comments' }
   ];
 
-  // Filter trades based on search term
+  // Filter trades based on search term (client-side search on current page data)
   const filteredTrades = trades.filter(trade => 
     Object.values(trade).some(value => 
       value && value.toString().toLowerCase().includes(searchTerm.toLowerCase())
     )
   );
   
-  // Sort trades by created_at field
+  // Sort trades by created_at field (client-side sort on current page data)
   const sortedTrades = [...filteredTrades].sort((a, b) => {
-    // Handle cases where created_at might be missing
     if (!a.created_at && !b.created_at) {
-      // Fall back to date field if created_at is missing for both
       return sortOrder === 'asc' 
         ? new Date(a.date).getTime() - new Date(b.date).getTime()
         : new Date(b.date).getTime() - new Date(a.date).getTime();
     }
     if (!a.created_at) return sortOrder === 'asc' ? -1 : 1;
     if (!b.created_at) return sortOrder === 'asc' ? 1 : -1;
-    
-    // Parse dates safely
     let dateA, dateB;
     try {
       dateA = new Date(a.created_at).getTime();
-      if (isNaN(dateA)) {
-        dateA = new Date(a.date).getTime(); // Fallback to date field
-      }
-    } catch (e) {
-      dateA = new Date(a.date).getTime(); // Fallback to date field
-    }
-    
+      if (isNaN(dateA)) dateA = new Date(a.date).getTime();
+    } catch (e) { dateA = new Date(a.date).getTime(); }
     try {
       dateB = new Date(b.created_at).getTime();
-      if (isNaN(dateB)) {
-        dateB = new Date(b.date).getTime(); // Fallback to date field
-      }
-    } catch (e) {
-      dateB = new Date(b.date).getTime(); // Fallback to date field
-    }
-    
+      if (isNaN(dateB)) dateB = new Date(b.date).getTime();
+    } catch (e) { dateB = new Date(b.date).getTime(); }
     return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
   });
   
-  const totalPages = Math.ceil(sortedTrades.length / itemsPerPage);
-  const paginatedTrades = sortedTrades.slice((page - 1) * itemsPerPage, page * itemsPerPage);
+  const totalPages = propsTotalPages !== undefined ? propsTotalPages : Math.ceil(sortedTrades.length / itemsPerPageForNumbering);
+  const paginatedTrades = currentPage !== undefined 
+    ? sortedTrades // Server is handling pagination, so use sortedTrades as is (which are already the current page's trades)
+    : sortedTrades.slice((page - 1) * itemsPerPageForNumbering, page * itemsPerPageForNumbering); // Fallback client-side pagination
 
   const handleZoomIn = () => setScale((prev) => prev + 0.1);
   const handleZoomOut = () => setScale((prev) => Math.max(prev - 0.1, 0.5));
-  const toggleFullScreen = () => {
-    if (forcedFullScreen && onExitFullscreen) {
-      // If in forced fullscreen mode and callback exists, use it
-      onExitFullscreen();
-      return;
-    }
-    
-    // Regular toggle behavior for non-forced mode
-    setIsFullScreen(!isFullScreen);
-    if (!isFullScreen) {
-      setPage(1); // Reset to page 1 when entering fullscreen mode
-    }
-  };
   
   const toggleBackgroundCustomization = () => {
     setIsCustomizingBackground(!isCustomizingBackground);
@@ -433,13 +416,40 @@ export default function TradeHistoryTable({
     setSelectedCell(null);
   };
   
-  const isCustomizing = isCustomizingBackground || isCustomizingText;
+  // Updated toggleFullScreen button handler
+  const handleToggleFullScreenClick = () => {
+    console.log("TradeHistoryTable: handleToggleFullScreenClick called. forcedFullScreen:", forcedFullScreen, "isFullScreenLayout:", isFullScreenLayout);
+    if (forcedFullScreen && onExitFullscreen) {
+      // This case is for exiting a fullscreen mode that was FORCED upon the table
+      console.log("TradeHistoryTable: Exiting forced fullscreen.");
+      onExitFullscreen();
+    } else if (onToggleFullScreenLayout) {
+      // This case is for toggling the Journal-controlled fullscreen layout
+      console.log("TradeHistoryTable: Requesting parent to toggle fullscreen layout.");
+      onToggleFullScreenLayout();
+    }
+  };
+  
+  // Handle page change with potential callback to parent
+  const handlePageChange = (newPage: number) => {
+    console.log(`TradeHistoryTable: handlePageChange called with page ${newPage}, current local page: ${page}`);
+    if (onPageChange) {
+      console.log(`TradeHistoryTable: Calling parent onPageChange with page ${newPage}`);
+      onPageChange(newPage);
+    } else {
+      console.log(`TradeHistoryTable: Setting local page to ${newPage}`);
+      setLocalPage(newPage);
+    }
+  };
 
-  // Update useEffect to reset page when sort order changes
+  // useEffect for resetting page on search/sort (if not parent-controlled pagination)
   useEffect(() => {
-    // Reset page when search or sort changes
-    setPage(1);
-  }, [searchTerm, sortOrder]);
+    if (!onPageChange && (searchTerm !== '' || sortOrder !== 'desc')) { // Only if using localPage
+      console.log(`TradeHistoryTable: Resetting local page to 1 due to search/sort change`);
+      setLocalPage(1);
+    }
+    // If onPageChange is present, parent (Journal.tsx) is responsible for resetting page on filter/sort changes.
+  }, [searchTerm, sortOrder, onPageChange]);
 
   // Toggle column visibility
   const toggleColumnVisibility = (columnKey: string) => {
@@ -488,7 +498,7 @@ export default function TradeHistoryTable({
 
   // Handle cell click for customization
   const handleCellClick = (e: React.MouseEvent, tradeId: string, columnKey: string) => {
-    if (!isCustomizing || !isFullScreen) return;
+    if (!isCustomizing || !shouldDisplayFullScreenUI) return;
     
     e.stopPropagation(); // Prevent row selection
     
@@ -682,7 +692,7 @@ export default function TradeHistoryTable({
   // Toggle sort order
   const toggleSortOrder = () => {
     setSortOrder(prevOrder => prevOrder === 'asc' ? 'desc' : 'asc');
-    setPage(1); // Reset to page 1 when changing sort order
+    handlePageChange(1); // Reset to page 1 when changing sort order
   };
 
   // Handle row checkbox click
@@ -804,7 +814,7 @@ export default function TradeHistoryTable({
 
   return (
     <div 
-      className={`shadow rounded-lg flex flex-col transition-all duration-300 ${isFullScreen ? 'fixed inset-0 z-50 bg-white p-4' : ''}`}
+      className={`shadow rounded-lg flex flex-col transition-all duration-300 ${shouldDisplayFullScreenUI ? 'fixed inset-0 z-50 bg-white p-4' : ''}`}
       ref={tableContainerRef}
     >
       <div className="flex justify-between items-center p-3 bg-gray-50 rounded-t-lg border-b">
@@ -932,41 +942,38 @@ export default function TradeHistoryTable({
         </div>
         
         <div className="flex items-center space-x-2">
-          {isFullScreen && !showChat && (
+          {/* Fullscreen pagination controls */}
+          {shouldDisplayFullScreenUI && !showChat && (
             <div className="flex items-center mr-3">
               <p className="text-sm text-gray-700 mr-4">
                 Page {page} of {totalPages}
               </p>
               {totalPages > 1 && (
                 <div className="flex">
-                  <button 
-                    onClick={() => setPage(1)} 
-                    disabled={page === 1}
-                    className={`relative inline-flex items-center px-2 py-1 border border-gray-300 bg-white text-sm ${page === 1 ? 'text-gray-300' : 'text-gray-600 hover:bg-gray-50'}`}
-                  >
-                    <ChevronsLeft className="h-4 w-4" />
-                  </button>
-                  <button 
-                    onClick={() => setPage(p => Math.max(1, p - 1))} 
-                    disabled={page === 1}
-                    className={`relative inline-flex items-center px-2 py-1 border border-gray-300 bg-white text-sm ${page === 1 ? 'text-gray-300' : 'text-gray-600 hover:bg-gray-50'}`}
-                  >
-                    <ArrowLeft className="h-4 w-4" />
-                  </button>
-                  <button 
-                    onClick={() => setPage(p => Math.min(totalPages, p + 1))} 
-                    disabled={page === totalPages}
-                    className={`relative inline-flex items-center px-2 py-1 border border-gray-300 bg-white text-sm ${page === totalPages ? 'text-gray-300' : 'text-gray-600 hover:bg-gray-50'}`}
-                  >
-                    <ArrowRight className="h-4 w-4" />
-                  </button>
-                  <button 
-                    onClick={() => setPage(totalPages)} 
-                    disabled={page === totalPages}
-                    className={`relative inline-flex items-center px-2 py-1 border border-gray-300 bg-white text-sm ${page === totalPages ? 'text-gray-300' : 'text-gray-600 hover:bg-gray-50'}`}
-                  >
-                    <ChevronsRight className="h-4 w-4" />
-                  </button>
+                  {/* Add page number buttons here for fullscreen mode */}
+                  {(() => {
+                    const maxButtons = 10; // Or a different number suitable for fullscreen, e.g., 15 or 20
+                    const buttons = [];
+                    let startPage = 1, endPage = totalPages;
+                    if (totalPages > maxButtons) {
+                      const halfVisiblePages = Math.floor(maxButtons / 2);
+                      if (page <= halfVisiblePages) endPage = maxButtons;
+                      else if (page >= totalPages - halfVisiblePages) startPage = totalPages - maxButtons + 1;
+                      else { startPage = page - halfVisiblePages; endPage = page + halfVisiblePages; }
+                    }
+                    for (let i = startPage; i <= endPage; i++) {
+                      buttons.push(
+                        <button 
+                          key={`fs-page-${i}`}
+                          onClick={() => handlePageChange(i)} 
+                          className={`relative inline-flex items-center px-3 py-1 border border-gray-300 bg-white text-sm font-medium ${page === i ? 'z-10 bg-blue-50 border-blue-500 text-blue-600' : 'text-gray-500 hover:bg-gray-50'}`}
+                        >
+                          {i}
+                        </button>
+                      );
+                    }
+                    return buttons;
+                  })()}
                 </div>
               )}
             </div>
@@ -987,33 +994,21 @@ export default function TradeHistoryTable({
           <button onClick={handleZoomIn} className="p-1.5 text-gray-500 hover:bg-gray-100 rounded" aria-label="Zoom In">
             <ZoomIn className="h-5 w-5" />
           </button>
-          {isFullScreen && (
+          {/* Customization buttons - only show when UI is fullscreen */}
+          {shouldDisplayFullScreenUI && (
             <>
-              <button 
-                onClick={toggleBackgroundCustomization} 
-                className={`p-1.5 hover:bg-gray-100 rounded ${isCustomizingBackground ? 'text-blue-500' : 'text-gray-500'}`} 
-                aria-label="Customize Background Colors"
-                title="Customize background colors"
-              >
-                <Palette className="h-5 w-5" />
-              </button>
-              <button 
-                onClick={toggleTextCustomization} 
-                className={`p-1.5 hover:bg-gray-100 rounded ${isCustomizingText ? 'text-blue-500' : 'text-gray-500'}`} 
-                aria-label="Customize Text Colors"
-                title="Customize text colors"
-              >
-                <Type className="h-5 w-5" />
-              </button>
+              <button onClick={toggleBackgroundCustomization} className={`p-1.5 hover:bg-gray-100 rounded ${isCustomizingBackground ? 'text-blue-500' : 'text-gray-500'}`} aria-label="Customize Background Colors" title="Customize background colors"><Palette className="h-5 w-5" /></button>
+              <button onClick={toggleTextCustomization} className={`p-1.5 hover:bg-gray-100 rounded ${isCustomizingText ? 'text-blue-500' : 'text-gray-500'}`} aria-label="Customize Text Colors" title="Customize text colors"><Type className="h-5 w-5" /></button>
             </>
           )}
-          <button onClick={toggleFullScreen} className="p-1.5 text-gray-500 hover:bg-gray-100 rounded" aria-label="Toggle Fullscreen">
-            {isFullScreen || forcedFullScreen ? <Minimize className="h-5 w-5" /> : <Maximize className="h-5 w-5" />}
+          {/* Fullscreen toggle button */}
+          <button onClick={handleToggleFullScreenClick} className="p-1.5 text-gray-500 hover:bg-gray-100 rounded" aria-label="Toggle Fullscreen">
+            {shouldDisplayFullScreenUI ? <Minimize className="h-5 w-5" /> : <Maximize className="h-5 w-5" />}
           </button>
         </div>
       </div>
       
-      {isFullScreen && isCustomizing && (
+      {isFullScreenLayout && isCustomizing && selectedCell && (
         <div className="bg-blue-50 px-4 py-2 text-sm border-b">
           <span className="flex items-center">
             {isCustomizingBackground ? (
@@ -1042,7 +1037,7 @@ export default function TradeHistoryTable({
 
       <div 
         ref={tableWrapperRef}
-        className={`overflow-x-auto ${isFullScreen ? 'flex-grow h-[calc(100vh-180px)]' : 'max-h-[70vh]'}`}
+        className={`overflow-x-auto ${shouldDisplayFullScreenUI ? 'flex-grow h-[calc(100vh-180px)]' : 'max-h-[70vh]'}`}
         style={{ scrollbarWidth: 'thin' }}
       >
         <table 
@@ -1148,7 +1143,7 @@ export default function TradeHistoryTable({
                           }}
                         >
                           <div className="flex items-center">
-                            {(page - 1) * itemsPerPage + index + 1}
+                            {(page - 1) * itemsPerPageForNumbering + index + 1}
                             {tradeHasViolations && (
                               <div 
                                 className="ml-2 text-yellow-500"
@@ -1220,7 +1215,7 @@ export default function TradeHistoryTable({
                             }
                           }}
                         >
-                          <div className={`transition-all duration-300 ${isFullScreen ? '' : 'line-clamp-1 group-hover:line-clamp-none'}`}>
+                          <div className={`transition-all duration-300 ${shouldDisplayFullScreenUI ? '' : 'line-clamp-1 group-hover:line-clamp-none'}`}>
                             {trade[column.key]}
                           </div>
                         </td>
@@ -1399,7 +1394,7 @@ export default function TradeHistoryTable({
       )}
 
       {/* Color picker */}
-      {isFullScreen && isCustomizing && selectedCell && (
+      {shouldDisplayFullScreenUI && isCustomizing && selectedCell && (
         <div 
           className="absolute bg-white border rounded-lg shadow-lg p-3 z-50 color-picker-container"
           style={{ 
@@ -1447,80 +1442,39 @@ export default function TradeHistoryTable({
 
       <div className="bg-gray-50 px-4 py-3 flex items-center justify-between border-t border-gray-200 rounded-b-lg">
         <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-          {!isFullScreen && (
-            <div>
-              <p className="text-sm text-gray-700">
-                Page {page} of {totalPages}
-              </p>
-            </div>
+          {!shouldDisplayFullScreenUI && (
+            <div><p className="text-sm text-gray-700">Page {page} of {totalPages}</p></div>
           )}
-          {totalPages > 1 && !isFullScreen && (
+          {totalPages > 1 && !shouldDisplayFullScreenUI && (
             <div>
               <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
                 {(() => {
-                  // Calculate how many page buttons to show based on screen mode
-                  const maxButtons = isFullScreen ? 30 : 10;
+                  const maxButtons = 10;
                   const buttons = [];
-                  
-                  let startPage = 1;
-                  let endPage = totalPages;
-                  
+                  let startPage = 1, endPage = totalPages;
                   if (totalPages > maxButtons) {
-                    // Calculate which pages to show
                     const halfVisiblePages = Math.floor(maxButtons / 2);
-                    
-                    if (page <= halfVisiblePages) {
-                      // Near the start
-                      endPage = maxButtons;
-                    } else if (page >= totalPages - halfVisiblePages) {
-                      // Near the end
-                      startPage = totalPages - maxButtons + 1;
-                    } else {
-                      // Middle
-                      startPage = page - halfVisiblePages;
-                      endPage = page + halfVisiblePages;
-                    }
+                    if (page <= halfVisiblePages) endPage = maxButtons;
+                    else if (page >= totalPages - halfVisiblePages) startPage = totalPages - maxButtons + 1;
+                    else { startPage = page - halfVisiblePages; endPage = page + halfVisiblePages; }
                   }
-                  
                   for (let i = startPage; i <= endPage; i++) {
                     buttons.push(
-                      <button
-                        key={i}
-                        onClick={() => setPage(i)}
-                        className={`relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium ${
-                          page === i
-                            ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
-                            : 'text-gray-500 hover:bg-gray-50'
-                        }`}
-                      >
-                        {i}
-                      </button>
+                      <button key={i} onClick={() => handlePageChange(i)} className={`relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium ${page === i ? 'z-10 bg-blue-50 border-blue-500 text-blue-600' : 'text-gray-500 hover:bg-gray-50'}`}>{i}</button>
                     );
                   }
-                  
                   return buttons;
                 })()}
               </nav>
             </div>
           )}
         </div>
-        
         <div className="flex-1 flex justify-between sm:hidden">
-          {!isFullScreen && (
+          {!shouldDisplayFullScreenUI && (
             <>
-              <span className="text-sm text-gray-700">
-                Page {page} of {totalPages}
-              </span>
-              <select
-                value={page}
-                onChange={(e) => setPage(Number(e.target.value))}
-                className="ml-2 block w-24 rounded-md border-gray-300 py-2 pl-3 pr-10 text-base focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm"
-              >
-                {[...Array(totalPages)].map((_, i) => (
-                  <option key={i + 1} value={i + 1}>
-                    {i + 1}
-                  </option>
-                ))}
+              <span className="text-sm text-gray-700">Page {page} of {totalPages}</span>
+              <select value={page} onChange={(e) => handlePageChange(Number(e.target.value))} className="ml-2 block w-24 rounded-md border-gray-300 py-2 pl-3 pr-10 text-base focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm">
+                {[...Array(totalPages)].map((_, i) => (<option key={i + 1} value={i + 1}>{i + 1}</option>))}
               </select>
             </>
           )}

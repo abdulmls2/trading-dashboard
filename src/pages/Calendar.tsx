@@ -4,7 +4,7 @@ import 'react-calendar/dist/Calendar.css';
 import { format, isValid, parseISO, startOfMonth, endOfMonth } from 'date-fns';
 // import Header from '../components/Header'; // Ensure this is removed or commented out
 import { Trade, TradeCalendarDay } from '../types';
-import { getTrades, useEffectiveUserId } from '../lib/api';
+import { getCalendarTrades, useEffectiveUserId } from '../lib/api';
 import { ArrowLeft, ArrowRight, Pencil, X } from 'lucide-react';
 import { useAccount } from '../contexts/AccountContext';
 import { useAuth } from '../contexts/AuthContext'; // Import useAuth
@@ -48,6 +48,8 @@ export default function CalendarPage() {
   const [tradingDayData, setTradingDayData] = useState<Record<string, MarketData>>({});
   // State to track the currently viewed month on the calendar
   const [activeStartDate, setActiveStartDate] = useState<Date>(new Date());
+  // State to track the calendar's internal view (e.g., month, year, decade)
+  const [currentCalendarInternalView, setCurrentCalendarInternalView] = useState<'month' | 'year' | 'decade' | 'century'>('month');
 
   useEffect(() => {
     // Check if user is admin by looking at the user's role in the Profiles table
@@ -84,20 +86,32 @@ export default function CalendarPage() {
         return;
       }
 
+      // Check if the current calendar internal view is 'month' before loading
+      if (currentCalendarInternalView !== 'month') {
+        console.log(`Calendar: View is ${currentCalendarInternalView}, not 'month'. Skipping trade load for activeStartDate: ${activeStartDate?.toISOString()}`);
+        setLoading(false); // Ensure loading is set to false
+        return;
+      }
+
       // Always use the currentAccount from context
       const accountIdToFetch = currentAccount?.id || null;
 
       try {
         setLoading(true);
-        console.log(`Calendar: Loading trades for user ${effectiveUserId} and account ${accountIdToFetch || 'all'}`);
-        const tradeData = await getTrades(effectiveUserId, accountIdToFetch);
-        console.log(`Calendar: Loaded ${tradeData.length} trades for user ${effectiveUserId} and account ${accountIdToFetch || 'all'}`);
+        
+        // Get month and year from activeStartDate
+        const month = activeStartDate.getMonth();
+        const year = activeStartDate.getFullYear();
+        
+        console.log(`Calendar: Loading trades for user ${effectiveUserId}, account ${accountIdToFetch || 'all'}, month: ${month + 1}/${year}`);
+        
+        // Using the optimized getCalendarTrades function with month and year parameters
+        const calendarTrades = await getCalendarTrades(effectiveUserId, accountIdToFetch, month, year);
+        
+        console.log(`Calendar: Loaded ${calendarTrades.length} trades for user ${effectiveUserId} and account ${accountIdToFetch || 'all'}`);
 
-        const formattedTrades = tradeData.map(trade => ({
-          ...trade,
-          time: trade.entryTime
-        }));
-        setTrades(formattedTrades);
+        // Add type assertion to satisfy TypeScript
+        setTrades(calendarTrades as Trade[]);
       } catch (err) {
         console.error("Failed to load trades for calendar:", err);
         setError(err instanceof Error ? err.message : 'Failed to load trades');
@@ -109,7 +123,7 @@ export default function CalendarPage() {
     if (effectiveUserId && !accountLoading && user) {
       loadTrades();
     }
-  }, [effectiveUserId, currentAccount, accountLoading, user]);
+  }, [effectiveUserId, currentAccount, accountLoading, user, activeStartDate, currentCalendarInternalView]); // Add activeStartDate and currentCalendarInternalView to dependency array
 
   // Function to load trading day data from Supabase for the specified month
   const loadTradingDayData = async (dateForMonth: Date) => {
@@ -179,12 +193,19 @@ export default function CalendarPage() {
     }
   };
 
-  // Load market data when the active month changes
+  // Load market data when the active month changes and view is 'month'
   useEffect(() => {
     if (user) {
-      loadTradingDayData(activeStartDate);
+      if (currentCalendarInternalView === 'month') {
+        loadTradingDayData(activeStartDate);
+      } else {
+        console.log(`Calendar: View is ${currentCalendarInternalView}, not 'month'. Skipping market data load for activeStartDate: ${activeStartDate?.toISOString()}`);
+        setLoadingMarketData(false); // Ensure loading is set to false
+        // Optionally clear existing market data if needed when not in month view
+        // setTradingDayData({}); 
+      }
     }
-  }, [user, activeStartDate]); // Reload when activeStartDate changes
+  }, [user, activeStartDate, currentCalendarInternalView]); // Reload when activeStartDate or currentCalendarInternalView changes
 
   // Modify the trade grouping logic to prevent timezone issues
   const tradesByDate = useMemo(() => {
@@ -245,6 +266,16 @@ export default function CalendarPage() {
   const handleActiveStartDateChange = ({ activeStartDate }: { activeStartDate: Date | null }) => {
     if (activeStartDate) {
       setActiveStartDate(activeStartDate);
+    }
+  };
+
+  // Handle calendar view changes (e.g., month, year, decade)
+  const handleViewChange = ({ activeStartDate: newActiveStartDate, view: newView }: { activeStartDate: Date | null; view: 'month' | 'year' | 'decade' | 'century'; }) => {
+    if (newActiveStartDate) {
+      setActiveStartDate(newActiveStartDate); // Update activeStartDate based on view change
+    }
+    if (newView) {
+      setCurrentCalendarInternalView(newView);
     }
   };
 
@@ -512,6 +543,7 @@ export default function CalendarPage() {
                     className="custom-calendar"
                     activeStartDate={activeStartDate} // Control the viewed month
                     onActiveStartDateChange={handleActiveStartDateChange} // Handle month navigation
+                    onViewChange={handleViewChange} // Handle view changes (month, year, decade)
                   />
                 </div>
                 <div className="mt-6 flex flex-wrap gap-6 justify-center text-sm">

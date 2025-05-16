@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { getTrades, useEffectiveUserId } from '../lib/api';
+import { getTrades, useEffectiveUserId, getTradesForAnalysis } from '../lib/api';
 import { Trade } from '../types';
 import TradeChatBox from '../components/TradeChatBox';
 import { useAccount } from '../contexts/AccountContext';
@@ -96,15 +96,19 @@ export default function TradesAnalysis() {
       try {
         setLoading(true);
         console.log(`TradesAnalysis: Loading trades for user ${effectiveUserId} and account ${accountIdToFetch || 'all'}`);
-        const data = await getTrades(effectiveUserId, accountIdToFetch);
+        // Use the new minimal API function with server-side filtering
+        const data = await getTradesForAnalysis(
+          effectiveUserId,
+          accountIdToFetch,
+          selectedMonth,
+          selectedYear
+        );
         console.log(`TradesAnalysis: Loaded ${data.length} trades for user ${effectiveUserId} and account ${accountIdToFetch || 'all'}`);
-        
         // Format the trades properly
         const formattedTrades = data.map(trade => ({
           ...trade,
           time: trade.entryTime, // Add the missing 'time' property required by Trade interface
         }));
-        
         // Extract unique market conditions for the filter dropdown
         const marketConditions = new Set<string>();
         formattedTrades.forEach(trade => {
@@ -115,7 +119,6 @@ export default function TradesAnalysis() {
             marketConditions.add(trade.marketCondition);
           }
         });
-        
         setAvailableMarketConditions(["All", ...Array.from(marketConditions).sort()]);
         setTrades(formattedTrades);
         setFilteredTrades(formattedTrades); // Set initial filtered trades
@@ -130,7 +133,7 @@ export default function TradesAnalysis() {
     if (effectiveUserId && !accountLoading && user) { // Check for user
       loadTrades();
     }
-  }, [effectiveUserId, currentAccount, accountLoading, user]); // Add user dependency
+  }, [effectiveUserId, currentAccount, accountLoading, user, selectedMonth, selectedYear]); // Add selectedMonth, selectedYear
 
   // Filter trades by selected month and year
   const filterTrades = () => {
